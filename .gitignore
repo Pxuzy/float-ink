@@ -1,0 +1,52 @@
+# Android Studio / IntelliJ
+*.iml
+.idea/
+*.ipr
+*.iws
+.DS_Store
+
+# Gradle
+.gradle/
+/build/
+/app/build/
+.externalNativeBuild/
+.cxx/
+
+# Local machine configuration
+local.properties
+
+# Android build outputs and packaged artifacts
+*.apk
+*.aab
+*.apks
+*.idsig
+/app/release/
+/app/debug/
+
+# Signing keys and sensitive release material
+*.jks
+*.keystore
+*.p12
+*.pfx
+keystore.properties
+
+# Test and tooling output
+/captures/
+/reports/
+/.codegraph/
+
+# Temporary files
+*.log
+*.tmp
+*.swp
+*.swo
+
+# Local visual exploration assets
+/icon-options.png
+
+# Internal assistant continuation prompt
+/docs/CONTINUE_PROMPT.md
+
+# Internal design drafts
+/docs/superpowers/
+/docs/UI_DESIGN.html

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="dark_bg">#0A0A0F</color>
+    <color name="card_bg">#1A1A2E</color>
+    <color name="blue_gradient_start">#60A5FA</color>
+    <color name="blue_gradient_end">#3B82F6</color>
+    <color name="red_exit">#EF4444</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="black">#FF000000</color>
+    <color name="tool_pen">#3B82F6</color>
+    <color name="tool_line">#10B981</color>
+    <color name="tool_arrow">#F59E0B</color>
+    <color name="tool_rect">#8B5CF6</color>
+</resources>
