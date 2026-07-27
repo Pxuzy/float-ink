@@ -206,8 +206,11 @@ class OverlayService : Service() {
     private fun loadSession(path: String?) {
         if (path.isNullOrBlank()) return
         runCatching {
-            val decoded = FloatInkSessionStore.load(java.io.File(path))
-            drawingSession.replaceFrom(decoded.session)
+            val loaded = FloatInkSessionStore.loadWithBackup(java.io.File(path))
+            drawingSession.replaceFrom(loaded.decoded.session)
+            if (loaded.recoveredFromBackup) {
+                android.util.Log.w("OverlayService", "历史 FloatInk 已从 .bak 恢复")
+            }
             sessionAutoSaver.markDirty()
             showDrawing()
         }.onFailure {

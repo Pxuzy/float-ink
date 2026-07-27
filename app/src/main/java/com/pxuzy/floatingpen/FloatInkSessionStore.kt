@@ -115,6 +115,8 @@ object FloatInkSessionCodec {
 }
 
 object FloatInkSessionStore {
+    data class LoadResult(val decoded: DecodedFloatInkSession, val recoveredFromBackup: Boolean)
+
     fun save(file: File, session: DrawingSession, sessionId: String) {
         file.parentFile?.mkdirs()
         val temp = File(file.path + ".tmp")
@@ -126,4 +128,14 @@ object FloatInkSessionStore {
 
     fun load(file: File): DecodedFloatInkSession =
         FloatInkSessionCodec.decode(file.readText(Charsets.UTF_8))
+
+    fun loadWithBackup(file: File): LoadResult {
+        return runCatching { LoadResult(load(file), false) }.getOrElse { primaryError ->
+            val backup = File(file.path + ".bak")
+            if (!backup.exists()) throw primaryError
+            val decoded = FloatInkSessionCodec.decode(backup.readText(Charsets.UTF_8))
+            backup.copyTo(file, overwrite = true)
+            LoadResult(decoded, true)
+        }
+    }
 }
