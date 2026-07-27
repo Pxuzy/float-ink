@@ -12,8 +12,10 @@ class AppUpdateManagerTest {
     fun `parses latest release apk asset`() {
         val json = """
             {"tag_name":"v0.2.0","html_url":"https://github.com/Pxuzy/float-ink/releases/tag/v0.2.0",
-             "assets":[{"name":"checksums.txt","browser_download_url":"https://example/checksums.txt"},
-             {"name":"float-ink-0.2.0.apk","browser_download_url":"https://example/float-ink-0.2.0.apk"}]}
+             "assets":[{"name":"checksums.txt","browser_download_url":"https://example/checksums.txt",
+             "uploader":{"login":"github-actions[bot]"}},
+             {"name":"float-ink-0.2.0.apk","browser_download_url":"https://example/float-ink-0.2.0.apk",
+             "uploader":{"login":"github-actions[bot]"}}]}
         """.trimIndent()
 
         val update = AppUpdateManager.parseLatestRelease(json)
