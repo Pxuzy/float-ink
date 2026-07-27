@@ -36,6 +36,33 @@ class FloatInkSessionStoreTest {
     }
 
     @Test
+    fun `second save keeps one backup of the previous valid session`() {
+        val file = File(context.cacheDir, "backup.floatink")
+        val first = DrawingSession().apply {
+            addElement(DrawingElement.Line(0f to 0f, 1f to 1f, 1, 2f))
+        }
+        FloatInkSessionStore.save(file, first, "backup-test")
+        val second = DrawingSession().apply {
+            addElement(DrawingElement.Rect(2f to 2f, 3f to 3f, 2, 4f))
+        }
+
+        FloatInkSessionStore.save(file, second, "backup-test")
+
+        val backup = FloatInkSessionStore.load(File(file.path + ".bak"))
+        assertTrue(backup.session.currentLayer.elements.single() is DrawingElement.Line)
+    }
+
+    @Test
+    fun `storage exposes sessions directory and floatink file naming`() {
+        val sessions = FloatInkStorage.sessionsDirectory(context)
+        val file = FloatInkStorage.sessionFile(context, "session-001")
+
+        assertTrue(sessions.exists())
+        assertEquals("session-001.floatink", file.name)
+        assertTrue(file.parentFile == sessions)
+    }
+
+    @Test
     fun `store writes atomically and reads a floatink file`() {
         val file = File(context.cacheDir, "test.floatink")
         val session = DrawingSession()
