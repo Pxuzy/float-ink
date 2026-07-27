@@ -27,6 +27,7 @@ class DrawingOverlayView(
     private var arrowScale: Float = PenSettings.DEFAULT_ARROW_SCALE,
     toolbarToolIds: List<String> = PenSettings.TOOL_IDS,
     val drawingSession: DrawingSession = DrawingSession(),
+    private val onSessionChanged: () -> Unit = {},
     private val onSelectionChanged: (toolId: String, color: Int) -> Unit = { _, _ -> },
     private val onExit: () -> Unit,
 ) : FrameLayout(context) {
@@ -42,6 +43,7 @@ class DrawingOverlayView(
         arrowScale: Float = PenSettings.DEFAULT_ARROW_SCALE,
         toolbarToolIds: List<String> = PenSettings.TOOL_IDS,
         drawingSession: DrawingSession = DrawingSession(),
+        onSessionChanged: () -> Unit = {},
         onSelectionChanged: (toolId: String, color: Int) -> Unit = { _, _ -> },
         onExit: () -> Unit,
     ) : this(
@@ -54,6 +56,7 @@ class DrawingOverlayView(
         onSelectionChanged = onSelectionChanged,
         onExit = onExit,
         drawingSession = drawingSession,
+        onSessionChanged = onSessionChanged,
     ) {
         toolStyles.putAll(styles.mapKeys { PenSettings.normalizeTool(it.key) })
         applyCurrentToolStyle()
@@ -63,6 +66,7 @@ class DrawingOverlayView(
     private var elements: MutableList<DrawingElement> = drawingSession.currentLayer.elements
     private var sx = 0f; private var sy = 0f; private var cx = 0f; private var cy = 0f
     private var isDrawing = false
+    private var sessionDirty = false
     private var activePointerId = MotionEvent.INVALID_POINTER_ID
     private var activeToolType = MotionEvent.TOOL_TYPE_UNKNOWN
     private var currentToolId = toolId
@@ -165,6 +169,7 @@ class DrawingOverlayView(
                                 }
                             }
                             isDrawing = false
+                            sessionDirty = true
                             activePointerId = MotionEvent.INVALID_POINTER_ID
                             invalidate()
                         }
@@ -187,6 +192,7 @@ class DrawingOverlayView(
                             if (el != null && (x != sx || y != sy)) elements.add(el)
                         }
                         isDrawing = false
+                        sessionDirty = true
                         activePointerId = MotionEvent.INVALID_POINTER_ID
                         invalidate(); return true
                     }
@@ -195,6 +201,7 @@ class DrawingOverlayView(
                             elements.removeAt(elements.lastIndex)
                         }
                         isDrawing = false
+                        sessionDirty = true
                         activePointerId = MotionEvent.INVALID_POINTER_ID
                         invalidate(); return true
                     }
@@ -204,6 +211,10 @@ class DrawingOverlayView(
 
             override fun onDraw(canvas: Canvas) {
                 super.onDraw(canvas)
+                if (sessionDirty) {
+                    sessionDirty = false
+                    onSessionChanged()
+                }
                 if (elements.isEmpty() && !isDrawing)
                     canvas.drawText("手指滑动开始画线", width / 2f, height / 2f - 120.dpf, hintPaint)
                 elements.forEach { drawElement(canvas, it) }
@@ -337,12 +348,14 @@ class DrawingOverlayView(
                 canvasView.invalidate()
             } else if (elements.isNotEmpty()) {
                 elements.removeAt(elements.lastIndex)
+                onSessionChanged()
                 canvasView.invalidate()
             }
         }.apply { tag = "undo" })
         bar.addView(createActionBtn("clear") {
             discardActiveGesture()
             elements.clear()
+            onSessionChanged()
             canvasView.invalidate()
         }.apply { tag = "clear" })
         bar.addView(createActionBtn("exit", action = onExit).apply { tag = "exit" })
