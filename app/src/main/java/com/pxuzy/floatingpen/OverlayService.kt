@@ -21,6 +21,13 @@ class OverlayService : Service() {
     private var drawingView: DrawingOverlayView? = null
     private var menuView: SelectionMenuView? = null
     private val drawingSession = DrawingSession()
+    private val sessionAutoSaver = FloatInkSessionAutoSaver(
+        session = drawingSession,
+        save = { session, sessionId ->
+            runCatching { FloatInkSessionStore.save(FloatInkStorage.sessionFile(this, sessionId), session, sessionId) }
+                .onFailure { android.util.Log.e("OverlayService", "FloatInk 自动保存失败", it) }
+        },
+    )
     private var foregroundReady = false
 
     private var pendingTool = "pen"
@@ -102,6 +109,7 @@ class OverlayService : Service() {
         removeBubble()
         getSharedPreferences(PREF_NAME, MODE_PRIVATE)
             .edit().putBoolean(PREF_KEY_SERVICE_RUNNING, false).apply()
+        sessionAutoSaver.close()
         drawingSession.clear()
         super.onDestroy()
     }
@@ -180,6 +188,7 @@ class OverlayService : Service() {
             toolbarToolIds = settings.visibleToolbarToolIds(),
             onExit = { hideDrawing() },
             drawingSession = drawingSession,
+            onSessionChanged = { sessionAutoSaver.markDirty() },
             onSelectionChanged = { tool, color ->
                 pendingTool = tool
                 pendingColor = color
@@ -213,6 +222,7 @@ class OverlayService : Service() {
         // Clear running state so MainActivity shows correct UI
         getSharedPreferences(PREF_NAME, MODE_PRIVATE)
             .edit().putBoolean(PREF_KEY_SERVICE_RUNNING, false).apply()
+        sessionAutoSaver.close()
         drawingSession.clear()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
