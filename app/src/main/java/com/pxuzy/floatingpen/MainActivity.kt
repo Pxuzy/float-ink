@@ -575,6 +575,7 @@ class MainActivity : ComponentActivity() {
             tag = "settings-live-copy"
             text = "修改会立即应用到当前悬浮球"; textSize = 12f; setTextColor(Color.parseColor("#7F8A99"))
         })
+        addView(buildHistorySection())
         addView(sectionTitle("软件更新").apply { tag = "settings-update-section" })
         addView(TextView(this@MainActivity).apply {
             tag = "settings-update-status"
@@ -605,6 +606,88 @@ class MainActivity : ComponentActivity() {
             PenSettings.saveToolbarLayout(this@MainActivity, order, enabled)
             notifyOverlaySettingsChanged()
         })
+    }
+
+    private fun buildHistorySection(): View {
+        val repository = FloatInkHistoryRepository(this)
+        val section = LinearLayout(this).apply {
+            tag = "history-section"
+            orientation = LinearLayout.VERTICAL
+        }
+        section.addView(sectionTitle("历史画板").apply { tag = "history-section-title" })
+        section.addView(TextView(this).apply {
+            tag = "history-location"
+            text = "保存位置：${FloatInkStorage.rootDirectory(this@MainActivity).path}"
+            textSize = 12f
+            setTextColor(Color.parseColor("#91A0B2"))
+        })
+        val list = LinearLayout(this).apply {
+            tag = "history-list"
+            orientation = LinearLayout.VERTICAL
+        }
+        fun refresh() {
+            list.removeAllViews()
+            val entries = repository.list()
+            if (entries.isEmpty()) {
+                list.addView(TextView(this).apply {
+                    tag = "history-empty"
+                    text = "暂无历史画板"
+                    textSize = 13f
+                    setTextColor(Color.parseColor("#91A0B2"))
+                    setPadding(0, 8.dp, 0, 8.dp)
+                })
+            }
+            entries.forEach { entry ->
+                val row = LinearLayout(this).apply {
+                    tag = "history:${entry.sessionId}"
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                }
+                row.addView(TextView(this).apply {
+                    text = entry.name
+                    textSize = 14f
+                    setTextColor(Color.WHITE)
+                    layoutParams = LinearLayout.LayoutParams(0, 48.dp, 1f)
+                })
+                row.addView(Button(this).apply {
+                    text = "改名"; isAllCaps = false; minHeight = 40.dp
+                    setOnClickListener {
+                        val input = EditText(this@MainActivity).apply { setText(entry.name); selectAll() }
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle("重命名历史会话")
+                            .setView(input)
+                            .setNegativeButton("取消", null)
+                            .setPositiveButton("保存") { _, _ -> repository.rename(entry.sessionId, input.text.toString()); refresh() }
+                            .show()
+                    }
+                })
+                row.addView(Button(this).apply {
+                    text = "复制"; isAllCaps = false; minHeight = 40.dp
+                    setOnClickListener { repository.copy(entry.sessionId); refresh() }
+                })
+                row.addView(Button(this).apply {
+                    text = "删"; isAllCaps = false; minHeight = 40.dp
+                    setOnClickListener {
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle("删除历史会话")
+                            .setMessage("会话将移动到回收站。")
+                            .setNegativeButton("取消", null)
+                            .setPositiveButton("删除") { _, _ -> repository.delete(entry.sessionId); refresh() }
+                            .show()
+                    }
+                })
+                list.addView(row)
+            }
+        }
+        section.addView(list)
+        refresh()
+        section.addView(Button(this).apply {
+            tag = "history-trash"
+            text = "管理回收站"
+            isAllCaps = false
+            setOnClickListener { Toast.makeText(this@MainActivity, "回收站管理将在下一阶段开放", Toast.LENGTH_SHORT).show() }
+        })
+        return section
     }
 
     private fun notifyOverlaySettingsChanged() {
