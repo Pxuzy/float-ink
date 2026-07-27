@@ -118,7 +118,9 @@ object FloatInkSessionStore {
     fun save(file: File, session: DrawingSession, sessionId: String) {
         file.parentFile?.mkdirs()
         val temp = File(file.path + ".tmp")
+        if (file.exists()) file.copyTo(File(file.path + ".bak"), overwrite = true)
         temp.writeText(FloatInkSessionCodec.encode(session, sessionId), Charsets.UTF_8)
+        if (file.exists() && !file.delete()) error("无法替换旧 FloatInk 文件")
         require(temp.renameTo(file)) { "无法完成 FloatInk 文件原子替换" }
     }
 
