@@ -1,7 +1,7 @@
 # 项目状态
 
 更新时间：2026-07-27
-状态：已修复 GitHub Release APK 解析并准备发布 v0.1.3 修复更新，单元测试和 Debug APK 构建通过，待真机验收
+状态：已配置固定 Release keystore 并准备发布 v0.1.4 签名更新，单元测试和 Release APK 构建通过，待真机验收
 
 ## 我们正在做什么
 
@@ -88,6 +88,7 @@
 - 设置页新增“软件更新 → 检查远程更新”，更新检查在后台线程执行，失败时显示明确状态，不阻塞主界面。
 - 新增 `.github/workflows/release.yml`：推送 `v*` 标签后自动测试、构建并发布 APK Release。
 - 远程更新不执行 `git pull`；设备只接收 APK，这是 Android 可行且可验证的更新边界。
+- 已生成固定的 FloatInk Release keystore，并通过 GitHub Secrets 注入 Actions；后续 Release APK 使用同一证书，避免覆盖安装时签名异常。
 
 ## 当前阻塞
 
@@ -106,7 +107,7 @@
 1. **真机验证（需要用户参与）**：侧载 APK 到 Android 手机测试调色盘拖动流畅度、键盘遮挡、工具栏长按拖动排序、工具区横向滚动、颜色/更多面板避让、固定操作区、实时隐藏/恢复、透明度、服务状态、位置恢复、手写笔、新版工具栏窄屏布局和远程 APK 更新。
 2. 创建一个 `v0.2.0` 标签，验证 GitHub Actions 能生成 Release APK，再从 App 内检查并安装。
 3. 根据真机反馈继续优化首页启动层级和 Android OEM 兼容性。
-4. 配置正式 release keystore 后再公开分发签名 APK。
+4. 已配置正式 release keystore；后续检查签名一致性并从 v0.1.3 升级到 v0.1.4。
 5. 在扩展入口稳定后，再加入圆形/椭圆、高亮笔和橡皮擦等真实绘图工具。
 6. 发布 V0 稳定版本。
 

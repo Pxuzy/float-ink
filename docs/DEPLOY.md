@@ -87,5 +87,6 @@ git push origin v0.2.0
 - Tag 必须使用 `v` 开头，例如 `v0.2.0`。
 - Release 必须包含 `.apk` 文件，App 会忽略其他资产。
 - 普通 Android 设备会弹出系统安装确认，不能静默安装。
-- 当前 Actions 产出 Debug APK，适合个人侧载；正式发布前应配置 release keystore，并保持签名一致，否则 Android 不允许覆盖安装。
+- GitHub Actions 使用 GitHub Secrets 注入的固定 release keystore，后续 Release APK 使用同一签名，可以正常覆盖安装。
+- 从旧 Debug 签名版本迁移到首个 Release 签名版本时，需要先卸载旧版本；之后 v0.1.4 及后续版本可以直接覆盖更新。
 - App 需要网络权限仅用于访问 GitHub Releases API 和下载 APK，不读取屏幕内容、不上传笔迹。
