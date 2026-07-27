@@ -6,7 +6,7 @@
 
 - GitHub：<https://github.com/Pxuzy/float-ink>
 - 应用包名：`com.pxuzy.floatingpen`
-- 当前版本：`0.1.3`（`versionCode 4`）
+- 当前版本：`0.1.4`（`versionCode 5`）
 - 技术栈：原生 Android / Kotlin / Gradle
 - 支持范围：Android 29+（手机和平板）
 
@@ -173,7 +173,7 @@ git push / 创建 v0.2.0 标签
   → 下载 APK 并调用 Android 系统安装器
 ```
 
-普通 Android 设备在安装更新时仍需要用户确认，这是系统安全限制。当前 Actions 使用 Debug APK，适合个人侧载验证；正式公开发布前应把工作流切换为 GitHub Secrets 注入的 release keystore，不能用 Debug 签名覆盖正式包。
+普通 Android 设备在安装更新时仍需要用户确认，这是系统安全限制。GitHub Actions 使用 GitHub Secrets 注入的固定 release keystore，所有后续版本保持同一签名，可以正常覆盖安装。
 
 发布示例：
 
