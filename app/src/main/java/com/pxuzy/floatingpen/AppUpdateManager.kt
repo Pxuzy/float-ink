@@ -84,12 +84,11 @@ class AppUpdateManager(private val context: Context) {
         fun parseLatestRelease(json: String): UpdateInfo? {
             val tag = json.stringValue("tag_name") ?: return null
             val releaseUrl = json.stringValue("html_url") ?: return null
-            val assetBlock = Regex("\\\"assets\\\"\\s*:\\s*\\[(.*?)]", RegexOption.DOT_MATCHES_ALL).find(json)?.value ?: return null
-            val apkAsset = Regex("\\{.*?\\}", RegexOption.DOT_MATCHES_ALL).findAll(assetBlock)
-                .mapNotNull { it.value.stringValue("browser_download_url")?.let { url -> url to it.value } }
-                .firstOrNull { (url, asset) -> url.endsWith(".apk", ignoreCase = true) || asset.stringValue("name")?.endsWith(".apk", true) == true }
-                ?: return null
-            return UpdateInfo(tag.removePrefix("v"), apkAsset.first, releaseUrl)
+            val apkUrl = Regex(
+                "\\\"browser_download_url\\\"\\s*:\\s*\\\"([^\\\"]+\\.apk(?:\\?[^\\\"]*)?)\\\"",
+                RegexOption.IGNORE_CASE,
+            ).find(json)?.groupValues?.get(1) ?: return null
+            return UpdateInfo(tag.removePrefix("v"), apkUrl, releaseUrl)
         }
 
         fun isNewer(remote: String, local: String): Boolean = compareVersions(remote, local) > 0
@@ -106,5 +105,6 @@ class AppUpdateManager(private val context: Context) {
 
         private fun String.stringValue(key: String): String? =
             Regex("\\\"${Regex.escape(key)}\\\"\\s*:\\s*\\\"((?:\\\\.|[^\\\"])*)\\\"").find(this)?.groupValues?.get(1)
+
     }
 }
