@@ -593,17 +593,16 @@ class DrawingOverlayView(
         } else if (params.width > availableWidth) {
             params.width = availableWidth
         }
-        val toolbarIsDragged = toolbarParams.gravity and Gravity.TOP == Gravity.TOP
-        if (toolbarIsDragged) {
-            val popupHeight = popup.height.takeIf { it > 0 }
-                ?: popup.measuredHeight.takeIf { it > 0 }
-                ?: if (popup.tag == "color-panel") 180.dp else 80.dp
-            val gap = 8.dp
-            val topAbove = toolbar.top - popupHeight - gap
-            val topBelow = toolbar.bottom + gap
-            val maxTop = (height - popupHeight - gap).coerceAtLeast(gap)
+        val popupHeight = popup.height.takeIf { it > 0 }
+            ?: popup.measuredHeight.takeIf { it > 0 }
+            ?: if (popup.tag == "color-panel") 180.dp else 80.dp
+        val gap = 8.dp
+        val topAbove = toolbar.top - popupHeight - gap
+        val maxTop = (height - popupHeight - gap).coerceAtLeast(gap)
+        val canPlaceAbove = toolbar.top > 0 && topAbove >= gap
+        if (canPlaceAbove) {
             params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            params.topMargin = if (topAbove >= gap) topAbove else topBelow.coerceAtMost(maxTop)
+            params.topMargin = topAbove.coerceIn(gap, maxTop)
             params.bottomMargin = 0
         } else {
             params.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL

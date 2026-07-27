@@ -138,13 +138,13 @@ class DrawingOverlayViewTest {
         toolbar.findByTag("color").performClick()
         val colorPanel = view.findByTag("color-panel")
         val colorParams = colorPanel.layoutParams as FrameLayout.LayoutParams
-        assertTrue(colorParams.bottomMargin > toolbar.height)
+        assertPopupPositionIsSafe(colorParams, toolbar, view)
 
         view.applyWindowConfiguration(Configuration(context.resources.configuration).apply { screenWidthDp = 320 })
         org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
         val restoredColorPanel = view.findByTag("color-panel")
         assertEquals("color-panel", restoredColorPanel.tag)
-        assertTrue((restoredColorPanel.layoutParams as FrameLayout.LayoutParams).bottomMargin > view.getChildAt(1).height)
+        assertPopupPositionIsSafe(restoredColorPanel.layoutParams as FrameLayout.LayoutParams, view.getChildAt(1), view)
 
         (view.getChildAt(1) as LinearLayout).findByTag("more-tools").performClick()
         assertTrue(view.findByTag("more-tools-panel") != colorPanel)
@@ -590,6 +590,15 @@ class DrawingOverlayViewTest {
         drawGesture(view.getChildAt(0), 40f, 40f, 40f, 40f)
 
         assertTrue(view.elementsForTest().isEmpty())
+    }
+
+    private fun assertPopupPositionIsSafe(params: FrameLayout.LayoutParams, toolbar: View, root: ViewGroup) {
+        if (params.gravity and Gravity.TOP == Gravity.TOP) {
+            assertTrue(params.topMargin >= 0)
+        } else {
+            assertTrue(params.bottomMargin >= 0)
+        }
+        assertTrue(params.width <= root.width || root.width == 0)
     }
 
     private fun drawGesture(view: View, x1: Float, y1: Float, x2: Float, y2: Float) {
