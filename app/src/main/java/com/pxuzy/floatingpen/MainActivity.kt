@@ -75,6 +75,24 @@ class MainActivity : ComponentActivity() {
     private val notificationSettingsLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { onResume() }
+    private val historyFilePickerLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri ?: return@registerForActivityResult
+        runCatching {
+            val temp = java.io.File(cacheDir, "import-${System.currentTimeMillis()}.floatink")
+            contentResolver.openInputStream(uri).use { input ->
+                requireNotNull(input) { "无法读取文件" }
+                temp.outputStream().use { output -> input.copyTo(output) }
+            }
+            FloatInkHistoryRepository(this).import(temp)
+            temp.delete()
+            showPage("settings")
+            Toast.makeText(this, "历史会话导入成功", Toast.LENGTH_SHORT).show()
+        }.onFailure { error ->
+            Toast.makeText(this, "导入失败：${error.localizedMessage ?: "文件无效"}", Toast.LENGTH_LONG).show()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -682,12 +700,54 @@ class MainActivity : ComponentActivity() {
         section.addView(list)
         refresh()
         section.addView(Button(this).apply {
+            tag = "history-import"
+            text = "导入 .floatink"
+            isAllCaps = false
+            setOnClickListener { historyFilePickerLauncher.launch("application/octet-stream") }
+        })
+        section.addView(Button(this).apply {
             tag = "history-trash"
             text = "管理回收站"
             isAllCaps = false
-            setOnClickListener { Toast.makeText(this@MainActivity, "回收站管理将在下一阶段开放", Toast.LENGTH_SHORT).show() }
+            setOnClickListener { showHistoryTrashDialog(repository) }
         })
         return section
+    }
+
+    private fun showHistoryTrashDialog(repository: FloatInkHistoryRepository) {
+        val trash = repository.listTrash()
+        if (trash.isEmpty()) {
+            Toast.makeText(this, "回收站为空", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(24.dp, 8.dp, 24.dp, 8.dp)
+        }
+        trash.forEach { entry ->
+            list.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                addView(TextView(this@MainActivity).apply {
+                    text = entry.name
+                    setTextColor(Color.WHITE)
+                    layoutParams = LinearLayout.LayoutParams(0, 48.dp, 1f)
+                })
+                addView(Button(this@MainActivity).apply {
+                    text = "恢复"; isAllCaps = false
+                    setOnClickListener { repository.restore(entry.sessionId); showPage("settings") }
+                })
+            })
+        }
+        AlertDialog.Builder(this)
+            .setTitle("回收站")
+            .setView(list)
+            .setNegativeButton("关闭", null)
+            .setNeutralButton("清空回收站") { _, _ ->
+                repository.clearTrash()
+                Toast.makeText(this, "回收站已清空", Toast.LENGTH_SHORT).show()
+            }
+            .show()
     }
 
     private fun notifyOverlaySettingsChanged() {
