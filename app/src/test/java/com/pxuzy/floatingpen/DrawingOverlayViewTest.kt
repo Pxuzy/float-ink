@@ -11,6 +11,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -32,6 +33,26 @@ class DrawingOverlayViewTest {
 
         assertEquals(1, reopened.elementsForTest().size)
         assertEquals(1, session.currentLayer.elements.size)
+    }
+
+    @Test
+    fun `canvas panel lists current boards and layers and switches selection`() {
+        val session = DrawingSession()
+        val firstBoard = session.currentBoard
+        val secondBoard = session.createBoard()
+        val secondLayer = session.createLayer("重点")
+        val view = DrawingOverlayView(context, "pen", 0, drawingSession = session) {}
+        val toolbar = view.getChildAt(1) as LinearLayout
+
+        toolbar.findByTag("canvas-selector").performClick()
+        assertNotNull(view.findByTag("canvas-panel"))
+        view.findByTag("board:${firstBoard.id}").performClick()
+        assertEquals(firstBoard.id, session.currentBoard.id)
+
+        (view.getChildAt(1) as LinearLayout).findByTag("canvas-selector").performClick()
+        view.findByTag("board:${secondBoard.id}").performClick()
+        assertEquals(secondBoard.id, session.currentBoard.id)
+        assertEquals(secondLayer.id, session.currentLayer.id)
     }
 
     @Test

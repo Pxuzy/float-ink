@@ -70,6 +70,7 @@ class DrawingOverlayView(
     private lateinit var canvasView: View
     private var colorPanel: View? = null
     private var moreToolsPanel: View? = null
+    private var canvasPanel: View? = null
     private val toolButtons = mutableMapOf<String, View>()
     private var windowWidthDp = resources.configuration.screenWidthDp
     private var compactLayout = isCompactWidth()
@@ -86,6 +87,7 @@ class DrawingOverlayView(
         super.onSizeChanged(w, h, oldw, oldh)
         colorPanel?.let(::positionPopupAboveToolbar)
         moreToolsPanel?.let(::positionPopupAboveToolbar)
+        canvasPanel?.let(::positionPopupAboveToolbar)
     }
 
     internal fun applyWindowConfiguration(newConfig: Configuration) {
@@ -304,6 +306,10 @@ class DrawingOverlayView(
             layoutParams = LinearLayout.LayoutParams(30.dp, 40.dp)
         }
         bar.addView(dragHandle)
+        bar.addView(createActionBtn("canvas", ::toggleCanvasPanel).apply {
+            tag = "canvas-selector"
+            contentDescription = "选择画板和图层"
+        })
         bar.addView(createColorDot())
 
         val toolContent = LinearLayout(context).apply {
@@ -527,6 +533,7 @@ class DrawingOverlayView(
                 "undo" -> "撤销"
                 "clear" -> "清空"
                 "more" -> "更多工具"
+                "canvas" -> "选择画板和图层"
                 else -> "退出"
             }
             val horizontalPadding = if (compactLayout) 6.dp else 10.dp
@@ -625,6 +632,58 @@ class DrawingOverlayView(
         }
         moreToolsPanel = panel
         addView(panel, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT))
+        positionPopupAboveToolbar(panel)
+        panel.post { positionPopupAboveToolbar(panel) }
+    }
+
+    private fun toggleCanvasPanel() {
+        canvasPanel?.let { removeView(it); canvasPanel = null; return }
+        colorPanel?.let { removeView(it); colorPanel = null }
+        moreToolsPanel?.let { removeView(it); moreToolsPanel = null }
+        val panel = LinearLayout(context).apply {
+            tag = "canvas-panel"
+            orientation = LinearLayout.VERTICAL
+            setPadding(10.dp, 10.dp, 10.dp, 10.dp)
+            background = GradientDrawable().apply {
+                setColor(Color.argb(238, 12, 16, 21)); cornerRadius = 12.dpf
+                setStroke(1.dpf.toInt(), Color.argb(82, 255, 255, 255))
+            }
+        }
+        panel.addView(TextView(context).apply {
+            text = "画板 / 图层"; textSize = 13f; setTextColor(Color.WHITE)
+        }, LinearLayout.LayoutParams(220.dp, 30.dp))
+        drawingSession.boards.forEach { board ->
+            panel.addView(TextView(context).apply {
+                tag = "board:${board.id}"
+                text = if (board.id == drawingSession.currentBoard.id) "● ${board.name}" else "○ ${board.name}"
+                textSize = 13f; setTextColor(Color.WHITE); gravity = Gravity.CENTER_VERTICAL
+                setOnClickListener {
+                    discardActiveGesture(); drawingSession.selectBoard(board.id)
+                    elements = drawingSession.currentLayer.elements
+                    removeView(panel); canvasPanel = null; canvasView.invalidate()
+                }
+            }, LinearLayout.LayoutParams(220.dp, 36.dp))
+        }
+        panel.addView(TextView(context).apply {
+            text = "图层：${drawingSession.currentBoard.name}"; textSize = 12f
+            setTextColor(Color.parseColor("#91A0B2"))
+        }, LinearLayout.LayoutParams(220.dp, 28.dp))
+        drawingSession.currentBoard.layers.forEach { layer ->
+            panel.addView(TextView(context).apply {
+                tag = "layer:${layer.id}"
+                text = if (layer.id == drawingSession.currentLayer.id) "● ${layer.name}" else "○ ${layer.name}"
+                textSize = 13f
+                setTextColor(if (layer.visible) Color.WHITE else Color.parseColor("#718096"))
+                gravity = Gravity.CENTER_VERTICAL
+                setOnClickListener {
+                    discardActiveGesture(); drawingSession.selectLayer(layer.id)
+                    elements = drawingSession.currentLayer.elements
+                    removeView(panel); canvasPanel = null; canvasView.invalidate()
+                }
+            }, LinearLayout.LayoutParams(220.dp, 36.dp))
+        }
+        canvasPanel = panel
+        addView(panel)
         positionPopupAboveToolbar(panel)
         panel.post { positionPopupAboveToolbar(panel) }
     }
