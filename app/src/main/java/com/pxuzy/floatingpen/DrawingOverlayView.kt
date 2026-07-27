@@ -17,6 +17,7 @@ import android.widget.SeekBar
 import android.widget.TextView
 import com.pxuzy.floatingpen.core.DrawingElement as CoreDrawingElement
 import com.pxuzy.floatingpen.core.ArrowGeometry
+import com.pxuzy.floatingpen.core.DrawingSession
 import kotlin.math.*
 
 class DrawingOverlayView(
@@ -24,8 +25,9 @@ class DrawingOverlayView(
     strokeWidthDp: Float = PenSettings.DEFAULT_WIDTH_DP,
     private var arrowScale: Float = PenSettings.DEFAULT_ARROW_SCALE,
     toolbarToolIds: List<String> = PenSettings.TOOL_IDS,
+    val drawingSession: DrawingSession = DrawingSession(),
     private val onSelectionChanged: (toolId: String, color: Int) -> Unit = { _, _ -> },
-    private val onExit: () -> Unit
+    private val onExit: () -> Unit,
 ) : FrameLayout(context) {
 
     private val toolStyles = mutableMapOf(
@@ -38,6 +40,7 @@ class DrawingOverlayView(
         styles: Map<String, ToolStyle>,
         arrowScale: Float = PenSettings.DEFAULT_ARROW_SCALE,
         toolbarToolIds: List<String> = PenSettings.TOOL_IDS,
+        drawingSession: DrawingSession = DrawingSession(),
         onSelectionChanged: (toolId: String, color: Int) -> Unit = { _, _ -> },
         onExit: () -> Unit,
     ) : this(
@@ -49,13 +52,14 @@ class DrawingOverlayView(
         toolbarToolIds = toolbarToolIds,
         onSelectionChanged = onSelectionChanged,
         onExit = onExit,
+        drawingSession = drawingSession,
     ) {
         toolStyles.putAll(styles.mapKeys { PenSettings.normalizeTool(it.key) })
         applyCurrentToolStyle()
     }
 
     private val density = resources.displayMetrics.density
-    private val elements = mutableListOf<DrawingElement>()
+    private var elements: MutableList<DrawingElement> = drawingSession.currentLayer.elements
     private var sx = 0f; private var sy = 0f; private var cx = 0f; private var cy = 0f
     private var isDrawing = false
     private var activePointerId = MotionEvent.INVALID_POINTER_ID
