@@ -134,6 +134,19 @@ class DrawingSession(
         nextLayerNumber = 1
     }
 
+    fun replaceFrom(source: DrawingSession) {
+        boards.clear()
+        boards += source.boards.map { board ->
+            board.copy(
+                layers = board.layers.map { layer ->
+                    layer.copy(elements = layer.elements.toMutableList())
+                }.toMutableList(),
+            )
+        }
+        activeBoardId = source.currentBoard.id
+        if (boards.none { it.id == activeBoardId }) activeBoardId = boards.first().id
+    }
+
     private fun newBoardInternal(name: String): DrawingBoard {
         val layer = DrawingLayer(name = "默认图层")
         return DrawingBoard(name = name, layers = mutableListOf(layer), activeLayerId = layer.id)

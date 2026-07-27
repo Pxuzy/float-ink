@@ -668,6 +668,19 @@ class MainActivity : ComponentActivity() {
                     layoutParams = LinearLayout.LayoutParams(0, 48.dp, 1f)
                 })
                 row.addView(Button(this).apply {
+                    text = "打开"; isAllCaps = false; minHeight = 40.dp
+                    setOnClickListener {
+                        if (!isOverlayServiceRunning()) {
+                            Toast.makeText(this@MainActivity, "请先启动悬浮服务", Toast.LENGTH_SHORT).show()
+                        } else {
+                            startService(Intent(this@MainActivity, OverlayService::class.java).apply {
+                                action = OverlayService.ACTION_LOAD_SESSION
+                                putExtra(OverlayService.EXTRA_SESSION_FILE, entry.file.absolutePath)
+                            })
+                        }
+                    }
+                })
+                row.addView(Button(this).apply {
                     text = "改名"; isAllCaps = false; minHeight = 40.dp
                     setOnClickListener {
                         val input = EditText(this@MainActivity).apply { setText(entry.name); selectAll() }

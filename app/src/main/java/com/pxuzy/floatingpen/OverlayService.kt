@@ -94,6 +94,7 @@ class OverlayService : Service() {
             ACTION_REMOVE_BUBBLE -> removeBubble()
             ACTION_SHOW_DRAWING -> showDrawing()
             ACTION_HIDE_DRAWING -> hideDrawing()
+            ACTION_LOAD_SESSION -> loadSession(intent.getStringExtra(EXTRA_SESSION_FILE))
             ACTION_SETTINGS_CHANGED -> refreshBubbleSettings()
             ACTION_STOP -> stop()
         }
@@ -202,6 +203,18 @@ class OverlayService : Service() {
             drawingView = view
         }
     }
+    private fun loadSession(path: String?) {
+        if (path.isNullOrBlank()) return
+        runCatching {
+            val decoded = FloatInkSessionStore.load(java.io.File(path))
+            drawingSession.replaceFrom(decoded.session)
+            sessionAutoSaver.markDirty()
+            showDrawing()
+        }.onFailure {
+            android.util.Log.e("OverlayService", "加载历史 FloatInk 失败", it)
+        }
+    }
+
     private fun hideDrawing() {
         safeRemoveView(drawingView)
         drawingView = null
@@ -278,7 +291,9 @@ class OverlayService : Service() {
         const val ACTION_REMOVE_BUBBLE = "com.pxuzy.floatingpen.REMOVE_BUBBLE"
         const val ACTION_SHOW_DRAWING = "com.pxuzy.floatingpen.SHOW_DRAWING"
         const val ACTION_HIDE_DRAWING = "com.pxuzy.floatingpen.HIDE_DRAWING"
+        const val ACTION_LOAD_SESSION = "com.pxuzy.floatingpen.LOAD_SESSION"
         const val ACTION_SETTINGS_CHANGED = "com.pxuzy.floatingpen.SETTINGS_CHANGED"
         const val ACTION_STOP = "com.pxuzy.floatingpen.STOP"
+        const val EXTRA_SESSION_FILE = "extra_session_file"
     }
 }
