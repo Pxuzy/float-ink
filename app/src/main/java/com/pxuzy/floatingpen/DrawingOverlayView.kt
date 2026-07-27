@@ -1,5 +1,6 @@
 package com.pxuzy.floatingpen
 
+import android.app.AlertDialog
 import android.content.Context
 import android.content.res.Configuration
 import android.graphics.*
@@ -17,6 +18,7 @@ import android.widget.SeekBar
 import android.widget.TextView
 import com.pxuzy.floatingpen.core.DrawingElement as CoreDrawingElement
 import com.pxuzy.floatingpen.core.ArrowGeometry
+import com.pxuzy.floatingpen.core.DrawingSession
 import kotlin.math.*
 
 class DrawingOverlayView(
@@ -24,8 +26,10 @@ class DrawingOverlayView(
     strokeWidthDp: Float = PenSettings.DEFAULT_WIDTH_DP,
     private var arrowScale: Float = PenSettings.DEFAULT_ARROW_SCALE,
     toolbarToolIds: List<String> = PenSettings.TOOL_IDS,
+    val drawingSession: DrawingSession = DrawingSession(),
+    private val onSessionChanged: () -> Unit = {},
     private val onSelectionChanged: (toolId: String, color: Int) -> Unit = { _, _ -> },
-    private val onExit: () -> Unit
+    private val onExit: () -> Unit,
 ) : FrameLayout(context) {
 
     private val toolStyles = mutableMapOf(
@@ -38,6 +42,8 @@ class DrawingOverlayView(
         styles: Map<String, ToolStyle>,
         arrowScale: Float = PenSettings.DEFAULT_ARROW_SCALE,
         toolbarToolIds: List<String> = PenSettings.TOOL_IDS,
+        drawingSession: DrawingSession = DrawingSession(),
+        onSessionChanged: () -> Unit = {},
         onSelectionChanged: (toolId: String, color: Int) -> Unit = { _, _ -> },
         onExit: () -> Unit,
     ) : this(
@@ -49,15 +55,18 @@ class DrawingOverlayView(
         toolbarToolIds = toolbarToolIds,
         onSelectionChanged = onSelectionChanged,
         onExit = onExit,
+        drawingSession = drawingSession,
+        onSessionChanged = onSessionChanged,
     ) {
         toolStyles.putAll(styles.mapKeys { PenSettings.normalizeTool(it.key) })
         applyCurrentToolStyle()
     }
 
     private val density = resources.displayMetrics.density
-    private val elements = mutableListOf<DrawingElement>()
+    private var elements: MutableList<DrawingElement> = drawingSession.currentLayer.elements
     private var sx = 0f; private var sy = 0f; private var cx = 0f; private var cy = 0f
     private var isDrawing = false
+    private var sessionDirty = false
     private var activePointerId = MotionEvent.INVALID_POINTER_ID
     private var activeToolType = MotionEvent.TOOL_TYPE_UNKNOWN
     private var currentToolId = toolId
@@ -66,6 +75,7 @@ class DrawingOverlayView(
     private lateinit var canvasView: View
     private var colorPanel: View? = null
     private var moreToolsPanel: View? = null
+    private var canvasPanel: View? = null
     private val toolButtons = mutableMapOf<String, View>()
     private var windowWidthDp = resources.configuration.screenWidthDp
     private var compactLayout = isCompactWidth()
@@ -82,6 +92,7 @@ class DrawingOverlayView(
         super.onSizeChanged(w, h, oldw, oldh)
         colorPanel?.let(::positionPopupAboveToolbar)
         moreToolsPanel?.let(::positionPopupAboveToolbar)
+        canvasPanel?.let(::positionPopupAboveToolbar)
     }
 
     internal fun applyWindowConfiguration(newConfig: Configuration) {
@@ -158,6 +169,7 @@ class DrawingOverlayView(
                                 }
                             }
                             isDrawing = false
+                            sessionDirty = true
                             activePointerId = MotionEvent.INVALID_POINTER_ID
                             invalidate()
                         }
@@ -180,6 +192,7 @@ class DrawingOverlayView(
                             if (el != null && (x != sx || y != sy)) elements.add(el)
                         }
                         isDrawing = false
+                        sessionDirty = true
                         activePointerId = MotionEvent.INVALID_POINTER_ID
                         invalidate(); return true
                     }
@@ -188,6 +201,7 @@ class DrawingOverlayView(
                             elements.removeAt(elements.lastIndex)
                         }
                         isDrawing = false
+                        sessionDirty = true
                         activePointerId = MotionEvent.INVALID_POINTER_ID
                         invalidate(); return true
                     }
@@ -197,6 +211,10 @@ class DrawingOverlayView(
 
             override fun onDraw(canvas: Canvas) {
                 super.onDraw(canvas)
+                if (sessionDirty) {
+                    sessionDirty = false
+                    onSessionChanged()
+                }
                 if (elements.isEmpty() && !isDrawing)
                     canvas.drawText("手指滑动开始画线", width / 2f, height / 2f - 120.dpf, hintPaint)
                 elements.forEach { drawElement(canvas, it) }
@@ -300,6 +318,10 @@ class DrawingOverlayView(
             layoutParams = LinearLayout.LayoutParams(30.dp, 40.dp)
         }
         bar.addView(dragHandle)
+        bar.addView(createActionBtn("canvas", ::toggleCanvasPanel).apply {
+            tag = "canvas-selector"
+            contentDescription = "选择画板和图层"
+        })
         bar.addView(createColorDot())
 
         val toolContent = LinearLayout(context).apply {
@@ -326,12 +348,14 @@ class DrawingOverlayView(
                 canvasView.invalidate()
             } else if (elements.isNotEmpty()) {
                 elements.removeAt(elements.lastIndex)
+                onSessionChanged()
                 canvasView.invalidate()
             }
         }.apply { tag = "undo" })
         bar.addView(createActionBtn("clear") {
             discardActiveGesture()
             elements.clear()
+            onSessionChanged()
             canvasView.invalidate()
         }.apply { tag = "clear" })
         bar.addView(createActionBtn("exit", action = onExit).apply { tag = "exit" })
@@ -523,6 +547,7 @@ class DrawingOverlayView(
                 "undo" -> "撤销"
                 "clear" -> "清空"
                 "more" -> "更多工具"
+                "canvas" -> "选择画板和图层"
                 else -> "退出"
             }
             val horizontalPadding = if (compactLayout) 6.dp else 10.dp
@@ -623,6 +648,118 @@ class DrawingOverlayView(
         addView(panel, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT))
         positionPopupAboveToolbar(panel)
         panel.post { positionPopupAboveToolbar(panel) }
+    }
+
+    private fun toggleCanvasPanel() {
+        canvasPanel?.let { removeView(it); canvasPanel = null; return }
+        colorPanel?.let { removeView(it); colorPanel = null }
+        moreToolsPanel?.let { removeView(it); moreToolsPanel = null }
+        val panel = LinearLayout(context).apply {
+            tag = "canvas-panel"
+            orientation = LinearLayout.VERTICAL
+            setPadding(10.dp, 10.dp, 10.dp, 10.dp)
+            background = GradientDrawable().apply {
+                setColor(Color.argb(238, 12, 16, 21)); cornerRadius = 12.dpf
+                setStroke(1.dpf.toInt(), Color.argb(82, 255, 255, 255))
+            }
+        }
+        panel.addView(TextView(context).apply {
+            text = "画板 / 图层"; textSize = 13f; setTextColor(Color.WHITE)
+        }, LinearLayout.LayoutParams(220.dp, 30.dp))
+        drawingSession.boards.forEach { board ->
+            panel.addView(TextView(context).apply {
+                tag = "board:${board.id}"
+                text = if (board.id == drawingSession.currentBoard.id) "● ${board.name}" else "○ ${board.name}"
+                textSize = 13f; setTextColor(Color.WHITE); gravity = Gravity.CENTER_VERTICAL
+                setOnClickListener {
+                    discardActiveGesture(); drawingSession.selectBoard(board.id)
+                    elements = drawingSession.currentLayer.elements
+                    removeView(panel); canvasPanel = null; canvasView.invalidate()
+                }
+            }, LinearLayout.LayoutParams(220.dp, 36.dp))
+        }
+        panel.addView(TextView(context).apply {
+            text = "图层：${drawingSession.currentBoard.name}"; textSize = 12f
+            setTextColor(Color.parseColor("#91A0B2"))
+        }, LinearLayout.LayoutParams(220.dp, 28.dp))
+        drawingSession.currentBoard.layers.forEach { layer ->
+            panel.addView(TextView(context).apply {
+                tag = "layer:${layer.id}"
+                text = if (layer.id == drawingSession.currentLayer.id) "● ${layer.name}" else "○ ${layer.name}"
+                textSize = 13f
+                setTextColor(if (layer.visible) Color.WHITE else Color.parseColor("#718096"))
+                gravity = Gravity.CENTER_VERTICAL
+                setOnClickListener {
+                    discardActiveGesture(); drawingSession.selectLayer(layer.id)
+                    elements = drawingSession.currentLayer.elements
+                    rebuildCanvasPanel(); canvasView.invalidate()
+                }
+                setOnLongClickListener {
+                    drawingSession.moveLayer(layer.id, 0)
+                    rebuildCanvasPanel()
+                    true
+                }
+            }, LinearLayout.LayoutParams(220.dp, 36.dp))
+        }
+        panel.addView(canvasActionRow("board", "新建画板") { drawingSession.createBoard(); rebuildCanvasPanel() })
+        panel.addView(canvasActionRow("layer", "新建图层") { drawingSession.createLayer(); elements = drawingSession.currentLayer.elements; rebuildCanvasPanel() })
+        panel.addView(canvasActionRow("rename-board", "重命名画板") { renameCanvasTarget(false) })
+        panel.addView(canvasActionRow("rename-layer", "重命名图层") { renameCanvasTarget(true) })
+        panel.addView(canvasActionRow("delete-board", "删除当前画板") { confirmCanvasDelete(false) })
+        panel.addView(canvasActionRow("delete-layer", "删除当前图层") { confirmCanvasDelete(true) })
+        canvasPanel = panel
+        addView(panel)
+        positionPopupAboveToolbar(panel)
+        panel.post { positionPopupAboveToolbar(panel) }
+    }
+
+    private fun canvasActionRow(tagValue: String, label: String, action: () -> Unit): TextView =
+        TextView(context).apply {
+            tag = "canvas-action:$tagValue"
+            text = label
+            textSize = 12f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(6.dp, 0, 6.dp, 0)
+            setOnClickListener { action() }
+            layoutParams = LinearLayout.LayoutParams(220.dp, 34.dp)
+        }
+
+    private fun rebuildCanvasPanel() {
+        canvasPanel?.let { removeView(it) }
+        canvasPanel = null
+        toggleCanvasPanel()
+    }
+
+    private fun renameCanvasTarget(layer: Boolean) {
+        val target = if (layer) drawingSession.currentLayer.name else drawingSession.currentBoard.name
+        val input = EditText(context).apply { setText(target); selectAll() }
+        AlertDialog.Builder(context)
+            .setTitle(if (layer) "重命名图层" else "重命名画板")
+            .setView(input)
+            .setNegativeButton("取消", null)
+            .setPositiveButton("保存") { _, _ ->
+                if (layer) drawingSession.renameLayer(drawingSession.currentLayer.id, input.text.toString())
+                else drawingSession.renameBoard(drawingSession.currentBoard.id, input.text.toString())
+                rebuildCanvasPanel()
+            }
+            .show()
+    }
+
+    private fun confirmCanvasDelete(layer: Boolean) {
+        val name = if (layer) drawingSession.currentLayer.name else drawingSession.currentBoard.name
+        AlertDialog.Builder(context)
+            .setTitle(if (layer) "删除图层" else "删除画板")
+            .setMessage("确定删除“$name”吗？")
+            .setNegativeButton("取消", null)
+            .setPositiveButton("删除") { _, _ ->
+                if (layer) drawingSession.deleteLayer(drawingSession.currentLayer.id)
+                else drawingSession.deleteBoard(drawingSession.currentBoard.id)
+                elements = drawingSession.currentLayer.elements
+                rebuildCanvasPanel()
+                canvasView.invalidate()
+            }
+            .show()
     }
 
     private fun toggleColorPanel() {

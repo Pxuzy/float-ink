@@ -12,6 +12,7 @@ import android.os.IBinder
 import android.view.Gravity
 import android.view.WindowManager
 import android.view.WindowManager.LayoutParams
+import com.pxuzy.floatingpen.core.DrawingSession
 
 class OverlayService : Service() {
 
@@ -19,6 +20,14 @@ class OverlayService : Service() {
     private var bubbleView: FloatingBubbleView? = null
     private var drawingView: DrawingOverlayView? = null
     private var menuView: SelectionMenuView? = null
+    private val drawingSession = DrawingSession()
+    private val sessionAutoSaver = FloatInkSessionAutoSaver(
+        session = drawingSession,
+        save = { session, sessionId ->
+            runCatching { FloatInkSessionStore.save(FloatInkStorage.sessionFile(this, sessionId), session, sessionId) }
+                .onFailure { android.util.Log.e("OverlayService", "FloatInk 自动保存失败", it) }
+        },
+    )
     private var foregroundReady = false
 
     private var pendingTool = "pen"
@@ -85,6 +94,7 @@ class OverlayService : Service() {
             ACTION_REMOVE_BUBBLE -> removeBubble()
             ACTION_SHOW_DRAWING -> showDrawing()
             ACTION_HIDE_DRAWING -> hideDrawing()
+            ACTION_LOAD_SESSION -> loadSession(intent.getStringExtra(EXTRA_SESSION_FILE))
             ACTION_SETTINGS_CHANGED -> refreshBubbleSettings()
             ACTION_STOP -> stop()
         }
@@ -100,6 +110,8 @@ class OverlayService : Service() {
         removeBubble()
         getSharedPreferences(PREF_NAME, MODE_PRIVATE)
             .edit().putBoolean(PREF_KEY_SERVICE_RUNNING, false).apply()
+        sessionAutoSaver.close()
+        drawingSession.clear()
         super.onDestroy()
     }
 
@@ -176,6 +188,8 @@ class OverlayService : Service() {
             arrowScale = pendingArrowScale,
             toolbarToolIds = settings.visibleToolbarToolIds(),
             onExit = { hideDrawing() },
+            drawingSession = drawingSession,
+            onSessionChanged = { sessionAutoSaver.markDirty() },
             onSelectionChanged = { tool, color ->
                 pendingTool = tool
                 pendingColor = color
@@ -189,6 +203,21 @@ class OverlayService : Service() {
             drawingView = view
         }
     }
+    private fun loadSession(path: String?) {
+        if (path.isNullOrBlank()) return
+        runCatching {
+            val loaded = FloatInkSessionStore.loadWithBackup(java.io.File(path))
+            drawingSession.replaceFrom(loaded.decoded.session)
+            if (loaded.recoveredFromBackup) {
+                android.util.Log.w("OverlayService", "历史 FloatInk 已从 .bak 恢复")
+            }
+            sessionAutoSaver.markDirty()
+            showDrawing()
+        }.onFailure {
+            android.util.Log.e("OverlayService", "加载历史 FloatInk 失败", it)
+        }
+    }
+
     private fun hideDrawing() {
         safeRemoveView(drawingView)
         drawingView = null
@@ -209,6 +238,8 @@ class OverlayService : Service() {
         // Clear running state so MainActivity shows correct UI
         getSharedPreferences(PREF_NAME, MODE_PRIVATE)
             .edit().putBoolean(PREF_KEY_SERVICE_RUNNING, false).apply()
+        sessionAutoSaver.close()
+        drawingSession.clear()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -263,7 +294,9 @@ class OverlayService : Service() {
         const val ACTION_REMOVE_BUBBLE = "com.pxuzy.floatingpen.REMOVE_BUBBLE"
         const val ACTION_SHOW_DRAWING = "com.pxuzy.floatingpen.SHOW_DRAWING"
         const val ACTION_HIDE_DRAWING = "com.pxuzy.floatingpen.HIDE_DRAWING"
+        const val ACTION_LOAD_SESSION = "com.pxuzy.floatingpen.LOAD_SESSION"
         const val ACTION_SETTINGS_CHANGED = "com.pxuzy.floatingpen.SETTINGS_CHANGED"
         const val ACTION_STOP = "com.pxuzy.floatingpen.STOP"
+        const val EXTRA_SESSION_FILE = "extra_session_file"
     }
 }

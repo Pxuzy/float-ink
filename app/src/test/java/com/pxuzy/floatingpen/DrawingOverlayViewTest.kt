@@ -11,15 +11,49 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import com.pxuzy.floatingpen.core.DrawingElement as CoreDrawingElement
+import com.pxuzy.floatingpen.core.DrawingSession
 
 @RunWith(RobolectricTestRunner::class)
 class DrawingOverlayViewTest {
     private val context: Application = ApplicationProvider.getApplicationContext()
+
+    @Test
+    fun `drawing session survives overlay recreation while keeping elements`() {
+        val session = DrawingSession()
+        val first = DrawingOverlayView(context, "pen", 0, drawingSession = session) {}
+        drawGesture(first.getChildAt(0), 10f, 10f, 30f, 30f)
+
+        val reopened = DrawingOverlayView(context, "pen", 0, drawingSession = session) {}
+
+        assertEquals(1, reopened.elementsForTest().size)
+        assertEquals(1, session.currentLayer.elements.size)
+    }
+
+    @Test
+    fun `canvas panel lists current boards and layers and switches selection`() {
+        val session = DrawingSession()
+        val firstBoard = session.currentBoard
+        val secondBoard = session.createBoard()
+        val secondLayer = session.createLayer("重点")
+        val view = DrawingOverlayView(context, "pen", 0, drawingSession = session) {}
+        val toolbar = view.getChildAt(1) as LinearLayout
+
+        toolbar.findByTag("canvas-selector").performClick()
+        assertNotNull(view.findByTag("canvas-panel"))
+        view.findByTag("board:${firstBoard.id}").performClick()
+        assertEquals(firstBoard.id, session.currentBoard.id)
+
+        (view.getChildAt(1) as LinearLayout).findByTag("canvas-selector").performClick()
+        view.findByTag("board:${secondBoard.id}").performClick()
+        assertEquals(secondBoard.id, session.currentBoard.id)
+        assertEquals(secondLayer.id, session.currentLayer.id)
+    }
 
     @Test
     fun `overlay is created with canvas and one toolbar`() {

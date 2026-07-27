@@ -75,6 +75,24 @@ class MainActivity : ComponentActivity() {
     private val notificationSettingsLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { onResume() }
+    private val historyFilePickerLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri ?: return@registerForActivityResult
+        runCatching {
+            val temp = java.io.File(cacheDir, "import-${System.currentTimeMillis()}.floatink")
+            contentResolver.openInputStream(uri).use { input ->
+                requireNotNull(input) { "无法读取文件" }
+                temp.outputStream().use { output -> input.copyTo(output) }
+            }
+            FloatInkHistoryRepository(this).import(temp)
+            temp.delete()
+            showPage("settings")
+            Toast.makeText(this, "历史会话导入成功", Toast.LENGTH_SHORT).show()
+        }.onFailure { error ->
+            Toast.makeText(this, "导入失败：${error.localizedMessage ?: "文件无效"}", Toast.LENGTH_LONG).show()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -575,6 +593,7 @@ class MainActivity : ComponentActivity() {
             tag = "settings-live-copy"
             text = "修改会立即应用到当前悬浮球"; textSize = 12f; setTextColor(Color.parseColor("#7F8A99"))
         })
+        addView(buildHistorySection())
         addView(sectionTitle("软件更新").apply { tag = "settings-update-section" })
         addView(TextView(this@MainActivity).apply {
             tag = "settings-update-status"
@@ -605,6 +624,143 @@ class MainActivity : ComponentActivity() {
             PenSettings.saveToolbarLayout(this@MainActivity, order, enabled)
             notifyOverlaySettingsChanged()
         })
+    }
+
+    private fun buildHistorySection(): View {
+        val repository = FloatInkHistoryRepository(this)
+        val section = LinearLayout(this).apply {
+            tag = "history-section"
+            orientation = LinearLayout.VERTICAL
+        }
+        section.addView(sectionTitle("历史画板").apply { tag = "history-section-title" })
+        section.addView(TextView(this).apply {
+            tag = "history-location"
+            text = "保存位置：${FloatInkStorage.rootDirectory(this@MainActivity).path}"
+            textSize = 12f
+            setTextColor(Color.parseColor("#91A0B2"))
+        })
+        val list = LinearLayout(this).apply {
+            tag = "history-list"
+            orientation = LinearLayout.VERTICAL
+        }
+        fun refresh() {
+            list.removeAllViews()
+            val entries = repository.list()
+            if (entries.isEmpty()) {
+                list.addView(TextView(this).apply {
+                    tag = "history-empty"
+                    text = "暂无历史画板"
+                    textSize = 13f
+                    setTextColor(Color.parseColor("#91A0B2"))
+                    setPadding(0, 8.dp, 0, 8.dp)
+                })
+            }
+            entries.forEach { entry ->
+                val row = LinearLayout(this).apply {
+                    tag = "history:${entry.sessionId}"
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                }
+                row.addView(TextView(this).apply {
+                    text = entry.name
+                    textSize = 14f
+                    setTextColor(Color.WHITE)
+                    layoutParams = LinearLayout.LayoutParams(0, 48.dp, 1f)
+                })
+                row.addView(Button(this).apply {
+                    text = "打开"; isAllCaps = false; minHeight = 40.dp
+                    setOnClickListener {
+                        if (!isOverlayServiceRunning()) {
+                            Toast.makeText(this@MainActivity, "请先启动悬浮服务", Toast.LENGTH_SHORT).show()
+                        } else {
+                            startService(Intent(this@MainActivity, OverlayService::class.java).apply {
+                                action = OverlayService.ACTION_LOAD_SESSION
+                                putExtra(OverlayService.EXTRA_SESSION_FILE, entry.file.absolutePath)
+                            })
+                        }
+                    }
+                })
+                row.addView(Button(this).apply {
+                    text = "改名"; isAllCaps = false; minHeight = 40.dp
+                    setOnClickListener {
+                        val input = EditText(this@MainActivity).apply { setText(entry.name); selectAll() }
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle("重命名历史会话")
+                            .setView(input)
+                            .setNegativeButton("取消", null)
+                            .setPositiveButton("保存") { _, _ -> repository.rename(entry.sessionId, input.text.toString()); refresh() }
+                            .show()
+                    }
+                })
+                row.addView(Button(this).apply {
+                    text = "复制"; isAllCaps = false; minHeight = 40.dp
+                    setOnClickListener { repository.copy(entry.sessionId); refresh() }
+                })
+                row.addView(Button(this).apply {
+                    text = "删"; isAllCaps = false; minHeight = 40.dp
+                    setOnClickListener {
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle("删除历史会话")
+                            .setMessage("会话将移动到回收站。")
+                            .setNegativeButton("取消", null)
+                            .setPositiveButton("删除") { _, _ -> repository.delete(entry.sessionId); refresh() }
+                            .show()
+                    }
+                })
+                list.addView(row)
+            }
+        }
+        section.addView(list)
+        refresh()
+        section.addView(Button(this).apply {
+            tag = "history-import"
+            text = "导入 .floatink"
+            isAllCaps = false
+            setOnClickListener { historyFilePickerLauncher.launch("application/octet-stream") }
+        })
+        section.addView(Button(this).apply {
+            tag = "history-trash"
+            text = "管理回收站"
+            isAllCaps = false
+            setOnClickListener { showHistoryTrashDialog(repository) }
+        })
+        return section
+    }
+
+    private fun showHistoryTrashDialog(repository: FloatInkHistoryRepository) {
+        val trash = repository.listTrash()
+        if (trash.isEmpty()) {
+            Toast.makeText(this, "回收站为空", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(24.dp, 8.dp, 24.dp, 8.dp)
+        }
+        trash.forEach { entry ->
+            list.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                addView(TextView(this@MainActivity).apply {
+                    text = entry.name
+                    setTextColor(Color.WHITE)
+                    layoutParams = LinearLayout.LayoutParams(0, 48.dp, 1f)
+                })
+                addView(Button(this@MainActivity).apply {
+                    text = "恢复"; isAllCaps = false
+                    setOnClickListener { repository.restore(entry.sessionId); showPage("settings") }
+                })
+            })
+        }
+        AlertDialog.Builder(this)
+            .setTitle("回收站")
+            .setView(list)
+            .setNegativeButton("关闭", null)
+            .setNeutralButton("清空回收站") { _, _ ->
+                repository.clearTrash()
+                Toast.makeText(this, "回收站已清空", Toast.LENGTH_SHORT).show()
+            }
+            .show()
     }
 
     private fun notifyOverlaySettingsChanged() {
