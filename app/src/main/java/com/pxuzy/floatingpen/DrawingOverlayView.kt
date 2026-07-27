@@ -1,5 +1,6 @@
 package com.pxuzy.floatingpen
 
+import android.app.AlertDialog
 import android.content.Context
 import android.content.res.Configuration
 import android.graphics.*
@@ -678,14 +679,74 @@ class DrawingOverlayView(
                 setOnClickListener {
                     discardActiveGesture(); drawingSession.selectLayer(layer.id)
                     elements = drawingSession.currentLayer.elements
-                    removeView(panel); canvasPanel = null; canvasView.invalidate()
+                    rebuildCanvasPanel(); canvasView.invalidate()
+                }
+                setOnLongClickListener {
+                    drawingSession.moveLayer(layer.id, 0)
+                    rebuildCanvasPanel()
+                    true
                 }
             }, LinearLayout.LayoutParams(220.dp, 36.dp))
         }
+        panel.addView(canvasActionRow("board", "新建画板") { drawingSession.createBoard(); rebuildCanvasPanel() })
+        panel.addView(canvasActionRow("layer", "新建图层") { drawingSession.createLayer(); elements = drawingSession.currentLayer.elements; rebuildCanvasPanel() })
+        panel.addView(canvasActionRow("rename-board", "重命名画板") { renameCanvasTarget(false) })
+        panel.addView(canvasActionRow("rename-layer", "重命名图层") { renameCanvasTarget(true) })
+        panel.addView(canvasActionRow("delete-board", "删除当前画板") { confirmCanvasDelete(false) })
+        panel.addView(canvasActionRow("delete-layer", "删除当前图层") { confirmCanvasDelete(true) })
         canvasPanel = panel
         addView(panel)
         positionPopupAboveToolbar(panel)
         panel.post { positionPopupAboveToolbar(panel) }
+    }
+
+    private fun canvasActionRow(tagValue: String, label: String, action: () -> Unit): TextView =
+        TextView(context).apply {
+            tag = "canvas-action:$tagValue"
+            text = label
+            textSize = 12f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(6.dp, 0, 6.dp, 0)
+            setOnClickListener { action() }
+            layoutParams = LinearLayout.LayoutParams(220.dp, 34.dp)
+        }
+
+    private fun rebuildCanvasPanel() {
+        canvasPanel?.let { removeView(it) }
+        canvasPanel = null
+        toggleCanvasPanel()
+    }
+
+    private fun renameCanvasTarget(layer: Boolean) {
+        val target = if (layer) drawingSession.currentLayer.name else drawingSession.currentBoard.name
+        val input = EditText(context).apply { setText(target); selectAll() }
+        AlertDialog.Builder(context)
+            .setTitle(if (layer) "重命名图层" else "重命名画板")
+            .setView(input)
+            .setNegativeButton("取消", null)
+            .setPositiveButton("保存") { _, _ ->
+                if (layer) drawingSession.renameLayer(drawingSession.currentLayer.id, input.text.toString())
+                else drawingSession.renameBoard(drawingSession.currentBoard.id, input.text.toString())
+                rebuildCanvasPanel()
+            }
+            .show()
+    }
+
+    private fun confirmCanvasDelete(layer: Boolean) {
+        val name = if (layer) drawingSession.currentLayer.name else drawingSession.currentBoard.name
+        AlertDialog.Builder(context)
+            .setTitle(if (layer) "删除图层" else "删除画板")
+            .setMessage("确定删除“$name”吗？")
+            .setNegativeButton("取消", null)
+            .setPositiveButton("删除") { _, _ ->
+                if (layer) drawingSession.deleteLayer(drawingSession.currentLayer.id)
+                else drawingSession.deleteBoard(drawingSession.currentBoard.id)
+                elements = drawingSession.currentLayer.elements
+                rebuildCanvasPanel()
+                canvasView.invalidate()
+            }
+            .show()
     }
 
     private fun toggleColorPanel() {
