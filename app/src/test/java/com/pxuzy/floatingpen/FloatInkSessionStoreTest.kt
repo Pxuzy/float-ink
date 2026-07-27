@@ -53,7 +53,27 @@ class FloatInkSessionStoreTest {
     }
 
     @Test
-    fun `storage exposes sessions directory and floatink file naming`() {
+    fun `corrupt primary file is restored from backup`() {
+        val file = File(context.cacheDir, "recover.floatink")
+        val first = DrawingSession().apply {
+            addElement(DrawingElement.Line(0f to 0f, 1f to 1f, 1, 2f))
+        }
+        FloatInkSessionStore.save(file, first, "recover-test")
+        val second = DrawingSession().apply {
+            addElement(DrawingElement.Rect(2f to 2f, 3f to 3f, 2, 4f))
+        }
+        FloatInkSessionStore.save(file, second, "recover-test")
+        file.writeText("broken-json")
+
+        val result = FloatInkSessionStore.loadWithBackup(file)
+
+        assertTrue(result.recoveredFromBackup)
+        assertTrue(result.decoded.session.currentLayer.elements.single() is DrawingElement.Line)
+        assertTrue(FloatInkSessionStore.load(file).session.currentLayer.elements.single() is DrawingElement.Line)
+    }
+
+    @Test
+    fun `load without backup still reports corrupt file`() {
         val sessions = FloatInkStorage.sessionsDirectory(context)
         val file = FloatInkStorage.sessionFile(context, "session-001")
 
