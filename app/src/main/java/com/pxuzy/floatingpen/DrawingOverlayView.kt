@@ -64,6 +64,7 @@ class DrawingOverlayView(
     }
 
     private val density = resources.displayMetrics.density
+    private val sampleDistanceSquared = (1.5f * density) * (1.5f * density)
     private var elements: MutableList<DrawingElement> = drawingSession.currentLayer.elements
     private var sx = 0f; private var sy = 0f; private var cx = 0f; private var cy = 0f
     private var isDrawing = false
@@ -139,9 +140,16 @@ class DrawingOverlayView(
                         cx = event.getX(pointerIndex); cy = event.getY(pointerIndex)
                         if (currentToolId == "pen" && elements.isNotEmpty()) {
                             val e = elements.last()
-                            if (e is CoreDrawingElement.Stroke) e.points.add(Pair(cx, cy))
+                            if (e is CoreDrawingElement.Stroke) {
+                                val last = e.points.lastOrNull()
+                                val dx = last?.first?.minus(cx) ?: Float.MAX_VALUE
+                                val dy = last?.second?.minus(cy) ?: Float.MAX_VALUE
+                                if (dx * dx + dy * dy >= sampleDistanceSquared) {
+                                    e.points.add(Pair(cx, cy))
+                                }
+                            }
                         }
-                        invalidate(); return true
+                        postInvalidateOnAnimation(); return true
                     }
                     MotionEvent.ACTION_POINTER_DOWN -> {
                         val newPointerType = event.getToolType(event.actionIndex)
