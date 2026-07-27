@@ -16,10 +16,23 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import com.pxuzy.floatingpen.core.DrawingElement as CoreDrawingElement
+import com.pxuzy.floatingpen.core.DrawingSession
 
 @RunWith(RobolectricTestRunner::class)
 class DrawingOverlayViewTest {
     private val context: Application = ApplicationProvider.getApplicationContext()
+
+    @Test
+    fun `drawing session survives overlay recreation while keeping elements`() {
+        val session = DrawingSession()
+        val first = DrawingOverlayView(context, "pen", 0, drawingSession = session) {}
+        drawGesture(first.getChildAt(0), 10f, 10f, 30f, 30f)
+
+        val reopened = DrawingOverlayView(context, "pen", 0, drawingSession = session) {}
+
+        assertEquals(1, reopened.elementsForTest().size)
+        assertEquals(1, session.currentLayer.elements.size)
+    }
 
     @Test
     fun `overlay is created with canvas and one toolbar`() {

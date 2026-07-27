@@ -12,6 +12,7 @@ import android.os.IBinder
 import android.view.Gravity
 import android.view.WindowManager
 import android.view.WindowManager.LayoutParams
+import com.pxuzy.floatingpen.core.DrawingSession
 
 class OverlayService : Service() {
 
@@ -19,6 +20,7 @@ class OverlayService : Service() {
     private var bubbleView: FloatingBubbleView? = null
     private var drawingView: DrawingOverlayView? = null
     private var menuView: SelectionMenuView? = null
+    private val drawingSession = DrawingSession()
     private var foregroundReady = false
 
     private var pendingTool = "pen"
@@ -100,6 +102,7 @@ class OverlayService : Service() {
         removeBubble()
         getSharedPreferences(PREF_NAME, MODE_PRIVATE)
             .edit().putBoolean(PREF_KEY_SERVICE_RUNNING, false).apply()
+        drawingSession.clear()
         super.onDestroy()
     }
 
@@ -176,6 +179,7 @@ class OverlayService : Service() {
             arrowScale = pendingArrowScale,
             toolbarToolIds = settings.visibleToolbarToolIds(),
             onExit = { hideDrawing() },
+            drawingSession = drawingSession,
             onSelectionChanged = { tool, color ->
                 pendingTool = tool
                 pendingColor = color
@@ -209,6 +213,7 @@ class OverlayService : Service() {
         // Clear running state so MainActivity shows correct UI
         getSharedPreferences(PREF_NAME, MODE_PRIVATE)
             .edit().putBoolean(PREF_KEY_SERVICE_RUNNING, false).apply()
+        drawingSession.clear()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }

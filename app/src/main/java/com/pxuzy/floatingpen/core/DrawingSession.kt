@@ -125,6 +125,15 @@ class DrawingSession(
         currentLayer.elements.clear()
     }
 
+    fun clear() {
+        boards.clear()
+        val board = newBoardInternal("画板 1")
+        boards += board
+        activeBoardId = board.id
+        nextBoardNumber = 2
+        nextLayerNumber = 1
+    }
+
     private fun newBoardInternal(name: String): DrawingBoard {
         val layer = DrawingLayer(name = "默认图层")
         return DrawingBoard(name = name, layers = mutableListOf(layer), activeLayerId = layer.id)
