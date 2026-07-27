@@ -6,6 +6,9 @@ plugins {
 android {
     namespace = "com.pxuzy.floatingpen"
     compileSdk = 35
+    buildFeatures {
+        buildConfig = true
+    }
 
     defaultConfig {
         applicationId = "com.pxuzy.floatingpen"

@@ -36,6 +36,7 @@
 - 悬浮工具栏排序、启用/停用和横向滚动
 - 设置修改后可实时同步到正在运行的悬浮层
 - 旋转、分屏和窄屏布局适配
+- 从 GitHub Releases 检查、下载并交给系统安装更新 APK
 
 ## 明确不做
 
@@ -45,7 +46,7 @@
 - 云同步、登录、分析统计
 - 无障碍服务、MediaProjection 或读取底层 App 内容
 - iOS/iPad 版本
-- 完全静默的后台安装更新
+- 完全静默的后台安装更新（Android 必须由用户确认安装）
 
 ## 构建环境
 
@@ -160,19 +161,31 @@ app/src/test/java/com/pxuzy/floatingpen/
 - 透明度、自动隐藏和位置恢复
 - 国产 ROM 的后台限制
 
-## 更新计划
+## 远程更新流程
 
-后续将使用 GitHub Releases 发布签名 APK，并加入 App 内更新检查：
+项目不在 Android 设备上执行 `git pull`，而是使用 GitHub Releases 发布 APK：
 
 ```text
-git push / 创建版本标签
-  → GitHub Actions 测试并构建 APK
+git push / 创建 v0.2.0 标签
+  → GitHub Actions 拉取仓库、测试并构建 APK
   → GitHub Release 发布新版本
-  → App 检查 update.json
+  → App 检查 GitHub Releases
   → 下载 APK 并调用 Android 系统安装器
 ```
 
-普通 Android 设备在安装更新时仍需要用户确认，这是系统安全限制。
+普通 Android 设备在安装更新时仍需要用户确认，这是系统安全限制。当前 Actions 使用 Debug APK，适合个人侧载验证；正式公开发布前应把工作流切换为 GitHub Secrets 注入的 release keystore，不能用 Debug 签名覆盖正式包。
+
+发布示例：
+
+```bash
+git add .
+git commit -m "feat(update): 接入 GitHub Releases 远程更新"
+git push origin main
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+App 内入口：`设置 → 软件更新 → 检查远程更新`。更新地址固定为 `Pxuzy/float-ink`，只接受 Release 中的 `.apk` 资产。
 
 ## 开发规范
 

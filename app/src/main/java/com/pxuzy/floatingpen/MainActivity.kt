@@ -1,8 +1,11 @@
 package com.pxuzy.floatingpen
 
 import android.app.AlertDialog
+import android.app.DownloadManager
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -33,6 +36,18 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 
 class MainActivity : ComponentActivity() {
+    private val updateManager by lazy { AppUpdateManager(this) }
+    private val downloadReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == DownloadManager.ACTION_DOWNLOAD_COMPLETE &&
+                intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L) == AppUpdateManager.savedDownloadId(this@MainActivity)
+            ) {
+                if (!updateManager.installCompletedDownload(AppUpdateManager.savedDownloadId(this@MainActivity))) {
+                    Toast.makeText(this@MainActivity, "更新下载失败，请稍后重试", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
     private lateinit var pageContainer: FrameLayout
     private lateinit var statusIcon: ImageView
     private lateinit var statusText: TextView
@@ -73,6 +88,12 @@ class MainActivity : ComponentActivity() {
         }
         setContentView(buildUi())
         showPage("home")
+        ContextCompat.registerReceiver(this, downloadReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE), ContextCompat.RECEIVER_NOT_EXPORTED)
+    }
+
+    override fun onDestroy() {
+        unregisterReceiver(downloadReceiver)
+        super.onDestroy()
     }
 
     private fun buildUi(): View {
@@ -554,6 +575,20 @@ class MainActivity : ComponentActivity() {
             tag = "settings-live-copy"
             text = "修改会立即应用到当前悬浮球"; textSize = 12f; setTextColor(Color.parseColor("#7F8A99"))
         })
+        addView(sectionTitle("软件更新").apply { tag = "settings-update-section" })
+        addView(TextView(this@MainActivity).apply {
+            tag = "settings-update-status"
+            text = "当前版本：${BuildConfig.VERSION_NAME}"
+            textSize = 12f
+            setTextColor(Color.parseColor("#91A0B2"))
+        })
+        addView(Button(this@MainActivity).apply {
+            tag = "settings-check-update"
+            text = "检查远程更新"
+            isAllCaps = false
+            minHeight = 48.dp
+            setOnClickListener { checkForUpdate() }
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 48.dp).apply { topMargin = 8.dp })
         addView(sectionTitle("悬浮工具栏").apply { tag = "toolbar-layout-section" })
         addView(TextView(this@MainActivity).apply {
             tag = "toolbar-layout-help"
@@ -577,6 +612,36 @@ class MainActivity : ComponentActivity() {
         startService(Intent(this, OverlayService::class.java).apply {
             action = OverlayService.ACTION_SETTINGS_CHANGED
         })
+    }
+
+    private fun checkForUpdate() {
+        val status = pageContainer.findViewWithTag<TextView>("settings-update-status")
+        val button = pageContainer.findViewWithTag<Button>("settings-check-update")
+        status?.text = "正在检查 GitHub Releases…"
+        button?.isEnabled = false
+        updateManager.check { result ->
+            button?.isEnabled = true
+            result.onSuccess { update ->
+                if (update == null) {
+                    status?.text = "当前已是最新版本：${BuildConfig.VERSION_NAME}"
+                    Toast.makeText(this, "当前已是最新版本", Toast.LENGTH_SHORT).show()
+                } else {
+                    status?.text = "发现新版本：${update.version}"
+                    AlertDialog.Builder(this)
+                        .setTitle("发现浮墨新版本")
+                        .setMessage("${BuildConfig.VERSION_NAME} → ${update.version}\n将从 GitHub Releases 下载 APK，随后由系统确认安装。")
+                        .setPositiveButton("下载更新") { _, _ ->
+                            updateManager.downloadAndInstall(update)
+                            status?.text = "正在下载 ${update.version}…"
+                        }
+                        .setNegativeButton("取消", null)
+                        .show()
+                }
+            }.onFailure { error ->
+                status?.text = "检查失败：${error.localizedMessage ?: "网络不可用"}"
+                Toast.makeText(this, "检查更新失败，请确认网络连接", Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     private fun userSeek(onChange: (Int) -> Unit) = object : SeekBar.OnSeekBarChangeListener {
