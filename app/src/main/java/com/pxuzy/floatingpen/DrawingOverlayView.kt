@@ -9,6 +9,7 @@ import android.os.Build
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.WindowManager
 import android.widget.EditText
 import android.text.InputType
 import android.widget.FrameLayout
@@ -683,12 +684,32 @@ class DrawingOverlayView(
             setTextColor(Color.parseColor("#91A0B2"))
         }, LinearLayout.LayoutParams(220.dp, 28.dp))
         drawingSession.currentBoard.layers.forEach { layer ->
-            panel.addView(TextView(context).apply {
+            val layerRow = LinearLayout(context).apply {
                 tag = "layer:${layer.id}"
-                text = if (layer.id == drawingSession.currentLayer.id) "● ${layer.name}" else "○ ${layer.name}"
-                textSize = 13f
-                setTextColor(if (layer.visible) Color.WHITE else Color.parseColor("#718096"))
+                orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
+                setPadding(6.dp, 0, 6.dp, 0)
+                val markerColor = layer.elements.lastOrNull()?.drawColor ?: currentColor
+                addView(View(context).apply {
+                    tag = "layer-color:${layer.id}"
+                    background = GradientDrawable().apply {
+                        shape = GradientDrawable.OVAL
+                        setColor(markerColor)
+                        setStroke(1.dpf.toInt(), Color.argb(150, 255, 255, 255))
+                    }
+                }, LinearLayout.LayoutParams(18.dp, 18.dp).apply { marginEnd = 8.dp })
+                addView(TextView(context).apply {
+                    text = if (layer.id == drawingSession.currentLayer.id) "${layer.name}（当前）" else layer.name
+                    textSize = 13f
+                    setTextColor(if (layer.visible) Color.WHITE else Color.parseColor("#718096"))
+                    gravity = Gravity.CENTER_VERTICAL
+                    layoutParams = LinearLayout.LayoutParams(0, 36.dp, 1f)
+                })
+                addView(TextView(context).apply {
+                    text = if (layer.visible) "显" else "隐"
+                    textSize = 11f
+                    setTextColor(Color.parseColor("#91A0B2"))
+                }, LinearLayout.LayoutParams(24.dp, 36.dp))
                 setOnClickListener {
                     discardActiveGesture(); drawingSession.selectLayer(layer.id)
                     elements = drawingSession.currentLayer.elements
@@ -699,7 +720,8 @@ class DrawingOverlayView(
                     rebuildCanvasPanel()
                     true
                 }
-            }, LinearLayout.LayoutParams(220.dp, 36.dp))
+            }
+            panel.addView(layerRow)
         }
         panel.addView(canvasActionRow("board", "新建画板") { drawingSession.createBoard(); rebuildCanvasPanel() })
         panel.addView(canvasActionRow("layer", "新建图层") { drawingSession.createLayer(); elements = drawingSession.currentLayer.elements; rebuildCanvasPanel() })
@@ -734,7 +756,7 @@ class DrawingOverlayView(
     private fun renameCanvasTarget(layer: Boolean) {
         val target = if (layer) drawingSession.currentLayer.name else drawingSession.currentBoard.name
         val input = EditText(context).apply { setText(target); selectAll() }
-        AlertDialog.Builder(context)
+        val dialog = AlertDialog.Builder(context)
             .setTitle(if (layer) "重命名图层" else "重命名画板")
             .setView(input)
             .setNegativeButton("取消", null)
@@ -743,12 +765,14 @@ class DrawingOverlayView(
                 else drawingSession.renameBoard(drawingSession.currentBoard.id, input.text.toString())
                 rebuildCanvasPanel()
             }
-            .show()
+            .create()
+        dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+        dialog.show()
     }
 
     private fun confirmCanvasDelete(layer: Boolean) {
         val name = if (layer) drawingSession.currentLayer.name else drawingSession.currentBoard.name
-        AlertDialog.Builder(context)
+        val dialog = AlertDialog.Builder(context)
             .setTitle(if (layer) "删除图层" else "删除画板")
             .setMessage("确定删除“$name”吗？")
             .setNegativeButton("取消", null)
@@ -759,7 +783,9 @@ class DrawingOverlayView(
                 rebuildCanvasPanel()
                 canvasView.invalidate()
             }
-            .show()
+            .create()
+        dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+        dialog.show()
     }
 
     private fun toggleColorPanel() {
