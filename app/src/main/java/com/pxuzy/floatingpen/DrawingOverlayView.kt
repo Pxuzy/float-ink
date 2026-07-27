@@ -668,16 +668,25 @@ class DrawingOverlayView(
             text = "画板 / 图层"; textSize = 13f; setTextColor(Color.WHITE)
         }, LinearLayout.LayoutParams(220.dp, 30.dp))
         drawingSession.boards.forEach { board ->
-            panel.addView(TextView(context).apply {
+            val boardRow = LinearLayout(context).apply {
                 tag = "board:${board.id}"
-                text = if (board.id == drawingSession.currentBoard.id) "● ${board.name}" else "○ ${board.name}"
-                textSize = 13f; setTextColor(Color.WHITE); gravity = Gravity.CENTER_VERTICAL
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                addView(ToolIconView(context, "canvas").apply {
+                    layoutParams = LinearLayout.LayoutParams(28.dp, 28.dp).apply { marginEnd = 8.dp }
+                })
+                addView(TextView(context).apply {
+                    text = if (board.id == drawingSession.currentBoard.id) "${board.name}（当前）" else board.name
+                    textSize = 13f; setTextColor(Color.WHITE); gravity = Gravity.CENTER_VERTICAL
+                    layoutParams = LinearLayout.LayoutParams(0, 36.dp, 1f)
+                })
                 setOnClickListener {
                     discardActiveGesture(); drawingSession.selectBoard(board.id)
                     elements = drawingSession.currentLayer.elements
                     removeView(panel); canvasPanel = null; canvasView.invalidate()
                 }
-            }, LinearLayout.LayoutParams(220.dp, 36.dp))
+            }
+            panel.addView(boardRow)
         }
         panel.addView(TextView(context).apply {
             text = "图层：${drawingSession.currentBoard.name}"; textSize = 12f
@@ -698,6 +707,9 @@ class DrawingOverlayView(
                         setStroke(1.dpf.toInt(), Color.argb(150, 255, 255, 255))
                     }
                 }, LinearLayout.LayoutParams(18.dp, 18.dp).apply { marginEnd = 8.dp })
+                addView(ToolIconView(context, "layer").apply {
+                    layoutParams = LinearLayout.LayoutParams(28.dp, 28.dp).apply { marginEnd = 6.dp }
+                })
                 addView(TextView(context).apply {
                     text = if (layer.id == drawingSession.currentLayer.id) "${layer.name}（当前）" else layer.name
                     textSize = 13f
@@ -1007,6 +1019,16 @@ class DrawingOverlayView(
                     canvas.drawCircle(cx, cy, r * 0.18f, paint)
                     canvas.drawCircle(cx + r * 0.7f, cy, r * 0.18f, paint)
                     paint.style = oldStyle
+                }
+                "canvas" -> {
+                    canvas.drawRect(cx - r, cy - r * 0.7f, cx + r, cy + r * 0.7f, paint)
+                    canvas.drawLine(cx - r * 0.65f, cy - r * 0.25f, cx + r * 0.65f, cy - r * 0.25f, paint)
+                    canvas.drawLine(cx - r * 0.65f, cy + r * 0.25f, cx + r * 0.65f, cy + r * 0.25f, paint)
+                }
+                "layer" -> {
+                    canvas.drawRoundRect(cx - r, cy - r * 0.55f, cx + r, cy + r * 0.05f, r * 0.12f, r * 0.12f, paint)
+                    canvas.drawRoundRect(cx - r * 0.75f, cy - r * 0.05f, cx + r * 0.75f, cy + r * 0.5f, r * 0.12f, r * 0.12f, paint)
+                    canvas.drawRoundRect(cx - r * 0.5f, cy + r * 0.45f, cx + r * 0.5f, cy + r, r * 0.12f, r * 0.12f, paint)
                 }
                 "undo" -> {
                     arcBounds.set(cx - r, cy - r, cx + r, cy + r)
