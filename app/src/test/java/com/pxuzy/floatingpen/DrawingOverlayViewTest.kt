@@ -240,6 +240,11 @@ class DrawingOverlayViewTest {
         assertEquals(280.dp, colorPanel.layoutParams.width)
         assertTrue(colorPanel.layoutParams.width <= 304.dp)
         assertTrue(controls.layoutParams.width <= 260.dp)
+        assertNotNull(view.findByTag("rgb-r"))
+        assertNotNull(view.findByTag("rgb-g"))
+        assertNotNull(view.findByTag("rgb-b"))
+        assertNotNull(view.findByTag("cancel-custom-color"))
+        assertNotNull(view.findByTag("save-custom-color"))
     }
 
     @Test
