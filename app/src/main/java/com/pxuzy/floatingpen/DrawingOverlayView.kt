@@ -706,11 +706,12 @@ class DrawingOverlayView(
         }
         drawingSession.boards.forEach { board ->
             val boardRow = LinearLayout(context).apply {
-                tag = "board:${board.id}"
+                tag = if (board.id == drawingSession.currentBoard.id) "board-selected:${board.id}" else "board:${board.id}"
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(6.dp, 0, 2.dp, 0)
-                addView(ToolIconView(context, "canvas").apply {
+                background = canvasRowBackground(board.id == drawingSession.currentBoard.id)
+                addView(FloatInkIconView(context, "canvas").apply {
                     layoutParams = LinearLayout.LayoutParams(28.dp, 28.dp).apply { marginEnd = 8.dp }
                 })
                 addView(TextView(context).apply {
@@ -751,7 +752,8 @@ class DrawingOverlayView(
                         setStroke(1.dpf.toInt(), Color.argb(150, 255, 255, 255))
                     }
                 }, LinearLayout.LayoutParams(18.dp, 18.dp).apply { marginEnd = 8.dp })
-                addView(ToolIconView(context, "layer").apply {
+                background = canvasRowBackground(layer.id == drawingSession.currentLayer.id)
+                addView(FloatInkIconView(context, "layer").apply {
                     layoutParams = LinearLayout.LayoutParams(28.dp, 28.dp).apply { marginEnd = 6.dp }
                 })
                 addView(TextView(context).apply {
@@ -767,13 +769,15 @@ class DrawingOverlayView(
                     gravity = Gravity.CENTER_VERTICAL
                     layoutParams = LinearLayout.LayoutParams(0, 40.dp, 1f)
                 })
-                addView(TextView(context).apply {
-                    text = if (layer.visible) "显" else "隐"
-                    textSize = 11f
-                    setTextColor(Color.parseColor("#91A0B2"))
-                    gravity = Gravity.CENTER
+                addView(FloatInkIconView(context, if (layer.visible) "eye" else "eye-off").apply {
+                    tag = "layer-visibility:${layer.id}"
                     contentDescription = if (layer.visible) "图层可见" else "图层隐藏"
-                    layoutParams = LinearLayout.LayoutParams(24.dp, 40.dp)
+                    layoutParams = LinearLayout.LayoutParams(36.dp, 40.dp)
+                    setIconColor(Color.parseColor("#B7C0CC"))
+                    setOnClickListener {
+                        drawingSession.setLayerVisible(layer.id, !layer.visible)
+                        rebuildCanvasPanel(); canvasView.invalidate()
+                    }
                 })
                 addView(canvasOverflowButton("canvas-menu-layer:${layer.id}") {
                     showCanvasTargetMenu(true, layer.id)
@@ -816,12 +820,8 @@ class DrawingOverlayView(
                 gravity = Gravity.CENTER_VERTICAL
                 layoutParams = LinearLayout.LayoutParams(0, 36.dp, 1f)
             })
-            addView(TextView(context).apply {
+            addView(FloatInkIconView(context, "add").apply {
                 tag = addTag
-                text = "＋"
-                textSize = 22f
-                setTextColor(Color.WHITE)
-                gravity = Gravity.CENTER
                 contentDescription = if (addTag == "canvas-add-board") "新建画板" else "新建图层"
                 background = GradientDrawable().apply {
                     setColor(Color.argb(42, 255, 255, 255))
@@ -832,17 +832,20 @@ class DrawingOverlayView(
             })
         }
 
-    private fun canvasOverflowButton(buttonTag: String, onClick: () -> Unit): TextView =
-        TextView(context).apply {
+    private fun canvasOverflowButton(buttonTag: String, onClick: () -> Unit): View =
+        FloatInkIconView(context, "more").apply {
             tag = buttonTag
-            text = "⋮"
-            textSize = 22f
-            setTextColor(Color.parseColor("#D2D8E0"))
-            gravity = Gravity.CENTER
             contentDescription = "更多操作"
+            setIconColor(Color.parseColor("#D2D8E0"))
             layoutParams = LinearLayout.LayoutParams(36.dp, 40.dp)
             setOnClickListener { onClick() }
         }
+
+    private fun canvasRowBackground(selected: Boolean): GradientDrawable = GradientDrawable().apply {
+        setColor(if (selected) Color.argb(40, 255, 255, 255) else Color.TRANSPARENT)
+        cornerRadius = 8.dpf
+        if (selected) setStroke(1.dpf.toInt(), Color.argb(92, 255, 255, 255))
+    }
 
     private fun rebuildCanvasPanel() {
         canvasPanel?.let { toolbarPopupHost.removeView(it) }
