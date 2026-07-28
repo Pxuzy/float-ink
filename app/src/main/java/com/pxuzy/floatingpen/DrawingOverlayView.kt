@@ -582,10 +582,6 @@ class DrawingOverlayView(
 
     private fun positionPopupAboveToolbar(popup: View) {
         val toolbar = toolbarPopupHost.findViewWithTag<View>("monochrome-toolbar") ?: return
-        val toolbarParams = toolbar.layoutParams as? FrameLayout.LayoutParams ?: return
-        val toolbarHeight = toolbar.height.takeIf { it > 0 }
-            ?: toolbar.measuredHeight.takeIf { it > 0 }
-            ?: 112.dp
         val navigationInset = if (Build.VERSION.SDK_INT >= 30) {
             rootWindowInsets?.getInsets(android.view.WindowInsets.Type.navigationBars())?.bottom ?: 0
         } else {
@@ -594,33 +590,55 @@ class DrawingOverlayView(
         val fallbackWidth = (windowWidthDp * density).toInt()
         val hostWidth = toolbarPopupHost.width.takeIf { it > 0 } ?: width.takeIf { it > 0 } ?: fallbackWidth
         val hostHeight = toolbarPopupHost.height.takeIf { it > 0 } ?: height
+        val gap = 8.dp
         val availableWidth = (hostWidth - 16.dp).coerceAtLeast(1)
+        val availableHeight = (hostHeight - gap * 2 - navigationInset).coerceAtLeast(1)
         val params = (popup.layoutParams as? FrameLayout.LayoutParams)
             ?: FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT)
-        if (params.width <= 0) {
-            if (popup.measuredWidth == 0) {
-                val desiredWidth = if (popup.tag == "color-panel") COLOR_PANEL_COMPACT_WIDTH_DP.dp else 220.dp
-                params.width = desiredWidth.coerceAtMost(availableWidth)
-            } else if (popup.measuredWidth > availableWidth) {
-                params.width = availableWidth
-            }
-        } else if (params.width > availableWidth) {
-            params.width = availableWidth
-        }
-        val popupHeight = popup.height.takeIf { it > 0 }
-            ?: popup.measuredHeight.takeIf { it > 0 }
-            ?: if (popup.tag == "color-panel") 180.dp else 80.dp
-        val gap = 8.dp
-        val topAbove = toolbar.top - popupHeight - gap
-        val maxTop = (hostHeight - popupHeight - gap).coerceAtLeast(gap)
-        val canPlaceAbove = toolbar.top > 0 && topAbove >= gap
-        if (canPlaceAbove) {
-            params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            params.topMargin = topAbove.coerceIn(gap, maxTop)
-            params.bottomMargin = 0
+
+        // Measure against the actual host before calculating the anchor point.
+        // Estimating a fixed height here is what allowed the action area to be
+        // positioned outside the visible overlay on small/rotated windows.
+        val widthSpec = if (params.width > 0) {
+            View.MeasureSpec.makeMeasureSpec(params.width.coerceAtMost(availableWidth), View.MeasureSpec.EXACTLY)
         } else {
-            params.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            params.bottomMargin = toolbarHeight + toolbarParams.bottomMargin + navigationInset + 8.dp
+            View.MeasureSpec.makeMeasureSpec(availableWidth, View.MeasureSpec.AT_MOST)
+        }
+        popup.measure(
+            widthSpec,
+            View.MeasureSpec.makeMeasureSpec(availableHeight, View.MeasureSpec.AT_MOST),
+        )
+        val measuredWidth = popup.measuredWidth.coerceIn(1, availableWidth)
+        val measuredHeight = popup.measuredHeight.coerceIn(1, availableHeight)
+        params.width = measuredWidth
+        params.height = measuredHeight
+
+        val toolbarTop = toolbar.top
+        val toolbarBottom = toolbar.bottom.takeIf { it > toolbarTop }
+            ?: (toolbarTop + (toolbar.measuredHeight.takeIf { it > 0 } ?: 56.dp))
+        val aboveTop = toolbarTop - measuredHeight - gap
+        val belowTop = toolbarBottom + gap
+        val maxTop = (hostHeight - measuredHeight - gap - navigationInset).coerceAtLeast(gap)
+        val placeAbove = toolbarTop >= gap && aboveTop >= gap
+        val placeBelow = belowTop <= maxTop
+        when {
+            placeAbove -> {
+                params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                params.topMargin = aboveTop.coerceIn(gap, maxTop)
+                params.bottomMargin = 0
+            }
+            placeBelow -> {
+                params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                params.topMargin = belowTop.coerceIn(gap, maxTop)
+                params.bottomMargin = 0
+            }
+            else -> {
+                // If neither side has enough room, keep the panel inside the
+                // safe rectangle and let its internal ScrollView handle it.
+                params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                params.topMargin = aboveTop.coerceIn(gap, maxTop)
+                params.bottomMargin = 0
+            }
         }
         popup.layoutParams = params
     }
@@ -678,9 +696,11 @@ class DrawingOverlayView(
                 setStroke(1.dpf.toInt(), Color.argb(82, 255, 255, 255))
             }
         }
-        panel.addView(TextView(context).apply {
-            text = "画板 / 图层"; textSize = 13f; setTextColor(Color.WHITE)
-        }, LinearLayout.LayoutParams(220.dp, 30.dp))
+        panel.addView(canvasSectionHeader("画板", "canvas-add-board") {
+            drawingSession.createBoard()
+            elements = drawingSession.currentLayer.elements
+            rebuildCanvasPanel()
+        })
         val listContent = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
         }
@@ -689,13 +709,19 @@ class DrawingOverlayView(
                 tag = "board:${board.id}"
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
+                setPadding(6.dp, 0, 2.dp, 0)
                 addView(ToolIconView(context, "canvas").apply {
                     layoutParams = LinearLayout.LayoutParams(28.dp, 28.dp).apply { marginEnd = 8.dp }
                 })
                 addView(TextView(context).apply {
-                    text = if (board.id == drawingSession.currentBoard.id) "${board.name}（当前）" else board.name
-                    textSize = 13f; setTextColor(Color.WHITE); gravity = Gravity.CENTER_VERTICAL
-                    layoutParams = LinearLayout.LayoutParams(0, 36.dp, 1f)
+                    text = board.name
+                    textSize = 13f
+                    setTextColor(if (board.id == drawingSession.currentBoard.id) Color.WHITE else Color.parseColor("#D2D8E0"))
+                    gravity = Gravity.CENTER_VERTICAL
+                    layoutParams = LinearLayout.LayoutParams(0, 40.dp, 1f)
+                })
+                addView(canvasOverflowButton("canvas-menu-board:${board.id}") {
+                    showCanvasTargetMenu(false, board.id)
                 })
                 setOnClickListener {
                     discardActiveGesture(); drawingSession.selectBoard(board.id)
@@ -705,16 +731,17 @@ class DrawingOverlayView(
             }
             listContent.addView(boardRow)
         }
-        listContent.addView(TextView(context).apply {
-            text = "图层：${drawingSession.currentBoard.name}"; textSize = 12f
-            setTextColor(Color.parseColor("#91A0B2"))
-        }, LinearLayout.LayoutParams(220.dp, 28.dp))
+        listContent.addView(canvasSectionHeader("图层 · ${drawingSession.currentBoard.name}", "canvas-add-layer") {
+            drawingSession.createLayer()
+            elements = drawingSession.currentLayer.elements
+            rebuildCanvasPanel()
+        })
         drawingSession.currentBoard.layers.forEach { layer ->
             val layerRow = LinearLayout(context).apply {
                 tag = "layer:${layer.id}"
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(6.dp, 0, 6.dp, 0)
+                setPadding(6.dp, 0, 2.dp, 0)
                 val markerColor = layer.elements.lastOrNull()?.drawColor ?: currentColor
                 addView(View(context).apply {
                     tag = "layer-color:${layer.id}"
@@ -728,17 +755,29 @@ class DrawingOverlayView(
                     layoutParams = LinearLayout.LayoutParams(28.dp, 28.dp).apply { marginEnd = 6.dp }
                 })
                 addView(TextView(context).apply {
-                    text = if (layer.id == drawingSession.currentLayer.id) "${layer.name}（当前）" else layer.name
+                    text = layer.name
                     textSize = 13f
-                    setTextColor(if (layer.visible) Color.WHITE else Color.parseColor("#718096"))
+                    setTextColor(
+                        when {
+                            layer.id == drawingSession.currentLayer.id -> Color.WHITE
+                            layer.visible -> Color.parseColor("#D2D8E0")
+                            else -> Color.parseColor("#718096")
+                        },
+                    )
                     gravity = Gravity.CENTER_VERTICAL
-                    layoutParams = LinearLayout.LayoutParams(0, 36.dp, 1f)
+                    layoutParams = LinearLayout.LayoutParams(0, 40.dp, 1f)
                 })
                 addView(TextView(context).apply {
                     text = if (layer.visible) "显" else "隐"
                     textSize = 11f
                     setTextColor(Color.parseColor("#91A0B2"))
-                }, LinearLayout.LayoutParams(24.dp, 36.dp))
+                    gravity = Gravity.CENTER
+                    contentDescription = if (layer.visible) "图层可见" else "图层隐藏"
+                    layoutParams = LinearLayout.LayoutParams(24.dp, 40.dp)
+                })
+                addView(canvasOverflowButton("canvas-menu-layer:${layer.id}") {
+                    showCanvasTargetMenu(true, layer.id)
+                })
                 setOnClickListener {
                     discardActiveGesture(); drawingSession.selectLayer(layer.id)
                     elements = drawingSession.currentLayer.elements
@@ -753,51 +792,56 @@ class DrawingOverlayView(
             listContent.addView(layerRow)
         }
         val maxPanelHeight = ((resources.configuration.screenHeightDp.takeIf { it > 0 } ?: 640) * 0.55f).toInt().dp
-        val listHeight = (maxPanelHeight - 142.dp).coerceIn(72.dp, 240.dp)
+        val listHeight = (maxPanelHeight - 92.dp).coerceIn(96.dp, 280.dp)
         panel.addView(ScrollView(context).apply {
             tag = "canvas-list-scroll"
             isVerticalScrollBarEnabled = true
             addView(listContent, FrameLayout.LayoutParams(220.dp, FrameLayout.LayoutParams.WRAP_CONTENT))
         }, LinearLayout.LayoutParams(220.dp, listHeight))
-        val actions = LinearLayout(context).apply {
-            tag = "canvas-actions"
-            orientation = LinearLayout.VERTICAL
-            addView(canvasActionPair(
-                canvasActionRow("board", "新建画板") { drawingSession.createBoard(); rebuildCanvasPanel() },
-                canvasActionRow("layer", "新建图层") { drawingSession.createLayer(); elements = drawingSession.currentLayer.elements; rebuildCanvasPanel() },
-            ))
-            addView(canvasActionPair(
-                canvasActionRow("rename-board", "改名画板") { renameCanvasTarget(false) },
-                canvasActionRow("rename-layer", "改名图层") { renameCanvasTarget(true) },
-            ))
-            addView(canvasActionPair(
-                canvasActionRow("delete-board", "删除画板") { confirmCanvasDelete(false) },
-                canvasActionRow("delete-layer", "删除图层") { confirmCanvasDelete(true) },
-            ))
-        }
-        panel.addView(actions)
         canvasPanel = panel
         toolbarPopupHost.addView(panel)
         positionPopupAboveToolbar(panel)
         panel.post { positionPopupAboveToolbar(panel) }
     }
 
-    private fun canvasActionPair(left: View, right: View): View = LinearLayout(context).apply {
-        orientation = LinearLayout.HORIZONTAL
-        addView(left)
-        addView(right)
-    }
-
-    private fun canvasActionRow(tagValue: String, label: String, action: () -> Unit): TextView =
-        TextView(context).apply {
-            tag = "canvas-action:$tagValue"
-            text = label
-            textSize = 12f
-            setTextColor(Color.WHITE)
+    private fun canvasSectionHeader(title: String, addTag: String, onAdd: () -> Unit): View =
+        LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(6.dp, 0, 6.dp, 0)
-            setOnClickListener { action() }
-            layoutParams = LinearLayout.LayoutParams(110.dp, 34.dp)
+            setPadding(6.dp, 0, 0, 0)
+            addView(TextView(context).apply {
+                text = title
+                textSize = 12f
+                setTextColor(Color.parseColor("#91A0B2"))
+                gravity = Gravity.CENTER_VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, 36.dp, 1f)
+            })
+            addView(TextView(context).apply {
+                tag = addTag
+                text = "＋"
+                textSize = 22f
+                setTextColor(Color.WHITE)
+                gravity = Gravity.CENTER
+                contentDescription = if (addTag == "canvas-add-board") "新建画板" else "新建图层"
+                background = GradientDrawable().apply {
+                    setColor(Color.argb(42, 255, 255, 255))
+                    cornerRadius = 6.dpf
+                }
+                layoutParams = LinearLayout.LayoutParams(36.dp, 32.dp).apply { marginEnd = 2.dp }
+                setOnClickListener { onAdd() }
+            })
+        }
+
+    private fun canvasOverflowButton(buttonTag: String, onClick: () -> Unit): TextView =
+        TextView(context).apply {
+            tag = buttonTag
+            text = "⋮"
+            textSize = 22f
+            setTextColor(Color.parseColor("#D2D8E0"))
+            gravity = Gravity.CENTER
+            contentDescription = "更多操作"
+            layoutParams = LinearLayout.LayoutParams(36.dp, 40.dp)
+            setOnClickListener { onClick() }
         }
 
     private fun rebuildCanvasPanel() {
@@ -806,16 +850,58 @@ class DrawingOverlayView(
         toggleCanvasPanel()
     }
 
-    private fun renameCanvasTarget(layer: Boolean) {
-        val target = if (layer) drawingSession.currentLayer.name else drawingSession.currentBoard.name
+    private fun showCanvasTargetMenu(layer: Boolean, targetId: String) {
+        val title = if (layer) "图层操作" else "画板操作"
+        val targetName = if (layer) {
+            drawingSession.currentBoard.layers.firstOrNull { it.id == targetId }?.name
+        } else {
+            drawingSession.boards.firstOrNull { it.id == targetId }?.name
+        } ?: return
+        val items = if (layer) {
+            arrayOf(if (drawingSession.currentBoard.layers.first { it.id == targetId }.visible) "隐藏图层" else "显示图层", "重命名", "删除图层")
+        } else {
+            arrayOf("重命名", "删除画板")
+        }
+        val dialog = AlertDialog.Builder(context)
+            .setTitle(targetName)
+            .setItems(items) { _, which ->
+                if (layer) {
+                    when (which) {
+                        0 -> {
+                            val current = drawingSession.currentBoard.layers.first { it.id == targetId }
+                            drawingSession.setLayerVisible(targetId, !current.visible)
+                            rebuildCanvasPanel()
+                        }
+                        1 -> renameCanvasTarget(true, targetId)
+                        2 -> confirmCanvasDelete(true, targetId)
+                    }
+                } else {
+                    when (which) {
+                        0 -> renameCanvasTarget(false, targetId)
+                        1 -> confirmCanvasDelete(false, targetId)
+                    }
+                }
+            }
+            .setNegativeButton("取消", null)
+            .create()
+        dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+        dialog.show()
+    }
+
+    private fun renameCanvasTarget(layer: Boolean, targetId: String) {
+        val target = if (layer) {
+            drawingSession.currentBoard.layers.firstOrNull { it.id == targetId }?.name
+        } else {
+            drawingSession.boards.firstOrNull { it.id == targetId }?.name
+        } ?: return
         val input = EditText(context).apply { setText(target); selectAll() }
         val dialog = AlertDialog.Builder(context)
             .setTitle(if (layer) "重命名图层" else "重命名画板")
             .setView(input)
             .setNegativeButton("取消", null)
             .setPositiveButton("保存") { _, _ ->
-                if (layer) drawingSession.renameLayer(drawingSession.currentLayer.id, input.text.toString())
-                else drawingSession.renameBoard(drawingSession.currentBoard.id, input.text.toString())
+                if (layer) drawingSession.renameLayer(targetId, input.text.toString())
+                else drawingSession.renameBoard(targetId, input.text.toString())
                 rebuildCanvasPanel()
             }
             .create()
@@ -823,15 +909,19 @@ class DrawingOverlayView(
         dialog.show()
     }
 
-    private fun confirmCanvasDelete(layer: Boolean) {
-        val name = if (layer) drawingSession.currentLayer.name else drawingSession.currentBoard.name
+    private fun confirmCanvasDelete(layer: Boolean, targetId: String) {
+        val name = if (layer) {
+            drawingSession.currentBoard.layers.firstOrNull { it.id == targetId }?.name
+        } else {
+            drawingSession.boards.firstOrNull { it.id == targetId }?.name
+        } ?: return
         val dialog = AlertDialog.Builder(context)
             .setTitle(if (layer) "删除图层" else "删除画板")
             .setMessage("确定删除“$name”吗？")
             .setNegativeButton("取消", null)
             .setPositiveButton("删除") { _, _ ->
-                if (layer) drawingSession.deleteLayer(drawingSession.currentLayer.id)
-                else drawingSession.deleteBoard(drawingSession.currentBoard.id)
+                if (layer) drawingSession.deleteLayer(targetId)
+                else drawingSession.deleteBoard(targetId)
                 elements = drawingSession.currentLayer.elements
                 rebuildCanvasPanel()
                 canvasView.invalidate()

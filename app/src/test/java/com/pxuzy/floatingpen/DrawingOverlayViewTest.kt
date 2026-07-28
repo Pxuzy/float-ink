@@ -78,17 +78,18 @@ class DrawingOverlayViewTest {
         assertTrue("scroll height $scrollParams must be <= 240dp", scrollParams.height <= 240.dp)
         assertTrue("scroll height $scrollParams must be >= 72dp", scrollParams.height >= 72.dp)
 
-        // Contains separate actions area outside the scroll view
-        val actions = view.findByTag("canvas-actions") as LinearLayout
-        assertNotNull(actions)
-        assertEquals(LinearLayout.VERTICAL, actions.orientation)
-        assertTrue(panel === actions.parent)
+        // Creation is discoverable at the section headers, while destructive
+        // actions live in each row's overflow menu instead of below the list.
+        assertEquals("canvas-add-board", view.findByTag("canvas-add-board").tag)
+        assertEquals("canvas-add-layer", view.findByTag("canvas-add-layer").tag)
+        assertEquals("canvas-menu-board:${session.boards.first().id}", view.findByTag("canvas-menu-board:${session.boards.first().id}").tag)
+        assertEquals("canvas-menu-layer:${session.currentBoard.layers.first().id}", view.findByTag("canvas-menu-layer:${session.currentBoard.layers.first().id}").tag)
+        assertTrue(runCatching { view.findByTag("canvas-action:delete-board") }.isFailure)
 
-        // Action rows are 110dp (half of 220dp canvas panel width)
-        assertEquals(110.dp, (view.findByTag("canvas-action:board").layoutParams as LinearLayout.LayoutParams).width)
-        assertEquals(110.dp, (view.findByTag("canvas-action:layer").layoutParams as LinearLayout.LayoutParams).width)
-        assertEquals(110.dp, (view.findByTag("canvas-action:rename-board").layoutParams as LinearLayout.LayoutParams).width)
-        assertEquals(110.dp, (view.findByTag("canvas-action:delete-board").layoutParams as LinearLayout.LayoutParams).width)
+        val boardCount = session.boards.size
+        view.findByTag("canvas-add-board").performClick()
+        assertEquals(boardCount + 1, session.boards.size)
+        assertEquals("画板 ${boardCount + 1}", session.currentBoard.name)
 
         // Position is safe
         val params = panel.layoutParams as FrameLayout.LayoutParams
