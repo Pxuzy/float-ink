@@ -6,10 +6,12 @@ import android.view.ViewGroup
 import android.widget.SeekBar
 import android.widget.CheckBox
 import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -240,6 +242,20 @@ class MainActivityTest {
         root.findByTag("nav-pen").performClick()
         assertEquals(48.dp, root.findByTag("setting-tool:pen").layoutParams.height)
         assertEquals(48.dp, root.findByTag("tool-color:0").layoutParams.width)
+    }
+
+    @Test
+    fun `history section uses compact rows and secondary action bar`() {
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        root.findByTag("nav-settings").performClick()
+
+        assertNull(root.findByTagOrNull("history-location"))
+        val actions = root.findByTag("history-actions") as LinearLayout
+        assertEquals(LinearLayout.HORIZONTAL, actions.orientation)
+        assertTrue(root.findByTag("history-import") is LinearLayout)
+        assertTrue(root.findByTag("history-trash") is LinearLayout)
+        assertTrue(root.findByTag("history-empty-icon") is FloatInkIconView)
     }
 
     @Test

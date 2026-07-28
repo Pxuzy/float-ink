@@ -632,13 +632,29 @@ class MainActivity : ComponentActivity() {
             tag = "history-section"
             orientation = LinearLayout.VERTICAL
         }
-        section.addView(sectionTitle("历史画板").apply { tag = "history-section-title" })
-        section.addView(TextView(this).apply {
-            tag = "history-location"
-            text = "保存位置：${FloatInkStorage.rootDirectory(this@MainActivity).path}"
-            textSize = 12f
-            setTextColor(Color.parseColor("#91A0B2"))
-        })
+        section.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(FloatInkIconView(this@MainActivity, "history").apply {
+                contentDescription = "历史画板"
+            }, LinearLayout.LayoutParams(36.dp, 36.dp).apply { marginEnd = 8.dp })
+            addView(LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                addView(TextView(this@MainActivity).apply {
+                    tag = "history-section-title"
+                    text = "历史画板"
+                    textSize = 16f
+                    setTypeface(typeface, Typeface.BOLD)
+                    setTextColor(Color.WHITE)
+                })
+                addView(TextView(this@MainActivity).apply {
+                    tag = "history-section-summary"
+                    text = "打开最近会话，更多操作收在行尾菜单"
+                    textSize = 12f
+                    setTextColor(Color.parseColor("#91A0B2"))
+                })
+            }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 52.dp))
         val list = LinearLayout(this).apply {
             tag = "history-list"
             orientation = LinearLayout.VERTICAL
@@ -646,13 +662,27 @@ class MainActivity : ComponentActivity() {
         fun refresh() {
             list.removeAllViews()
             val entries = repository.list()
+            pageContainer.findViewWithTag<TextView>("history-section-summary")?.text =
+                if (entries.isEmpty()) "暂无已保存会话" else "${entries.size} 个已保存会话"
             if (entries.isEmpty()) {
-                list.addView(TextView(this).apply {
-                    tag = "history-empty"
-                    text = "暂无历史画板"
-                    textSize = 13f
-                    setTextColor(Color.parseColor("#91A0B2"))
-                    setPadding(0, 8.dp, 0, 8.dp)
+                list.addView(LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(12.dp, 8.dp, 12.dp, 8.dp)
+                    background = historyRowBackground()
+                    addView(FloatInkIconView(this@MainActivity, "canvas").apply {
+                        tag = "history-empty-icon"
+                        setIconColor(Color.parseColor("#718096"))
+                    }, LinearLayout.LayoutParams(40.dp, 48.dp).apply { marginEnd = 8.dp })
+                    addView(TextView(this@MainActivity).apply {
+                        tag = "history-empty"
+                        text = "暂无历史画板\n完成绘制后会自动出现在这里"
+                        textSize = 13f
+                        setTextColor(Color.parseColor("#91A0B2"))
+                        gravity = Gravity.CENTER_VERTICAL
+                    }, LinearLayout.LayoutParams(0, 64.dp, 1f))
+                }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                    bottomMargin = 8.dp
                 })
             }
             entries.forEach { entry ->
@@ -660,71 +690,141 @@ class MainActivity : ComponentActivity() {
                     tag = "history:${entry.sessionId}"
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
+                    setPadding(12.dp, 6.dp, 6.dp, 6.dp)
+                    background = historyRowBackground()
+                    setOnClickListener { openHistoryEntry(entry) }
                 }
-                row.addView(TextView(this).apply {
-                    text = entry.name
-                    textSize = 14f
-                    setTextColor(Color.WHITE)
-                    layoutParams = LinearLayout.LayoutParams(0, 48.dp, 1f)
+                row.addView(FloatInkIconView(this, "canvas").apply {
+                    contentDescription = "历史画板"
+                }, LinearLayout.LayoutParams(38.dp, 52.dp).apply { marginEnd = 8.dp })
+                row.addView(LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    addView(TextView(this@MainActivity).apply {
+                        text = entry.name
+                        textSize = 14f
+                        setTypeface(typeface, Typeface.BOLD)
+                        setTextColor(Color.WHITE)
+                        maxLines = 1
+                    })
+                    addView(TextView(this@MainActivity).apply {
+                        text = historyEntryMeta(entry)
+                        textSize = 11f
+                        setTextColor(Color.parseColor("#91A0B2"))
+                        maxLines = 1
+                    })
+                }, LinearLayout.LayoutParams(0, 56.dp, 1f))
+                row.addView(FloatInkIconView(this, "more").apply {
+                    tag = "history-menu:${entry.sessionId}"
+                    contentDescription = "${entry.name}更多操作"
+                    setIconColor(Color.parseColor("#D2D8E0"))
+                    setOnClickListener { showHistoryEntryMenu(repository, entry, ::refresh) }
+                }, LinearLayout.LayoutParams(42.dp, 48.dp))
+                list.addView(row, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                    bottomMargin = 8.dp
                 })
-                row.addView(Button(this).apply {
-                    text = "打开"; isAllCaps = false; minHeight = 40.dp
-                    setOnClickListener {
-                        if (!isOverlayServiceRunning()) {
-                            Toast.makeText(this@MainActivity, "请先启动悬浮服务", Toast.LENGTH_SHORT).show()
-                        } else {
-                            startService(Intent(this@MainActivity, OverlayService::class.java).apply {
-                                action = OverlayService.ACTION_LOAD_SESSION
-                                putExtra(OverlayService.EXTRA_SESSION_FILE, entry.file.absolutePath)
-                            })
-                        }
-                    }
-                })
-                row.addView(Button(this).apply {
-                    text = "改名"; isAllCaps = false; minHeight = 40.dp
-                    setOnClickListener {
-                        val input = EditText(this@MainActivity).apply { setText(entry.name); selectAll() }
-                        AlertDialog.Builder(this@MainActivity)
+            }
+        }
+        section.addView(list)
+        refresh()
+        section.addView(LinearLayout(this).apply {
+            tag = "history-actions"
+            orientation = LinearLayout.HORIZONTAL
+            addView(historyAction("history-import", "import", "导入会话") {
+                historyFilePickerLauncher.launch("application/octet-stream")
+            })
+            addView(historyAction("history-trash", "trash", "回收站") {
+                showHistoryTrashDialog(repository)
+            })
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 52.dp).apply { topMargin = 2.dp })
+        return section
+    }
+
+    private fun openHistoryEntry(entry: FloatInkHistoryEntry) {
+        if (!isOverlayServiceRunning()) {
+            Toast.makeText(this, "请先启动悬浮服务", Toast.LENGTH_SHORT).show()
+            return
+        }
+        startService(Intent(this, OverlayService::class.java).apply {
+            action = OverlayService.ACTION_LOAD_SESSION
+            putExtra(OverlayService.EXTRA_SESSION_FILE, entry.file.absolutePath)
+        })
+    }
+
+    private fun showHistoryEntryMenu(
+        repository: FloatInkHistoryRepository,
+        entry: FloatInkHistoryEntry,
+        refresh: () -> Unit,
+    ) {
+        AlertDialog.Builder(this)
+            .setTitle(entry.name)
+            .setItems(arrayOf("重命名", "复制", "删除")) { _, which ->
+                when (which) {
+                    0 -> {
+                        val input = EditText(this).apply { setText(entry.name); selectAll() }
+                        AlertDialog.Builder(this)
                             .setTitle("重命名历史会话")
                             .setView(input)
                             .setNegativeButton("取消", null)
                             .setPositiveButton("保存") { _, _ -> repository.rename(entry.sessionId, input.text.toString()); refresh() }
                             .show()
                     }
-                })
-                row.addView(Button(this).apply {
-                    text = "复制"; isAllCaps = false; minHeight = 40.dp
-                    setOnClickListener { repository.copy(entry.sessionId); refresh() }
-                })
-                row.addView(Button(this).apply {
-                    text = "删"; isAllCaps = false; minHeight = 40.dp
-                    setOnClickListener {
-                        AlertDialog.Builder(this@MainActivity)
-                            .setTitle("删除历史会话")
-                            .setMessage("会话将移动到回收站。")
-                            .setNegativeButton("取消", null)
-                            .setPositiveButton("删除") { _, _ -> repository.delete(entry.sessionId); refresh() }
-                            .show()
-                    }
-                })
-                list.addView(row)
+                    1 -> { repository.copy(entry.sessionId); refresh() }
+                    2 -> AlertDialog.Builder(this)
+                        .setTitle("删除历史会话")
+                        .setMessage("会话将移动到回收站。")
+                        .setNegativeButton("取消", null)
+                        .setPositiveButton("删除") { _, _ -> repository.delete(entry.sessionId); refresh() }
+                        .show()
+                }
             }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    private fun historyAction(tagValue: String, icon: String, label: String, action: () -> Unit): View =
+        LinearLayout(this).apply {
+            tag = tagValue
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            contentDescription = label
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#171D25"))
+                cornerRadius = 8.dp.toFloat()
+                setStroke(1.dp, Color.parseColor("#34404E"))
+            }
+            addView(FloatInkIconView(this@MainActivity, icon).apply {
+                setIconColor(Color.parseColor("#D2D8E0"))
+            }, LinearLayout.LayoutParams(30.dp, 40.dp))
+            addView(TextView(this@MainActivity).apply {
+                text = label
+                textSize = 13f
+                setTextColor(Color.parseColor("#D2D8E0"))
+                gravity = Gravity.CENTER_VERTICAL
+            })
+            layoutParams = LinearLayout.LayoutParams(0, 48.dp, 1f).apply {
+                marginEnd = if (tagValue == "history-import") 4.dp else 0
+                marginStart = if (tagValue == "history-trash") 4.dp else 0
+            }
+            setOnClickListener { action() }
         }
-        section.addView(list)
-        refresh()
-        section.addView(Button(this).apply {
-            tag = "history-import"
-            text = "导入 .floatink"
-            isAllCaps = false
-            setOnClickListener { historyFilePickerLauncher.launch("application/octet-stream") }
-        })
-        section.addView(Button(this).apply {
-            tag = "history-trash"
-            text = "管理回收站"
-            isAllCaps = false
-            setOnClickListener { showHistoryTrashDialog(repository) }
-        })
-        return section
+
+    private fun historyRowBackground() = GradientDrawable().apply {
+        setColor(Color.parseColor("#141A21"))
+        cornerRadius = 10.dp.toFloat()
+        setStroke(1.dp, Color.parseColor("#2C3541"))
+    }
+
+    private fun historyEntryMeta(entry: FloatInkHistoryEntry): String {
+        val ageMs = (System.currentTimeMillis() - entry.modifiedAt).coerceAtLeast(0L)
+        val whenText = when {
+            ageMs < 60_000L -> "刚刚"
+            ageMs < 3_600_000L -> "${ageMs / 60_000L} 分钟前"
+            ageMs < 86_400_000L -> "${ageMs / 3_600_000L} 小时前"
+            else -> "${ageMs / 86_400_000L} 天前"
+        }
+        val sizeText = if (entry.sizeBytes < 1024L) "${entry.sizeBytes} B" else "${entry.sizeBytes / 1024L} KB"
+        return "$whenText · $sizeText"
     }
 
     private fun showHistoryTrashDialog(repository: FloatInkHistoryRepository) {
