@@ -31,6 +31,7 @@ class DrawingOverlayView(
     val drawingSession: DrawingSession = DrawingSession(),
     private val onSessionChanged: () -> Unit = {},
     private val onSelectionChanged: (toolId: String, color: Int) -> Unit = { _, _ -> },
+    private val onTextInputModeChanged: (Boolean) -> Unit = {},
     private val onExit: () -> Unit,
 ) : FrameLayout(context) {
 
@@ -47,6 +48,7 @@ class DrawingOverlayView(
         drawingSession: DrawingSession = DrawingSession(),
         onSessionChanged: () -> Unit = {},
         onSelectionChanged: (toolId: String, color: Int) -> Unit = { _, _ -> },
+        onTextInputModeChanged: (Boolean) -> Unit = {},
         onExit: () -> Unit,
     ) : this(
         context = context,
@@ -56,6 +58,7 @@ class DrawingOverlayView(
         arrowScale = arrowScale,
         toolbarToolIds = toolbarToolIds,
         onSelectionChanged = onSelectionChanged,
+        onTextInputModeChanged = onTextInputModeChanged,
         onExit = onExit,
         drawingSession = drawingSession,
         onSessionChanged = onSessionChanged,

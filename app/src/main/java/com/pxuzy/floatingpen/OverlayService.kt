@@ -38,8 +38,14 @@ class OverlayService : Service() {
     private var lastColor = PenSettings.DEFAULT_COLOR_ARGB
     private var menuLock = false     // debounce: prevent rapid double-tap
 
-    // Full-screen overlay params — shared by menu and drawing
+    // Menu is always non-focusable; drawing temporarily becomes focusable for text input.
     private val fullscreenOverlayParams get() = LayoutParams(
+        LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT,
+        LayoutParams.TYPE_APPLICATION_OVERLAY,
+        LayoutParams.FLAG_NOT_FOCUSABLE or LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+        PixelFormat.TRANSLUCENT
+    )
+    private val drawingOverlayParams = LayoutParams(
         LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT,
         LayoutParams.TYPE_APPLICATION_OVERLAY,
         LayoutParams.FLAG_NOT_FOCUSABLE or LayoutParams.FLAG_LAYOUT_IN_SCREEN,
@@ -190,6 +196,7 @@ class OverlayService : Service() {
             onExit = { hideDrawing() },
             drawingSession = drawingSession,
             onSessionChanged = { sessionAutoSaver.markDirty() },
+            onTextInputModeChanged = ::setDrawingTextInputMode,
             onSelectionChanged = { tool, color ->
                 pendingTool = tool
                 pendingColor = color
@@ -199,7 +206,7 @@ class OverlayService : Service() {
                 PenSettings.saveToolStyle(this, tool, color, settings.styleFor(tool).widthDp)
             }
         )
-        if (safeAddView(view, fullscreenOverlayParams)) {
+        if (safeAddView(view, drawingOverlayParams)) {
             drawingView = view
         }
     }
@@ -219,12 +226,33 @@ class OverlayService : Service() {
     }
 
     private fun hideDrawing() {
+        setDrawingTextInputMode(false)
         safeRemoveView(drawingView)
         drawingView = null
         bubbleView?.let { bubble ->
             if (!bubble.isAttachedToWindow) safeAddView(bubble, bubbleOverlayParams)
             bubble.resumeAutoHide()
         }
+    }
+
+    private fun setDrawingTextInputMode(enabled: Boolean) {
+        val view = drawingView ?: return
+        val defaultFlags = LayoutParams.FLAG_NOT_FOCUSABLE or LayoutParams.FLAG_LAYOUT_IN_SCREEN
+        drawingOverlayParams.flags = if (enabled) {
+            defaultFlags and LayoutParams.FLAG_NOT_FOCUSABLE.inv() and LayoutParams.FLAG_ALT_FOCUSABLE_IM.inv()
+        } else {
+            defaultFlags
+        }
+        @Suppress("DEPRECATION")
+        run {
+            drawingOverlayParams.softInputMode = if (enabled) {
+                LayoutParams.SOFT_INPUT_ADJUST_RESIZE or LayoutParams.SOFT_INPUT_STATE_UNCHANGED
+            } else {
+                LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED
+            }
+        }
+        runCatching { windowManager.updateViewLayout(view, drawingOverlayParams) }
+            .onFailure { android.util.Log.e("OverlayService", "update drawing input mode failed", it) }
     }
 
     private fun refreshBubbleSettings() {
