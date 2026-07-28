@@ -64,6 +64,29 @@ class RgbColorInputViewTest {
         assertEquals("56", (view.findByTag("rgb-b") as EditText).text.toString())
     }
 
+    @Test
+    fun `channel click notifies the host that RGB input is active`() {
+        val view = RgbColorInputView(context)
+        var activated: EditText? = null
+        view.setOnInputActivatedListener { activated = it }
+        val red = view.findByTag("rgb-r") as EditText
+
+        assertTrue(red.callOnClick())
+
+        assertEquals(red, activated)
+    }
+
+    @Test
+    fun `programmatic color sync is clean but channel edits are tracked`() {
+        val view = RgbColorInputView(context)
+        view.color = Color.rgb(10, 20, 30)
+        assertTrue(!view.fromUserInput)
+
+        (view.findByTag("rgb-r") as EditText).setText("11")
+
+        assertTrue(view.fromUserInput)
+    }
+
     private fun ViewGroup.findByTag(tag: String): View {
         if (this.tag == tag) return this
         for (index in 0 until childCount) {

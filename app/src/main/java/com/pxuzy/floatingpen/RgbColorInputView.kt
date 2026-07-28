@@ -4,6 +4,8 @@ import android.content.Context
 import android.graphics.Color
 import android.text.InputFilter
 import android.text.InputType
+import android.text.TextWatcher
+import android.text.Editable
 import android.view.Gravity
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -13,6 +15,10 @@ class RgbColorInputView(context: Context) : LinearLayout(context) {
     enum class Channel { RED, GREEN, BLUE }
 
     private val inputs = linkedMapOf<Channel, EditText>()
+    private var onInputActivated: ((EditText) -> Unit)? = null
+    private var synchronizing = false
+    var fromUserInput: Boolean = false
+        private set
     private val errorText = TextView(context).apply {
         tag = "rgb-error"
         textSize = 12f
@@ -23,9 +29,12 @@ class RgbColorInputView(context: Context) : LinearLayout(context) {
     var color: Int
         get() = parsedColor() ?: Color.BLACK
         set(value) {
+            synchronizing = true
             inputs.getValue(Channel.RED).setText(Color.red(value).toString())
             inputs.getValue(Channel.GREEN).setText(Color.green(value).toString())
             inputs.getValue(Channel.BLUE).setText(Color.blue(value).toString())
+            synchronizing = false
+            fromUserInput = false
             clearError()
         }
 
@@ -60,6 +69,10 @@ class RgbColorInputView(context: Context) : LinearLayout(context) {
 
     fun input(channel: Channel): EditText = inputs.getValue(channel)
 
+    fun setOnInputActivatedListener(listener: (EditText) -> Unit) {
+        onInputActivated = listener
+    }
+
     private fun LinearLayout.addChannel(channel: Channel, label: String, inputTag: String) {
         addView(LinearLayout(context).apply {
             orientation = HORIZONTAL
@@ -81,6 +94,15 @@ class RgbColorInputView(context: Context) : LinearLayout(context) {
                 setHintTextColor(Color.parseColor("#718096"))
                 hint = "0"
                 contentDescription = "$label 通道，0 到 255"
+                setOnClickListener { onInputActivated?.invoke(this) }
+                setOnFocusChangeListener { _, hasFocus -> if (hasFocus) onInputActivated?.invoke(this) }
+                addTextChangedListener(object : TextWatcher {
+                    override fun beforeTextChanged(text: CharSequence?, start: Int, count: Int, after: Int) = Unit
+                    override fun onTextChanged(text: CharSequence?, start: Int, before: Int, count: Int) {
+                        if (!synchronizing) fromUserInput = true
+                    }
+                    override fun afterTextChanged(text: Editable?) = Unit
+                })
             }
             inputs[channel] = input
             addView(input, LayoutParams(0, 48.dp, 1f))
