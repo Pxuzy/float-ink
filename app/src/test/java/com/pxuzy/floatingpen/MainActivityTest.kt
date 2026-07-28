@@ -310,7 +310,31 @@ class MainActivityTest {
         assertNotNull(content.findByTagOrNull("custom-color-picker"))
         assertNotNull(content.findByTagOrNull("custom-color-alpha"))
         assertNotNull(content.findByTagOrNull("custom-color-hex"))
-        assertNotNull(content.findByTagOrNull("custom-color-rgb"))
+        assertNotNull(content.findByTagOrNull("rgb-r"))
+        assertNotNull(content.findByTagOrNull("rgb-g"))
+        assertNotNull(content.findByTagOrNull("rgb-b"))
+        assertEquals(android.text.InputType.TYPE_CLASS_NUMBER, (content.findByTagOrNull("rgb-r") as EditText).inputType)
+    }
+
+    @Test
+    fun `custom RGB channels save the exact selected color`() {
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        root.findByTag("nav-pen").performClick()
+        root.findByTag("tool-add-color").performClick()
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        val dialog = ShadowAlertDialog.getLatestAlertDialog()
+        val content = dialog.findViewById<ViewGroup>(android.R.id.custom)
+        (content.findByTagOrNull("rgb-r") as EditText).apply { requestFocus(); callOnClick(); setText("12") }
+        (content.findByTagOrNull("rgb-g") as EditText).setText("34")
+        (content.findByTagOrNull("rgb-b") as EditText).setText("56")
+        assertTrue((content.findByTagOrNull("custom-color-rgb") as RgbColorInputView).fromUserInput)
+
+        dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick()
+
+        val expected = android.graphics.Color.rgb(12, 34, 56)
+        val actual = PenSettings.customColors(activity)
+        assertTrue("expected=$expected customColors=$actual active=${PenSettings.load(activity).color}", actual.contains(expected))
     }
 
     @Test

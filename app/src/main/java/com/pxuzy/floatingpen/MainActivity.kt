@@ -20,6 +20,7 @@ import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
@@ -380,18 +381,19 @@ class MainActivity : ComponentActivity() {
             setHintTextColor(Color.parseColor("#7F8A99"))
             setText("#%08X".format(java.util.Locale.US, initialColor))
         }
-        val rgbInput = EditText(this).apply {
+        val rgbInput = RgbColorInputView(this).apply {
             tag = "custom-color-rgb"
-            hint = "RGB：255,128,0"
-            setSingleLine(true)
-            inputType = InputType.TYPE_CLASS_TEXT
-            setTextColor(Color.WHITE)
-            setHintTextColor(Color.parseColor("#7F8A99"))
-            setText("${Color.red(initialColor)}, ${Color.green(initialColor)}, ${Color.blue(initialColor)}")
+            color = initialColor
         }
-        var lastManualInput: EditText? = null
+        var lastManualInput: View? = null
         hexInput.setOnFocusChangeListener { _, hasFocus -> if (hasFocus) lastManualInput = hexInput }
-        rgbInput.setOnFocusChangeListener { _, hasFocus -> if (hasFocus) lastManualInput = rgbInput }
+        rgbInput.setOnInputActivatedListener { view ->
+            lastManualInput = rgbInput
+            view.post {
+                (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
+                    .showSoftInput(view, InputMethodManager.SHOW_IMPLICIT)
+            }
+        }
         val pickerHeight = if (resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) 180.dp else 236.dp
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -410,7 +412,7 @@ class MainActivity : ComponentActivity() {
             preview.text = "当前颜色  #%08X".format(java.util.Locale.US, color)
             preview.background = roundedBackground(opaque, 8f)
             if (hexInput.hasFocus().not()) hexInput.setText("#%08X".format(java.util.Locale.US, color))
-            if (rgbInput.hasFocus().not()) rgbInput.setText("${Color.red(color)}, ${Color.green(color)}, ${Color.blue(color)}")
+            if (RgbColorInputView.Channel.entries.none { rgbInput.input(it).hasFocus() }) rgbInput.color = color
         }
         picker.setOnColorChangedListener { color, _ -> render(Color.argb(alphaSeek.progress, Color.red(color), Color.green(color), Color.blue(color))) }
         alphaSeek.setOnSeekBarChangeListener(userSeek { value ->
@@ -433,10 +435,14 @@ class MainActivity : ComponentActivity() {
             .create()
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val explicit = when (lastManualInput) {
-                    hexInput -> PenSettings.parseRgb(hexInput.text.toString())
-                    rgbInput -> PenSettings.parseRgb(rgbInput.text.toString())
-                    else -> picker.color
+                val explicit = if (rgbInput.fromUserInput) {
+                    rgbInput.parsedColor()
+                } else {
+                    when (lastManualInput) {
+                        hexInput -> PenSettings.parseRgb(hexInput.text.toString())
+                        rgbInput -> rgbInput.parsedColor()
+                        else -> picker.color
+                    }
                 }
                 if (explicit == null) {
                     Toast.makeText(this, "请输入有效的 HEX 或 RGB 颜色", Toast.LENGTH_SHORT).show()

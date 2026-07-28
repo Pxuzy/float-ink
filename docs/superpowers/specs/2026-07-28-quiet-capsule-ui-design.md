@@ -179,3 +179,11 @@ App 和悬浮层共用同一输入、校验和颜色转换契约，避免两个�
 - 不更改绘图触摸阈值、多指/手写笔策略或窗口触摸语义。
 - 不发布正式版本，不合并 `main`；先交付 Debug APK 真机验证。
 - 不把生成的方向图打包进 APK。
+
+## 成熟实现参考与复用边界
+
+- `jaredrummler/ColorPicker`（Apache-2.0）：参考 `ColorPickerDialog` 的 `fromEditText` 状态，明确区分取色器程序化同步与用户文本输入；参考获取焦点后 `showSoftInput(..., SHOW_IMPLICIT)`、离开文本模式时隐藏键盘并清理焦点。FloatInk 不复制其宽松 HEX 解析，继续只接受完整 `#RRGGBB/#AARRGGBB`。
+- `skydoves/ColorPickerView`（Apache-2.0）：参考颜色预览、滑杆和生命周期结构；当前项目已有 `HsvColorPickerView`，不引入整库，避免重复能力和依赖体积。
+- `AAswordman/Operit`（LGPL-3.0）：仅参考其悬浮窗输入生命周期顺序：修改同一个 `WindowManager.LayoutParams`、延迟到窗口聚焦后请求 IME、退出时清焦点/隐藏 IME/恢复 `FLAG_NOT_FOCUSABLE`/取消待执行请求。不得复制源码；FloatInk 也不得照搬其 `FLAG_NOT_TOUCH_MODAL`，因为全屏绘图层必须阻止触摸穿透。
+- `ChaoMixian/vFlow`（GPL-2.0）：仅用于核对多悬浮窗口参数管理和响应式平板思路，不复制 GPL 源码或引入依赖。
+- Android 官方文档仍是最终依据：`https://developer.android.com/develop/ui/views/touch-and-input/keyboard-input/visibility` 与 `https://developer.android.com/reference/android/view/WindowManager.LayoutParams`。
