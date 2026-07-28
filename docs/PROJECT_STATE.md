@@ -118,6 +118,13 @@
 |- 九宫格参考图的视觉语言已转为共享原生 `FloatInkIconView`，实际用于画板、图层、新增、显隐、更多、历史、导入与回收站控件。
 |- 当前画板和当前图层使用低对比背景与描边区分；图层显隐改为眼睛图标并支持直接点击。
 |- 历史画板改为整行打开、最近修改时间与大小摘要、行尾菜单管理；导入和回收站合并为同排次级按钮，默认不再展示本机存储路径。
+- **静默胶囊 UI 分支（`feat/ui-quiet-capsule-rgb-keyboard`）**
+- App 自定义颜色的 RGB 输入由逗号文本改为独立 R/G/B 数字通道，每项仅接受 0–255；点击输入会请求系统数字键盘。
+- 悬浮颜色编辑器复用同一 RGB 组件，增加明确取消/保存，并在输入期间由 OverlayService 临时移除 `FLAG_NOT_FOCUSABLE`；关闭、切换面板、旋转和退出会恢复默认非聚焦状态。
+- 悬浮输入模式不使用 `FLAG_NOT_TOUCH_MODAL`，保持全屏绘图层拦截触摸，避免底层 App 收到绘图操作。
+- 新增 `FloatInkTheme`，把 App、悬浮工具栏和弹层收敛到统一中性色、文字层级和 8dp 面板圆角；颜色入口仍位于绘图工具之前，撤销/清空/退出继续固定在末端。
+- 复杂交互参考 `jaredrummler/ColorPicker`、`skydoves/ColorPickerView`、`AAswordman/Operit` 和 `ChaoMixian/vFlow`，仅采用兼容当前架构且许可证允许的模式；Android 官方文档为 IME/窗口 flags 最终依据。
+- 自动化验证：118 个测试全部通过，无失败或跳过；`:app:assembleDebug` 与 APK ZIP 完整性校验通过。悬浮 IME 在不同 OEM 上的真实弹出与返回恢复仍需真机验收。
 |
 |## 当前阻塞
 
