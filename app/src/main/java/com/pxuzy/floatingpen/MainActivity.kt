@@ -118,7 +118,7 @@ class MainActivity : ComponentActivity() {
     private fun buildUi(): View {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#0B0F14"))
+            setBackgroundColor(FloatInkTheme.background)
         }
         pageContainer = FrameLayout(this)
         root.addView(pageContainer, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
@@ -130,7 +130,7 @@ class MainActivity : ComponentActivity() {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER
         setPadding(10.dp, 8.dp, 10.dp, 8.dp)
-        background = roundedBackground(Color.parseColor("#121820"), 0f)
+        background = roundedBackground(FloatInkTheme.surface, 0f)
         listOf("home" to "首页", "pen" to "画笔", "settings" to "设置").forEach { (id, label) ->
             addView(TextView(this@MainActivity).apply {
                 tag = "nav-$id"
@@ -169,7 +169,7 @@ class MainActivity : ComponentActivity() {
                 text = title; textSize = 26f; typeface = Typeface.DEFAULT_BOLD; setTextColor(Color.WHITE)
             })
             addView(TextView(this@MainActivity).apply {
-                text = subtitle; textSize = 14f; setTextColor(Color.parseColor("#91A0B2"))
+                text = subtitle; textSize = 14f; setTextColor(FloatInkTheme.textSecondary)
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                     topMargin = 4.dp; bottomMargin = 20.dp
                 }
@@ -295,7 +295,7 @@ class MainActivity : ComponentActivity() {
                 textSize = 13f
                 setTextColor(Color.WHITE)
                 minHeight = 48.dp
-                background = roundedBackground(Color.parseColor("#202A35"), 8f)
+                background = roundedBackground(FloatInkTheme.surfaceRaised, FloatInkTheme.PANEL_RADIUS_DP)
                 setOnClickListener { selectTool(tool.id) }
                 toolButtons[tool.id] = this
             }, LinearLayout.LayoutParams(0, 48.dp, 1f).apply { marginEnd = 6.dp })
@@ -970,8 +970,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun sectionTitle(value: String) = TextView(this).apply {
-        text = value; textSize = 13f; typeface = Typeface.DEFAULT_BOLD; setTextColor(Color.parseColor("#AFC2D8"))
-        letterSpacing = 0.04f
+        text = value; textSize = 13f; typeface = Typeface.DEFAULT_BOLD; setTextColor(FloatInkTheme.textSecondary)
         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
             topMargin = 20.dp; bottomMargin = 10.dp
         }
@@ -1008,11 +1007,11 @@ class MainActivity : ComponentActivity() {
     private fun updateNavigation() {
         navButtons.forEach { (page, button) ->
             val active = page == currentPage
-            button.setTextColor(if (active) Color.WHITE else Color.parseColor("#8F9AA8"))
+            button.setTextColor(if (active) FloatInkTheme.textPrimary else FloatInkTheme.textSecondary)
             button.typeface = if (active) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
             button.background = roundedBackground(
-                if (active) Color.parseColor("#263A50") else Color.TRANSPARENT,
-                10f
+                if (active) FloatInkTheme.surfaceActive else Color.TRANSPARENT,
+                FloatInkTheme.PANEL_RADIUS_DP
             )
         }
     }
@@ -1023,9 +1022,9 @@ class MainActivity : ComponentActivity() {
     }
     private fun colorCircle(color: Int) = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(color) }
     private fun panelBackground() = GradientDrawable().apply {
-        setColor(Color.parseColor("#151C25"))
-        cornerRadius = 12.dpf
-        setStroke(1.dp, Color.parseColor("#263241"))
+        setColor(FloatInkTheme.surfaceRaised)
+        cornerRadius = FloatInkTheme.PANEL_RADIUS_DP * resources.displayMetrics.density
+        setStroke(1.dp, FloatInkTheme.border)
     }
     private fun roundedBackground(color: Int, radius: Float) = GradientDrawable().apply { setColor(color); cornerRadius = radius.dp }
 

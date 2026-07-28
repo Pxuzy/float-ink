@@ -321,8 +321,8 @@ class DrawingOverlayView(
             val horizontalPadding = if (compactLayout) 6.dp else 10.dp
             setPadding(horizontalPadding, 6.dp, horizontalPadding, 6.dp)
             background = GradientDrawable().apply {
-                setColor(Color.argb(220, 10, 13, 17))
-                cornerRadius = 12.dpf
+                setColor(Color.argb(236, 12, 16, 21))
+                cornerRadius = FloatInkTheme.PANEL_RADIUS_DP.dpf
                 setStroke(1.dpf.toInt(), Color.argb(88, 255, 255, 255))
             }
             elevation = 8f
@@ -669,7 +669,7 @@ class DrawingOverlayView(
             setPadding(18.dp, 14.dp, 18.dp, 14.dp)
             background = GradientDrawable().apply {
                 setColor(Color.argb(238, 12, 16, 21))
-                cornerRadius = 12.dpf
+                cornerRadius = FloatInkTheme.PANEL_RADIUS_DP.dpf
                 setStroke(1.dpf.toInt(), Color.argb(82, 255, 255, 255))
             }
             addView(TextView(context).apply {
@@ -701,7 +701,7 @@ class DrawingOverlayView(
             orientation = LinearLayout.VERTICAL
             setPadding(10.dp, 10.dp, 10.dp, 10.dp)
             background = GradientDrawable().apply {
-                setColor(Color.argb(238, 12, 16, 21)); cornerRadius = 12.dpf
+                setColor(Color.argb(238, 12, 16, 21)); cornerRadius = FloatInkTheme.PANEL_RADIUS_DP.dpf
                 setStroke(1.dpf.toInt(), Color.argb(82, 255, 255, 255))
             }
         }
@@ -969,7 +969,7 @@ class DrawingOverlayView(
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(10.dp, 10.dp, 10.dp, 10.dp)
             background = GradientDrawable().apply {
-                setColor(Color.argb(236, 12, 16, 21)); cornerRadius = 12.dpf
+                setColor(Color.argb(236, 12, 16, 21)); cornerRadius = FloatInkTheme.PANEL_RADIUS_DP.dpf
                 setStroke(1.dpf.toInt(), Color.argb(82, 255, 255, 255))
             }
         }
