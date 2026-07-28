@@ -126,9 +126,37 @@ class OverlayServiceTest {
         controller.destroy()
     }
 
+    @Test
+    fun `drawing text input mode toggles focus without touch passthrough`() {
+        val controller = Robolectric.buildService(OverlayService::class.java).create()
+        val service = controller.get()
+        service.onStartCommand(Intent(service, OverlayService::class.java).apply {
+            action = OverlayService.ACTION_SHOW_DRAWING
+        }, 0, 1)
+
+        val params = service.privateField("drawingOverlayParams") as WindowManager.LayoutParams
+        assertTrue(params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE != 0)
+
+        service.callTextInputMode(true)
+        assertTrue(params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE == 0)
+        assertTrue(params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL == 0)
+
+        service.callTextInputMode(false)
+        service.callTextInputMode(false)
+        assertTrue(params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE != 0)
+        controller.destroy()
+    }
+
     private fun OverlayService.privateField(name: String): Any? =
         javaClass.getDeclaredField(name).run {
             isAccessible = true
             get(this@privateField)
         }
+
+    private fun OverlayService.callTextInputMode(enabled: Boolean) {
+        javaClass.getDeclaredMethod("setDrawingTextInputMode", Boolean::class.javaPrimitiveType).run {
+            isAccessible = true
+            invoke(this@callTextInputMode, enabled)
+        }
+    }
 }
