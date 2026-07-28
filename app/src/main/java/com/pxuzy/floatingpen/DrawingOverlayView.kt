@@ -107,6 +107,7 @@ class DrawingOverlayView(
         windowWidthDp = newConfig.screenWidthDp
         val nextCompact = newConfig.screenWidthDp in 1..399
         if (nextCompact != compactLayout || newConfig.screenWidthDp != previousWidthDp) {
+            finishTextInputMode()
             compactLayout = nextCompact
             rebuildToolbar()
         }
@@ -373,7 +374,10 @@ class DrawingOverlayView(
             onSessionChanged()
             canvasView.invalidate()
         }.apply { tag = "clear" })
-        bar.addView(createActionBtn("exit", action = onExit).apply { tag = "exit" })
+        bar.addView(createActionBtn("exit", action = {
+            finishTextInputMode()
+            onExit()
+        }).apply { tag = "exit" })
 
         installToolbarDragHandle(dragHandle, bar)
         bar.layoutParams = LayoutParams(maxWidth, 56.dp, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
@@ -647,6 +651,7 @@ class DrawingOverlayView(
     }
 
     private fun toggleMoreTools() {
+        finishTextInputMode()
         moreToolsPanel?.let {
             toolbarPopupHost.removeView(it)
             moreToolsPanel = null
@@ -687,6 +692,7 @@ class DrawingOverlayView(
     }
 
     private fun toggleCanvasPanel() {
+        finishTextInputMode()
         canvasPanel?.let { toolbarPopupHost.removeView(it); canvasPanel = null; return }
         colorPanel?.let { toolbarPopupHost.removeView(it); colorPanel = null }
         moreToolsPanel?.let { toolbarPopupHost.removeView(it); moreToolsPanel = null }
@@ -939,6 +945,7 @@ class DrawingOverlayView(
 
     private fun toggleColorPanel() {
         if (colorPanel != null) {
+            finishTextInputMode()
             toolbarPopupHost.removeView(colorPanel)
             colorPanel = null
             return
@@ -1060,26 +1067,58 @@ class DrawingOverlayView(
         slider("色相", 360, hsv[0].toInt()) { hsv[0] = it.toFloat() }
         slider("饱和", 100, (hsv[1] * 100).toInt()) { hsv[1] = it / 100f }
         slider("明度", 100, (hsv[2] * 100).toInt()) { hsv[2] = it / 100f }
-        val rgbInput = EditText(context).apply {
+        val rgbInput = RgbColorInputView(context).apply {
             tag = "custom-rgb-input"
-            inputType = InputType.TYPE_CLASS_TEXT
-            hint = "RGB：255,128,0 或 #FF8000"
-            setSingleLine(true)
-            setTextColor(Color.WHITE)
+            color = currentColor
+            setOnInputActivatedListener { input ->
+                onTextInputModeChanged(true)
+                input.post {
+                    input.requestFocus()
+                    if (input.hasWindowFocus()) {
+                        (context.getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
+                            .showSoftInput(input, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                    }
+                }
+            }
         }
-        controls.addView(rgbInput, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 40.dp).apply { topMargin = 6.dp })
-        controls.addView(TextView(context).apply {
-            tag = "apply-rgb-color"; text = "应用 RGB 数字"; gravity = Gravity.CENTER; textSize = 13f
+        controls.addView(rgbInput, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = 6.dp })
+        val actions = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        actions.addView(TextView(context).apply {
+            tag = "cancel-custom-color"; text = "取消"; gravity = Gravity.CENTER; textSize = 13f
+            setTextColor(Color.WHITE); background = GradientDrawable().apply { setColor(Color.argb(35, 255, 255, 255)); cornerRadius = 6.dpf }
+            setOnClickListener {
+                finishTextInputMode()
+                panel.removeView(controls)
+                positionPopupAboveToolbar(panel)
+            }
+        }, LinearLayout.LayoutParams(0, 40.dp, 1f).apply { marginEnd = 6.dp })
+        actions.addView(TextView(context).apply {
+            tag = "save-custom-color"; text = "保存"; gravity = Gravity.CENTER; textSize = 13f
             setTextColor(Color.BLACK); background = GradientDrawable().apply { setColor(Color.WHITE); cornerRadius = 6.dpf }
-            setOnClickListener { PenSettings.parseRgb(rgbInput.text.toString())?.let(::applyColor) }
-        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 36.dp).apply { topMargin = 4.dp })
-        controls.addView(TextView(context).apply {
-            tag = "apply-custom-color"; text = "应用颜色"; gravity = Gravity.CENTER; textSize = 13f
-            setTextColor(Color.BLACK); background = GradientDrawable().apply { setColor(Color.WHITE); cornerRadius = 6.dpf }
-            setOnClickListener { applyColor(Color.HSVToColor(hsv)) }
-        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 36.dp).apply { topMargin = 6.dp })
+            setOnClickListener {
+                val selected = if (rgbInput.fromUserInput) rgbInput.parsedColor() else Color.HSVToColor(hsv)
+                if (selected != null) {
+                    finishTextInputMode()
+                    applyColor(selected)
+                }
+            }
+        }, LinearLayout.LayoutParams(0, 40.dp, 1f))
+        controls.addView(actions, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 40.dp).apply { topMargin = 8.dp })
         panel.addView(controls)
         positionPopupAboveToolbar(panel)
+    }
+
+    private fun finishTextInputMode() {
+        val focused = findFocus()
+        focused?.let { view ->
+            (context.getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
+                .hideSoftInputFromWindow(view.windowToken, 0)
+            view.clearFocus()
+        }
+        onTextInputModeChanged(false)
     }
 
     private fun applyColor(color: Int) {
