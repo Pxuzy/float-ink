@@ -112,7 +112,11 @@
 |- 弹层定位改为先按宿主实际可用宽高测量，再在工具栏上方/下方选择安全位置；空间不足时由内部滚动区域承载。
 |- 当前仅完成画板/图层面板第一版，历史画板设置页和颜色面板二级编辑器暂未改动。
 |
-## 当前阻塞
+|- **Kedaya 图标资源**
+|- 新增 FloatInk 应用主图标 `mipmap-nodpi/ic_launcher_floatink.png`，并在 Manifest 中启用。
+|- 新增图标参考板 `drawable-nodpi/floatink_icon_reference.png`，纳入 App 资源。
+|
+|## 当前阻塞
 
 **尚未在真实 Android 手机或平板上验证。** 当前构建环境没有可用的 Android 真机，需要将 APK 侧载到 Android 手机或平板测试以下流程：
 
