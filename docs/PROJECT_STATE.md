@@ -115,6 +115,9 @@
 |- **Kedaya 图标资源**
 |- 新增 FloatInk 应用主图标 `mipmap-nodpi/ic_launcher_floatink.png`，并在 Manifest 中启用。
 |- 新增图标参考板 `drawable-nodpi/floatink_icon_reference.png`，纳入 App 资源。
+|- 九宫格参考图的视觉语言已转为共享原生 `FloatInkIconView`，实际用于画板、图层、新增、显隐、更多、历史、导入与回收站控件。
+|- 当前画板和当前图层使用低对比背景与描边区分；图层显隐改为眼睛图标并支持直接点击。
+|- 历史画板改为整行打开、最近修改时间与大小摘要、行尾菜单管理；导入和回收站合并为同排次级按钮，默认不再展示本机存储路径。
 |
 |## 当前阻塞
 
