@@ -72,7 +72,7 @@ App 和悬浮层共用同一输入、校验和颜色转换契约，避免两个�
 ### RGB 输入契约
 
 - RGB 拆为 `R`、`G`、`B` 三个独立 `EditText`。
-- 每个输入框只允许十进制数字，范围 `0..255`，使用 `TYPE_CLASS_NUMBER | TYPE_NUMBER_FLAG_DECIMAL` 中的整数子集；实现时不接受小数点或负号。
+- 每个输入框只允许十进制整数，范围 `0..255`，使用 `InputType.TYPE_CLASS_NUMBER`；不设置小数或符号 flag，不接受小数点和负号。
 - 点击任一通道后请求焦点并调用 `InputMethodManager.showSoftInput()`；App 内使用 `WindowInsetsControllerCompat`/标准窗口焦点路径作为优先方式。
 - HEX 使用文本键盘，接受 `#RRGGBB` 与 `#AARRGGBB`。
 - 保存时以最后主动编辑的输入模式为准：HEX、RGB 或 HSV；无效值不关闭编辑器，直接在对应输入区域显示错误。
@@ -83,13 +83,14 @@ App 和悬浮层共用同一输入、校验和颜色转换契约，避免两个�
 当前绘图窗口使用 `FLAG_NOT_FOCUSABLE`，因此内部 `EditText` 不能可靠调出 IME。采用临时可聚焦窗口策略：
 
 1. 打开精确颜色编辑器时，`DrawingOverlayView` 通过回调请求 `OverlayService` 切换绘图窗口为可聚焦。
-2. 服务移除 `FLAG_NOT_FOCUSABLE`，保留 `FLAG_LAYOUT_IN_SCREEN`，设置 `SOFT_INPUT_ADJUST_RESIZE`，再 `updateViewLayout()`。
-3. RGB 输入框在窗口获得焦点后请求焦点并显示数字键盘。
-4. 保存、取消、关闭颜色面板、退出绘图或发生异常时，先隐藏键盘和清理输入焦点，再恢复 `FLAG_NOT_FOCUSABLE`。
-5. 恢复后画板继续消费触摸，底层 App 不得收到绘图区域触摸。
-6. 焦点切换失败时保留可退出的编辑器并显示错误，不让窗口停留在不可绘图的半状态。
+2. 服务移除 `FLAG_NOT_FOCUSABLE` 和 `FLAG_ALT_FOCUSABLE_IM`，保留 `FLAG_LAYOUT_IN_SCREEN`，设置 `SOFT_INPUT_ADJUST_RESIZE` 作为兼容路径，再 `updateViewLayout()`；不得增加 `FLAG_NOT_TOUCH_MODAL`，全屏绘图窗口仍须截获全部触摸。
+3. RGB 输入框在收到 `onWindowFocusChanged(true)` 后请求控件焦点，再通过 `InputMethodManager.showSoftInput(..., SHOW_IMPLICIT)` 显示数字键盘；不得在窗口尚未聚焦时只调用一次后假定成功。
+4. API 30+ 同时监听 `WindowInsets.Type.ime()`，按实际 IME inset 收缩或滚动颜色编辑区；`SOFT_INPUT_ADJUST_RESIZE` 仅作为旧系统与 OEM 兼容路径，不作为唯一布局保证。
+5. 保存、取消、系统返回键、关闭颜色面板、切换互斥面板、配置变化、退出绘图、服务销毁或发生异常时，先隐藏键盘和清理输入焦点，再幂等恢复 `FLAG_NOT_FOCUSABLE` 与默认 `softInputMode`。
+6. 恢复后画板继续消费触摸，底层 App 不得收到绘图区域触摸。
+7. 焦点切换或 `updateViewLayout()` 失败时立即执行同一恢复函数；保留可退出的编辑器并显示错误，不让窗口停留在不可绘图的半状态。
 
-`OverlayService` 是唯一允许修改 `WindowManager.LayoutParams` 的所有者；`DrawingOverlayView` 只发送“进入/退出文本输入模式”请求。
+`OverlayService` 是唯一允许修改 `WindowManager.LayoutParams` 的所有者；服务持有当前附着窗口的同一个参数实例，不用新建窗口或移除重加 View 来切换焦点。`DrawingOverlayView` 只发送“进入/退出文本输入模式”请求，退出请求必须可重复调用。
 
 ## 视觉系统
 
@@ -140,7 +141,7 @@ App 和悬浮层共用同一输入、校验和颜色转换契约，避免两个�
 - RGB 错误显示在输入组内，不只使用 Toast。
 - 自定义颜色保存后立即更新 App 色板、悬浮色板、当前颜色点、当前工具样式和下一笔；既有笔迹保持原颜色。
 - 删除当前自定义色时回退到内置默认色并持久化。
-- 配置变化重建工具栏时，保留当前打开的面板类型；若正在输入，则安全关闭键盘并恢复非聚焦状态，避免旋转后焦点泄漏。
+- 配置变化重建工具栏时，保留普通面板类型；若正在精确输入，则先安全关闭键盘并恢复非聚焦状态，再恢复到颜色面板第一层，不自动重新聚焦输入框，避免旋转后焦点泄漏和键盘反复弹出。
 
 ## 测试与验收
 
@@ -150,7 +151,9 @@ App 和悬浮层共用同一输入、校验和颜色转换契约，避免两个�
 - 三个 RGB 输入的 `inputType` 为数字，边界 `0`、`255` 可保存，`256`、空值和非数字拒绝。
 - 点击 App RGB 输入会请求焦点；保存使用最后编辑模式。
 - 悬浮颜色入口位于工具区之前，固定操作仍位于末端。
-- 打开悬浮 RGB 编辑器触发进入文本输入模式；保存、取消、关闭和退出均触发恢复非聚焦模式。
+- 打开悬浮 RGB 编辑器触发进入文本输入模式；保存、取消、系统返回、互斥面板切换、配置变化、关闭和退出均触发同一个幂等恢复函数。
+- 聚焦模式移除 `FLAG_NOT_FOCUSABLE`/`FLAG_ALT_FOCUSABLE_IM`，但不增加 `FLAG_NOT_TOUCH_MODAL`；恢复模式重新包含 `FLAG_NOT_FOCUSABLE`。
+- API 30+ 的 IME inset 到达时，RGB 输入与保存/取消操作仍在可滚动区域内可达。
 - 220dp、320dp、横屏和 700dp 结构测试通过。
 - 现有绘图、画板/图层、触摸、服务、持久化和历史会话测试全部通过。
 
