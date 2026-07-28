@@ -15,6 +15,7 @@ import android.text.InputType
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
 import com.pxuzy.floatingpen.core.DrawingElement as CoreDrawingElement
@@ -75,6 +76,7 @@ class DrawingOverlayView(
     private var configuredToolIds = normalizeToolbarToolIds(toolbarToolIds)
     private var currentColor = normalizeLegacyColor(initialColor)
     private lateinit var canvasView: View
+    private lateinit var toolbarPopupHost: FrameLayout
     private var colorPanel: View? = null
     private var moreToolsPanel: View? = null
     private var canvasPanel: View? = null
@@ -248,8 +250,9 @@ class DrawingOverlayView(
             }
         }
         addView(canvasView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
-
-        addView(buildToolbar())
+        toolbarPopupHost = FrameLayout(context).apply { tag = "toolbar-popup-host" }
+        toolbarPopupHost.addView(buildToolbar())
+        addView(toolbarPopupHost, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
     }
 
     private val selectedColor: Int
@@ -507,15 +510,16 @@ class DrawingOverlayView(
         val restoreColorPanel = colorPanel != null
         val restoreHsvControls = colorPanel?.findViewWithTag<View>("hsv-controls") != null
         val restoreMorePanel = moreToolsPanel != null
-        colorPanel?.let { removeView(it); colorPanel = null }
-        moreToolsPanel?.let { removeView(it); moreToolsPanel = null }
-        removeViewAt(1)
-        addView(buildToolbar(), 1)
+        colorPanel?.let { toolbarPopupHost.removeView(it); colorPanel = null }
+        moreToolsPanel?.let { toolbarPopupHost.removeView(it); moreToolsPanel = null }
+        canvasPanel?.let { toolbarPopupHost.removeView(it); canvasPanel = null }
+        toolbarPopupHost.findViewWithTag<View>("monochrome-toolbar")?.let(toolbarPopupHost::removeView)
+        toolbarPopupHost.addView(buildToolbar())
         when {
             restoreColorPanel -> {
                 val panel = buildColorPanel() as LinearLayout
                 colorPanel = panel
-                addView(panel)
+                toolbarPopupHost.addView(panel)
                 if (restoreHsvControls) showHsvControls(panel)
                 positionPopupAboveToolbar(panel)
                 panel.post { positionPopupAboveToolbar(panel) }
@@ -577,7 +581,7 @@ class DrawingOverlayView(
     }
 
     private fun positionPopupAboveToolbar(popup: View) {
-        val toolbar = findViewWithTag<View>("monochrome-toolbar") ?: return
+        val toolbar = toolbarPopupHost.findViewWithTag<View>("monochrome-toolbar") ?: return
         val toolbarParams = toolbar.layoutParams as? FrameLayout.LayoutParams ?: return
         val toolbarHeight = toolbar.height.takeIf { it > 0 }
             ?: toolbar.measuredHeight.takeIf { it > 0 }
@@ -588,7 +592,9 @@ class DrawingOverlayView(
             0
         }
         val fallbackWidth = (windowWidthDp * density).toInt()
-        val availableWidth = ((width.takeIf { it > 0 } ?: fallbackWidth) - 16.dp).coerceAtLeast(1)
+        val hostWidth = toolbarPopupHost.width.takeIf { it > 0 } ?: width.takeIf { it > 0 } ?: fallbackWidth
+        val hostHeight = toolbarPopupHost.height.takeIf { it > 0 } ?: height
+        val availableWidth = (hostWidth - 16.dp).coerceAtLeast(1)
         val params = (popup.layoutParams as? FrameLayout.LayoutParams)
             ?: FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT)
         if (params.width <= 0) {
@@ -606,7 +612,7 @@ class DrawingOverlayView(
             ?: if (popup.tag == "color-panel") 180.dp else 80.dp
         val gap = 8.dp
         val topAbove = toolbar.top - popupHeight - gap
-        val maxTop = (height - popupHeight - gap).coerceAtLeast(gap)
+        val maxTop = (hostHeight - popupHeight - gap).coerceAtLeast(gap)
         val canPlaceAbove = toolbar.top > 0 && topAbove >= gap
         if (canPlaceAbove) {
             params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
@@ -621,14 +627,15 @@ class DrawingOverlayView(
 
     private fun toggleMoreTools() {
         moreToolsPanel?.let {
-            removeView(it)
+            toolbarPopupHost.removeView(it)
             moreToolsPanel = null
             return
         }
         colorPanel?.let {
-            removeView(it)
+            toolbarPopupHost.removeView(it)
             colorPanel = null
         }
+        canvasPanel?.let { toolbarPopupHost.removeView(it); canvasPanel = null }
         val panel = LinearLayout(context).apply {
             tag = "more-tools-panel"
             orientation = LinearLayout.VERTICAL
@@ -653,15 +660,15 @@ class DrawingOverlayView(
             }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, 28.dp))
         }
         moreToolsPanel = panel
-        addView(panel, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT))
+        toolbarPopupHost.addView(panel, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT))
         positionPopupAboveToolbar(panel)
         panel.post { positionPopupAboveToolbar(panel) }
     }
 
     private fun toggleCanvasPanel() {
-        canvasPanel?.let { removeView(it); canvasPanel = null; return }
-        colorPanel?.let { removeView(it); colorPanel = null }
-        moreToolsPanel?.let { removeView(it); moreToolsPanel = null }
+        canvasPanel?.let { toolbarPopupHost.removeView(it); canvasPanel = null; return }
+        colorPanel?.let { toolbarPopupHost.removeView(it); colorPanel = null }
+        moreToolsPanel?.let { toolbarPopupHost.removeView(it); moreToolsPanel = null }
         val panel = LinearLayout(context).apply {
             tag = "canvas-panel"
             orientation = LinearLayout.VERTICAL
@@ -674,6 +681,9 @@ class DrawingOverlayView(
         panel.addView(TextView(context).apply {
             text = "画板 / 图层"; textSize = 13f; setTextColor(Color.WHITE)
         }, LinearLayout.LayoutParams(220.dp, 30.dp))
+        val listContent = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+        }
         drawingSession.boards.forEach { board ->
             val boardRow = LinearLayout(context).apply {
                 tag = "board:${board.id}"
@@ -690,12 +700,12 @@ class DrawingOverlayView(
                 setOnClickListener {
                     discardActiveGesture(); drawingSession.selectBoard(board.id)
                     elements = drawingSession.currentLayer.elements
-                    removeView(panel); canvasPanel = null; canvasView.invalidate()
+                    toolbarPopupHost.removeView(panel); canvasPanel = null; canvasView.invalidate()
                 }
             }
-            panel.addView(boardRow)
+            listContent.addView(boardRow)
         }
-        panel.addView(TextView(context).apply {
+        listContent.addView(TextView(context).apply {
             text = "图层：${drawingSession.currentBoard.name}"; textSize = 12f
             setTextColor(Color.parseColor("#91A0B2"))
         }, LinearLayout.LayoutParams(220.dp, 28.dp))
@@ -740,18 +750,42 @@ class DrawingOverlayView(
                     true
                 }
             }
-            panel.addView(layerRow)
+            listContent.addView(layerRow)
         }
-        panel.addView(canvasActionRow("board", "新建画板") { drawingSession.createBoard(); rebuildCanvasPanel() })
-        panel.addView(canvasActionRow("layer", "新建图层") { drawingSession.createLayer(); elements = drawingSession.currentLayer.elements; rebuildCanvasPanel() })
-        panel.addView(canvasActionRow("rename-board", "重命名画板") { renameCanvasTarget(false) })
-        panel.addView(canvasActionRow("rename-layer", "重命名图层") { renameCanvasTarget(true) })
-        panel.addView(canvasActionRow("delete-board", "删除当前画板") { confirmCanvasDelete(false) })
-        panel.addView(canvasActionRow("delete-layer", "删除当前图层") { confirmCanvasDelete(true) })
+        val maxPanelHeight = ((resources.configuration.screenHeightDp.takeIf { it > 0 } ?: 640) * 0.55f).toInt().dp
+        val listHeight = (maxPanelHeight - 142.dp).coerceIn(72.dp, 240.dp)
+        panel.addView(ScrollView(context).apply {
+            tag = "canvas-list-scroll"
+            isVerticalScrollBarEnabled = true
+            addView(listContent, FrameLayout.LayoutParams(220.dp, FrameLayout.LayoutParams.WRAP_CONTENT))
+        }, LinearLayout.LayoutParams(220.dp, listHeight))
+        val actions = LinearLayout(context).apply {
+            tag = "canvas-actions"
+            orientation = LinearLayout.VERTICAL
+            addView(canvasActionPair(
+                canvasActionRow("board", "新建画板") { drawingSession.createBoard(); rebuildCanvasPanel() },
+                canvasActionRow("layer", "新建图层") { drawingSession.createLayer(); elements = drawingSession.currentLayer.elements; rebuildCanvasPanel() },
+            ))
+            addView(canvasActionPair(
+                canvasActionRow("rename-board", "改名画板") { renameCanvasTarget(false) },
+                canvasActionRow("rename-layer", "改名图层") { renameCanvasTarget(true) },
+            ))
+            addView(canvasActionPair(
+                canvasActionRow("delete-board", "删除画板") { confirmCanvasDelete(false) },
+                canvasActionRow("delete-layer", "删除图层") { confirmCanvasDelete(true) },
+            ))
+        }
+        panel.addView(actions)
         canvasPanel = panel
-        addView(panel)
+        toolbarPopupHost.addView(panel)
         positionPopupAboveToolbar(panel)
         panel.post { positionPopupAboveToolbar(panel) }
+    }
+
+    private fun canvasActionPair(left: View, right: View): View = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        addView(left)
+        addView(right)
     }
 
     private fun canvasActionRow(tagValue: String, label: String, action: () -> Unit): TextView =
@@ -763,11 +797,11 @@ class DrawingOverlayView(
             gravity = Gravity.CENTER_VERTICAL
             setPadding(6.dp, 0, 6.dp, 0)
             setOnClickListener { action() }
-            layoutParams = LinearLayout.LayoutParams(220.dp, 34.dp)
+            layoutParams = LinearLayout.LayoutParams(110.dp, 34.dp)
         }
 
     private fun rebuildCanvasPanel() {
-        canvasPanel?.let { removeView(it) }
+        canvasPanel?.let { toolbarPopupHost.removeView(it) }
         canvasPanel = null
         toggleCanvasPanel()
     }
@@ -809,17 +843,18 @@ class DrawingOverlayView(
 
     private fun toggleColorPanel() {
         if (colorPanel != null) {
-            removeView(colorPanel)
+            toolbarPopupHost.removeView(colorPanel)
             colorPanel = null
             return
         }
         moreToolsPanel?.let {
-            removeView(it)
+            toolbarPopupHost.removeView(it)
             moreToolsPanel = null
         }
+        canvasPanel?.let { toolbarPopupHost.removeView(it); canvasPanel = null }
         val panel = buildColorPanel()
         colorPanel = panel
-        addView(panel)
+        toolbarPopupHost.addView(panel)
         positionPopupAboveToolbar(panel)
         panel.post { positionPopupAboveToolbar(panel) }
     }
@@ -961,12 +996,12 @@ class DrawingOverlayView(
         onSelectionChanged(currentToolId, color)
         refreshColorControl()
         refreshToolIndicators()
-        colorPanel?.let(::removeView)
+        colorPanel?.let(toolbarPopupHost::removeView)
         colorPanel = null
     }
 
     private fun refreshColorControl() {
-        val toolbar = findViewWithTag<LinearLayout>("monochrome-toolbar") ?: return
+        val toolbar = toolbarPopupHost.findViewWithTag<LinearLayout>("monochrome-toolbar") ?: return
         val colorControl = toolbar.findViewWithTag<LinearLayout>("color") ?: return
         colorControl.getChildAt(0).background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL; setColor(currentColor); setStroke(2.dpf.toInt(), Color.parseColor("#55FFFFFF"))

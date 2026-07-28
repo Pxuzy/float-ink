@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
@@ -42,17 +43,56 @@ class DrawingOverlayViewTest {
         val secondBoard = session.createBoard()
         val secondLayer = session.createLayer("重点")
         val view = DrawingOverlayView(context, "pen", 0, drawingSession = session) {}
-        val toolbar = view.getChildAt(1) as LinearLayout
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
 
         toolbar.findByTag("canvas-selector").performClick()
         assertNotNull(view.findByTag("canvas-panel"))
         view.findByTag("board:${firstBoard.id}").performClick()
         assertEquals(firstBoard.id, session.currentBoard.id)
 
-        (view.getChildAt(1) as LinearLayout).findByTag("canvas-selector").performClick()
+        (view.findByTag("monochrome-toolbar") as LinearLayout).findByTag("canvas-selector").performClick()
         view.findByTag("board:${secondBoard.id}").performClick()
         assertEquals(secondBoard.id, session.currentBoard.id)
         assertEquals(secondLayer.id, session.currentLayer.id)
+    }
+
+    @Test
+    fun `canvas panel structure has bounded scroll view and fixed action bar in popup host`() {
+        val session = DrawingSession()
+        repeat(3) { session.createBoard() }
+        repeat(4) { session.createLayer("L$it") }
+        val view = DrawingOverlayView(context, "pen", 0, drawingSession = session) {}
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
+
+        toolbar.findByTag("canvas-selector").performClick()
+        val panel = view.findByTag("canvas-panel")
+        assertNotNull(panel)
+
+        // Panel is inside toolbar-popup-host
+        val host = view.findByTag("toolbar-popup-host") as FrameLayout
+        assertTrue(host === panel.parent)
+
+        // Contains a ScrollView with bounded height
+        val scrollView = view.findByTag("canvas-list-scroll") as ScrollView
+        val scrollParams = scrollView.layoutParams as LinearLayout.LayoutParams
+        assertTrue("scroll height $scrollParams must be <= 240dp", scrollParams.height <= 240.dp)
+        assertTrue("scroll height $scrollParams must be >= 72dp", scrollParams.height >= 72.dp)
+
+        // Contains separate actions area outside the scroll view
+        val actions = view.findByTag("canvas-actions") as LinearLayout
+        assertNotNull(actions)
+        assertEquals(LinearLayout.VERTICAL, actions.orientation)
+        assertTrue(panel === actions.parent)
+
+        // Action rows are 110dp (half of 220dp canvas panel width)
+        assertEquals(110.dp, (view.findByTag("canvas-action:board").layoutParams as LinearLayout.LayoutParams).width)
+        assertEquals(110.dp, (view.findByTag("canvas-action:layer").layoutParams as LinearLayout.LayoutParams).width)
+        assertEquals(110.dp, (view.findByTag("canvas-action:rename-board").layoutParams as LinearLayout.LayoutParams).width)
+        assertEquals(110.dp, (view.findByTag("canvas-action:delete-board").layoutParams as LinearLayout.LayoutParams).width)
+
+        // Position is safe
+        val params = panel.layoutParams as FrameLayout.LayoutParams
+        assertPopupPositionIsSafe(params, toolbar, view)
     }
 
     @Test
@@ -60,9 +100,9 @@ class DrawingOverlayViewTest {
         val view = DrawingOverlayView(context, "pen", 0) {}
 
         assertEquals(2, view.childCount)
-        assertTrue(view.getChildAt(1) is LinearLayout)
-        assertEquals("monochrome-toolbar", view.getChildAt(1).tag)
-        val toolbar = view.getChildAt(1) as LinearLayout
+        assertTrue(view.getChildAt(1) is FrameLayout)
+        assertEquals("toolbar-popup-host", view.getChildAt(1).tag)
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
         assertEquals(LinearLayout.HORIZONTAL, toolbar.orientation)
         assertEquals("toolbar-drag-handle", toolbar.findByTag("toolbar-drag-handle").tag)
         assertEquals("toolbar-tool-scroll", toolbar.findByTag("toolbar-tool-scroll").tag)
@@ -76,11 +116,11 @@ class DrawingOverlayViewTest {
     @Test
     fun `more tools panel opens and closes without rebuilding toolbar`() {
         val view = DrawingOverlayView(context, "pen", 0) {}
-        val toolbar = view.getChildAt(1) as LinearLayout
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
 
         toolbar.findByTag("more-tools").performClick()
         assertEquals("more-tools-panel", view.findByTag("more-tools-panel").tag)
-        assertTrue(view.getChildAt(1) === toolbar)
+        assertTrue(view.findByTag("monochrome-toolbar") === toolbar)
 
         toolbar.findByTag("more-tools").performClick()
         assertEquals(2, view.childCount)
@@ -94,13 +134,13 @@ class DrawingOverlayViewTest {
             PenSettings.load(context).toolStyles,
             toolbarToolIds = listOf("arrow", "pen"),
         ) {}
-        var toolbar = view.getChildAt(1) as LinearLayout
+        var toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
         assertEquals("tool:arrow", toolbar.findByTag("tool:arrow").tag)
         assertEquals("tool:pen", toolbar.findByTag("tool:pen").tag)
 
         PenSettings.saveToolbarLayout(context, listOf("rect", "line"), setOf("rect", "line"))
         view.applyExternalSettings(PenSettings.load(context))
-        toolbar = view.getChildAt(1) as LinearLayout
+        toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
         assertEquals("tool:pen", toolbar.findByTag("tool:pen").tag)
         assertEquals("tool:rect", toolbar.findByTag("tool:rect").tag)
         assertEquals("tool:line", toolbar.findByTag("tool:line").tag)
@@ -111,14 +151,14 @@ class DrawingOverlayViewTest {
         val view = DrawingOverlayView(context, "pen", 0) {}
         val narrow = Configuration(context.resources.configuration).apply { screenWidthDp = 320 }
         view.applyWindowConfiguration(narrow)
-        var toolbar = view.getChildAt(1) as LinearLayout
+        var toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
         assertTrue(toolbar.layoutParams.width <= 304.dp)
         assertEquals("toolbar-tool-scroll", toolbar.findByTag("toolbar-tool-scroll").tag)
         assertEquals("exit", toolbar.findByTag("exit").tag)
 
         val wide = Configuration(context.resources.configuration).apply { screenWidthDp = 700 }
         view.applyWindowConfiguration(wide)
-        toolbar = view.getChildAt(1) as LinearLayout
+        toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
         assertEquals(520.dp, toolbar.layoutParams.width)
         assertEquals("exit", toolbar.findByTag("exit").tag)
     }
@@ -132,7 +172,7 @@ class DrawingOverlayViewTest {
             View.MeasureSpec.makeMeasureSpec(640.dp, View.MeasureSpec.EXACTLY),
         )
         view.layout(0, 0, 220.dp, 640.dp)
-        val toolbar = view.getChildAt(1) as LinearLayout
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
         assertTrue(toolbar.layoutParams.width <= 204.dp)
 
         toolbar.findByTag("color").performClick()
@@ -144,13 +184,13 @@ class DrawingOverlayViewTest {
         org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
         val restoredColorPanel = view.findByTag("color-panel")
         assertEquals("color-panel", restoredColorPanel.tag)
-        assertPopupPositionIsSafe(restoredColorPanel.layoutParams as FrameLayout.LayoutParams, view.getChildAt(1), view)
+        assertPopupPositionIsSafe(restoredColorPanel.layoutParams as FrameLayout.LayoutParams, view.findByTag("monochrome-toolbar"), view)
 
-        (view.getChildAt(1) as LinearLayout).findByTag("more-tools").performClick()
+        (view.findByTag("monochrome-toolbar") as LinearLayout).findByTag("more-tools").performClick()
         assertTrue(view.findByTag("more-tools-panel") != colorPanel)
         assertTrue(runCatching { view.findByTag("color-panel") }.isFailure)
 
-        (view.getChildAt(1) as LinearLayout).findByTag("color").performClick()
+        (view.findByTag("monochrome-toolbar") as LinearLayout).findByTag("color").performClick()
         assertTrue(runCatching { view.findByTag("more-tools-panel") }.isFailure)
         assertTrue(view.findByTag("color-panel") != colorPanel)
     }
@@ -165,7 +205,7 @@ class DrawingOverlayViewTest {
         )
         view.layout(0, 0, 320.dp, 640.dp)
 
-        (view.getChildAt(1) as LinearLayout).findByTag("color").performClick()
+        (view.findByTag("monochrome-toolbar") as LinearLayout).findByTag("color").performClick()
         val colorPanel = view.findByTag("color-panel")
         colorPanel.measure(
             View.MeasureSpec.makeMeasureSpec(320.dp, View.MeasureSpec.AT_MOST),
@@ -189,7 +229,7 @@ class DrawingOverlayViewTest {
         )
         view.layout(0, 0, 320.dp, 640.dp)
 
-        (view.getChildAt(1) as LinearLayout).findByTag("color").performClick()
+        (view.findByTag("monochrome-toolbar") as LinearLayout).findByTag("color").performClick()
         view.findByTag("custom-color").performClick()
         val colorPanel = view.findByTag("color-panel")
         val controls = view.findByTag("hsv-controls")
@@ -207,7 +247,7 @@ class DrawingOverlayViewTest {
             View.MeasureSpec.makeMeasureSpec(640.dp, View.MeasureSpec.EXACTLY),
         )
         view.layout(0, 0, 320.dp, 640.dp)
-        val toolbar = view.getChildAt(1) as LinearLayout
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
         val handle = toolbar.findByTag("toolbar-drag-handle")
         handle.dispatchTouchEvent(MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 10f, 10f, 0))
         handle.dispatchTouchEvent(MotionEvent.obtain(0, 16, MotionEvent.ACTION_MOVE, 46f, 54f, 0))
@@ -224,7 +264,7 @@ class DrawingOverlayViewTest {
             "arrow" to ToolStyle(DrawingElement.colorValues[3], 15f),
         )
         val view = DrawingOverlayView(context, "pen", styles, arrowScale = 3f) {}
-        val toolbar = view.getChildAt(1) as LinearLayout
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
         val canvas = view.getChildAt(0)
 
         drawGesture(canvas, 10f, 10f, 30f, 30f)
@@ -262,7 +302,7 @@ class DrawingOverlayViewTest {
             "line" to ToolStyle(DrawingElement.colorValues[2], 9f),
         )
         val view = DrawingOverlayView(context, "line", styles) {}
-        val toolbar = view.getChildAt(1) as LinearLayout
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
 
         toolbar.findByTag("color").performClick()
         view.findByTag("palette-color:1").performClick()
@@ -275,7 +315,7 @@ class DrawingOverlayViewTest {
     @Test
     fun `each toolbar tool switches drawing behavior`() {
         val view = DrawingOverlayView(context, "pen", 0) {}
-        val toolbar = view.getChildAt(1) as LinearLayout
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
         val canvas = view.getChildAt(0)
         val expected = listOf(
             "pen" to CoreDrawingElement.Stroke::class.java,
@@ -295,7 +335,7 @@ class DrawingOverlayViewTest {
     @Test
     fun `color button opens palette and selected swatch applies globally`() {
         val view = DrawingOverlayView(context, "pen", 0) {}
-        val toolbar = view.getChildAt(1) as LinearLayout
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
         val canvas = view.getChildAt(0)
 
         toolbar.findByTag("color").performClick()
@@ -309,7 +349,7 @@ class DrawingOverlayViewTest {
     @Test
     fun `selected tool indicator uses current pen color and updates immediately`() {
         val view = DrawingOverlayView(context, "pen", 0) {}
-        val toolbar = view.getChildAt(1) as LinearLayout
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
         val pen = toolbar.findByTag("tool:pen")
 
         assertEquals(DrawingElement.colorValues[0], pen.getTag(R.id.tag_selected_color))
@@ -323,7 +363,7 @@ class DrawingOverlayViewTest {
     @Test
     fun `rendering old elements cannot overwrite selected color`() {
         val view = DrawingOverlayView(context, "pen", 0) {}
-        val toolbar = view.getChildAt(1) as LinearLayout
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
         val canvas = view.getChildAt(0)
 
         drawGesture(canvas, 10f, 10f, 30f, 30f)
@@ -346,7 +386,7 @@ class DrawingOverlayViewTest {
             onSelectionChanged = { tool, color -> changes += tool to color },
             onExit = {}
         )
-        val toolbar = view.getChildAt(1) as LinearLayout
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
 
         toolbar.findByTag("tool:arrow").performClick()
         toolbar.findByTag("color").performClick()
@@ -373,7 +413,7 @@ class DrawingOverlayViewTest {
     @Test
     fun `compact toolbar hides color text to preserve exit button`() {
         val view = DrawingOverlayView(context, "pen", 0) {}
-        val toolbar = view.getChildAt(1) as LinearLayout
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
         val colorControl = toolbar.findByTag("color") as LinearLayout
 
         assertEquals("", (colorControl.getChildAt(1) as TextView).text.toString())
@@ -384,7 +424,7 @@ class DrawingOverlayViewTest {
         val density = context.resources.displayMetrics.density
         context.resources.displayMetrics.widthPixels = (320 * density).toInt()
         val view = DrawingOverlayView(context, "pen", 0) {}
-        val toolbar = view.getChildAt(1)
+        val toolbar = view.findByTag("monochrome-toolbar")
 
         toolbar.measure(
             View.MeasureSpec.makeMeasureSpec((320 * density).toInt(), View.MeasureSpec.AT_MOST),
@@ -551,7 +591,7 @@ class DrawingOverlayViewTest {
     fun `undo clear and exit actions work`() {
         var exits = 0
         val view = DrawingOverlayView(context, "pen", 0) { exits++ }
-        val toolbar = view.getChildAt(1) as LinearLayout
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
         val canvas = view.getChildAt(0)
 
         drawGesture(canvas, 10f, 10f, 20f, 20f)
@@ -569,7 +609,7 @@ class DrawingOverlayViewTest {
     @Test
     fun `undo during an active stroke does not modify the previous stroke`() {
         val view = DrawingOverlayView(context, "pen", 0) {}
-        val toolbar = view.getChildAt(1) as LinearLayout
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
         val canvas = view.getChildAt(0)
 
         drawGesture(canvas, 5f, 5f, 20f, 20f)
