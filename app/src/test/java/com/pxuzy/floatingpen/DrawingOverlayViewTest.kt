@@ -80,10 +80,12 @@ class DrawingOverlayViewTest {
 
         // Creation is discoverable at the section headers, while destructive
         // actions live in each row's overflow menu instead of below the list.
-        assertEquals("canvas-add-board", view.findByTag("canvas-add-board").tag)
-        assertEquals("canvas-add-layer", view.findByTag("canvas-add-layer").tag)
-        assertEquals("canvas-menu-board:${session.boards.first().id}", view.findByTag("canvas-menu-board:${session.boards.first().id}").tag)
-        assertEquals("canvas-menu-layer:${session.currentBoard.layers.first().id}", view.findByTag("canvas-menu-layer:${session.currentBoard.layers.first().id}").tag)
+        assertTrue(view.findByTag("canvas-add-board") is FloatInkIconView)
+        assertTrue(view.findByTag("canvas-add-layer") is FloatInkIconView)
+        assertTrue(view.findByTag("canvas-menu-board:${session.boards.first().id}") is FloatInkIconView)
+        assertTrue(view.findByTag("canvas-menu-layer:${session.currentBoard.layers.first().id}") is FloatInkIconView)
+        assertTrue(view.findByTag("layer-visibility:${session.currentLayer.id}") is FloatInkIconView)
+        assertNotNull(view.findByTag("board-selected:${session.currentBoard.id}").background)
         assertTrue(runCatching { view.findByTag("canvas-action:delete-board") }.isFailure)
 
         val boardCount = session.boards.size
