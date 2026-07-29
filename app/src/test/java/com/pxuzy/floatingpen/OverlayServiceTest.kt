@@ -97,6 +97,7 @@ class OverlayServiceTest {
         }, 0, 1)
         val drawing = service.privateField("drawingView") as DrawingOverlayView
 
+        PenSettings.saveGlobalStyle(service, DrawingElement.colorValues[2], 6f)
         PenSettings.saveToolStyle(service, "pen", DrawingElement.colorValues[2], 13f)
         service.onStartCommand(Intent(service, OverlayService::class.java).apply {
             action = OverlayService.ACTION_SETTINGS_CHANGED

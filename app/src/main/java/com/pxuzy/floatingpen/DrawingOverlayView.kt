@@ -1179,7 +1179,7 @@ class DrawingOverlayView(
         currentColor = color
         drawPaint.color = color
         toolStyles[currentToolId] = ToolStyle(color, drawPaint.strokeWidth / density)
-        PenSettings.saveToolStyle(context, currentToolId, color, drawPaint.strokeWidth / density)
+        PenSettings.saveColor(context, color)
         if (!PenSettings.isDefaultColor(color)) PenSettings.addCustomColor(context, color)
         PenSettings.addRecentColor(context, color)
         onSelectionChanged(currentToolId, color)

@@ -40,7 +40,7 @@ class PenSettingsTest {
             assertEquals(11f, migrated.styleFor(tool).widthDp)
         }
         assertEquals(2.35f, migrated.arrowScale)
-        assertEquals(0xFFABCDEF.toInt(), reloaded.styleFor("pen").color)
+        assertEquals(0xFF123456.toInt(), reloaded.styleFor("pen").color)
     }
 
     @Test
@@ -59,7 +59,7 @@ class PenSettingsTest {
     }
 
     @Test
-    fun `tool styles persist independently from global style`() {
+    fun `tool widths persist independently while color stays global`() {
         PenSettings.saveGlobalStyle(context, 0xFF101010.toInt(), 4f)
         PenSettings.saveToolStyle(context, "line", 0xFF202020.toInt(), 8f)
         PenSettings.saveToolStyle(context, "arrow", 0xFF303030.toInt(), 99f)
@@ -68,9 +68,9 @@ class PenSettingsTest {
 
         assertEquals(0xFF101010.toInt(), values.globalColor)
         assertEquals(4f, values.globalWidthDp)
-        assertEquals(0xFF202020.toInt(), values.styleFor("line").color)
+        assertEquals(0xFF101010.toInt(), values.styleFor("line").color)
         assertEquals(8f, values.styleFor("line").widthDp)
-        assertEquals(0xFF303030.toInt(), values.styleFor("arrow").color)
+        assertEquals(0xFF101010.toInt(), values.styleFor("arrow").color)
         assertEquals(24f, values.styleFor("arrow").widthDp)
         assertEquals(values.styleFor("pen"), values.styleFor("unknown"))
     }
@@ -154,7 +154,7 @@ class PenSettingsTest {
         assertEquals(PenSettings.DEFAULT_PALETTE.first(), values.globalColor)
         assertEquals(PenSettings.DEFAULT_PALETTE.first(), values.styleFor("pen").color)
         assertEquals(PenSettings.DEFAULT_PALETTE.first(), values.styleFor("rect").color)
-        assertEquals(0xFFABCDEF.toInt(), values.styleFor("arrow").color)
+        assertEquals(PenSettings.DEFAULT_PALETTE.first(), values.styleFor("arrow").color)
     }
 
     @Test

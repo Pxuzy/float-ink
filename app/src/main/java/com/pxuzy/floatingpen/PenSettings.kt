@@ -84,9 +84,7 @@ object PenSettings {
                 putInt(KEY_GLOBAL_COLOR_ARGB, fallback)
             }
             TOOL_IDS.forEach { toolId ->
-                if (prefs.getInt(toolColorKey(toolId), DEFAULT_COLOR_ARGB) == color) {
-                    putInt(toolColorKey(toolId), fallback)
-                }
+                putInt(toolColorKey(toolId), fallback)
             }
         }.apply()
         return true
@@ -162,7 +160,7 @@ object PenSettings {
         val globalWidth = clampWidth(prefs.getFloat(KEY_GLOBAL_WIDTH_DP, DEFAULT_WIDTH_DP))
         val styles = TOOL_IDS.associateWith { toolId ->
             ToolStyle(
-                prefs.getInt(toolColorKey(toolId), globalColor),
+                globalColor,
                 clampWidth(prefs.getFloat(toolWidthKey(toolId), globalWidth)),
             )
         }
@@ -208,17 +206,26 @@ object PenSettings {
 
     fun saveGlobalStyle(context: Context, color: Int, widthDp: Float) {
         migrateLegacyStyleIfNeeded(context)
+        saveGlobalColor(context, color)
         context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE).edit()
-            .putInt(KEY_GLOBAL_COLOR_ARGB, color)
-            .putFloat(KEY_GLOBAL_WIDTH_DP, clampWidth(widthDp))
-            .apply()
+            .putFloat(KEY_GLOBAL_WIDTH_DP, clampWidth(widthDp)).apply()
+    }
+
+    /** The ink color is global; keep every tool style synchronized for legacy callers. */
+    fun saveGlobalColor(context: Context, color: Int) {
+        migrateLegacyStyleIfNeeded(context)
+        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE).edit().apply {
+            putInt(KEY_GLOBAL_COLOR_ARGB, color)
+            TOOL_IDS.forEach { toolId -> putInt(toolColorKey(toolId), color) }
+        }.apply()
     }
 
     fun saveToolStyle(context: Context, tool: String, color: Int, widthDp: Float) {
         migrateLegacyStyleIfNeeded(context)
         val toolId = normalizeTool(tool)
-        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE).edit()
-            .putInt(toolColorKey(toolId), color)
+        val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putInt(toolColorKey(toolId), prefs.getInt(KEY_GLOBAL_COLOR_ARGB, DEFAULT_COLOR_ARGB))
             .putFloat(toolWidthKey(toolId), clampWidth(widthDp))
             .apply()
     }
@@ -237,7 +244,6 @@ object PenSettings {
     fun saveColor(context: Context, color: Int) {
         val values = load(context)
         saveGlobalStyle(context, color, values.globalWidthDp)
-        saveToolStyle(context, values.tool, color, values.styleFor(values.tool).widthDp)
     }
 
     fun saveWidth(context: Context, widthDp: Float) {
