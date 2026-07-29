@@ -44,6 +44,21 @@ class PenSettingsTest {
     }
 
     @Test
+    fun `newly added circle style inherits global defaults after prior migration`() {
+        val prefs = context.getSharedPreferences(PenSettings.PREF_NAME, Application.MODE_PRIVATE)
+        prefs.edit()
+            .putBoolean("tool_style_migrated_v1", true)
+            .putInt(PenSettings.KEY_GLOBAL_COLOR_ARGB, 0xFF2468AC.toInt())
+            .putFloat(PenSettings.KEY_GLOBAL_WIDTH_DP, 14f)
+            .commit()
+
+        val values = PenSettings.load(context)
+
+        assertEquals(0xFF2468AC.toInt(), values.styleFor("circle").color)
+        assertEquals(14f, values.styleFor("circle").widthDp)
+    }
+
+    @Test
     fun `tool styles persist independently from global style`() {
         PenSettings.saveGlobalStyle(context, 0xFF101010.toInt(), 4f)
         PenSettings.saveToolStyle(context, "line", 0xFF202020.toInt(), 8f)
@@ -163,7 +178,7 @@ class PenSettingsTest {
         PenSettings.saveToolbarLayout(context, listOf("arrow", "pen", "unknown"), setOf("arrow"))
 
         val layout = PenSettings.loadToolbarLayout(context)
-        assertEquals(listOf("arrow", "pen", "line", "rect"), layout.order)
+        assertEquals(listOf("arrow", "pen") + PenSettings.TOOL_IDS.filterNot { it in setOf("arrow", "pen") }, layout.order)
         assertEquals(setOf("arrow"), layout.enabled)
         assertEquals(listOf("arrow"), PenSettings.load(context).visibleToolbarToolIds())
     }

@@ -132,6 +132,10 @@ class DrawingOverlayView(
                 val x = event.x; val y = event.y
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
+                        if (!drawingSession.currentLayer.visible) {
+                            drawingSession.setLayerVisible(drawingSession.currentLayer.id, true)
+                            sessionDirty = true
+                        }
                         activePointerId = event.getPointerId(0)
                         activeToolType = event.getToolType(0)
                         sx = x; sy = y; cx = x; cy = y; isDrawing = true
