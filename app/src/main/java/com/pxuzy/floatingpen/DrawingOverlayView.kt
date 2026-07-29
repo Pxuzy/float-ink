@@ -861,6 +861,7 @@ class DrawingOverlayView(
                     drawingSession.moveLayer(layer.id, 0)
                     onSessionChanged()
                     rebuildCanvasPanel()
+                    canvasView.invalidate()
                     true
                 }
             }
@@ -953,6 +954,7 @@ class DrawingOverlayView(
                             drawingSession.setLayerVisible(targetId, !current.visible)
                             onSessionChanged()
                             rebuildCanvasPanel()
+                            canvasView.invalidate()
                         }
                         1 -> renameCanvasTarget(true, targetId)
                         2 -> confirmCanvasDelete(true, targetId)
