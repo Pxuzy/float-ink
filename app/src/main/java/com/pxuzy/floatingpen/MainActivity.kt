@@ -269,11 +269,14 @@ class MainActivity : ComponentActivity() {
                 selectedWidthDp = width
                 PenSettings.saveToolStyle(this@MainActivity, selectedTool, selectedColor, width)
                 notifyOverlaySettingsChanged()
+                strokePreview.setTag(R.id.tag_preview_width_dp, selectedWidthDp)
                 strokePreview.invalidate()
                 if (selectedTool == "arrow" && ::arrowPreview.isInitialized) arrowPreview.invalidate()
             })
             strokePreview = ToolPreviewView(this@MainActivity, selectedTool).apply {
                 tag = "tool-preview"; background = panelBackground()
+                setTag(R.id.tag_preview_tool, selectedTool)
+                setTag(R.id.tag_preview_width_dp, selectedWidthDp)
             }
             addView(strokePreview, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 72.dp).apply { topMargin = 4.dp })
             if (selectedTool == "arrow") addArrowSettings(this)
@@ -531,9 +534,12 @@ class MainActivity : ComponentActivity() {
         override fun onDraw(canvas: Canvas) {
             val left = 24.dp.toFloat(); val right = width - 24.dp.toFloat(); val center = height / 2f
             paint.color = selectedColor; paint.strokeWidth = selectedWidthDp.dp; paint.style = Paint.Style.STROKE
+            setTag(R.id.tag_preview_tool, tool)
+            setTag(R.id.tag_preview_width_dp, selectedWidthDp)
             when (tool) {
                 "pen" -> { path.rewind(); path.moveTo(left, center); path.cubicTo(width * .35f, center - 16.dp, width * .65f, center + 16.dp, right, center); canvas.drawPath(path, paint) }
                 "rect" -> canvas.drawRect(left, 16.dp.toFloat(), right, height - 16.dp.toFloat(), paint)
+                "circle" -> canvas.drawCircle(width / 2f, center, minOf((right - left) / 2f, height / 2f - 12.dp), paint)
             else -> {
                 val head = if (tool == "arrow") DrawingOverlayView.resolveArrowHeadLengthDp(selectedWidthDp, selectedArrowScale).dp else 0f
                 canvas.drawLine(left, center, if (tool == "arrow") right - head else right, center, paint)
