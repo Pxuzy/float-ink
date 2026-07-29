@@ -25,6 +25,13 @@ class MainActivityTest {
     private val context: Application = ApplicationProvider.getApplicationContext()
 
     @Test
+    fun `application uses the adaptive launcher icon resources`() {
+        val info = context.packageManager.getApplicationInfo(context.packageName, 0)
+
+        assertEquals(R.mipmap.ic_launcher, info.icon)
+    }
+
+    @Test
     fun `bottom navigation opens home pen and settings pages`() {
         val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
         val root = activity.findViewById<ViewGroup>(android.R.id.content)
