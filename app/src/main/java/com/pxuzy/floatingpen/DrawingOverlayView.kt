@@ -6,6 +6,8 @@ import android.content.res.Configuration
 import android.graphics.*
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -83,6 +85,8 @@ class DrawingOverlayView(
     private var colorPanel: View? = null
     private var moreToolsPanel: View? = null
     private var canvasPanel: View? = null
+    private var colorManageMode = false
+    private var restoreClearBar: View? = null
     private val toolButtons = mutableMapOf<String, View>()
     private var windowWidthDp = resources.configuration.screenWidthDp
     private var compactLayout = isCompactWidth()
@@ -122,6 +126,7 @@ class DrawingOverlayView(
     }
     private val strokePath = Path()
     private val arrowHeadPath = Path()
+    private val restoreClearTimeout = Handler(Looper.getMainLooper())
 
     init {
         drawPaint.color = currentColor
@@ -136,6 +141,7 @@ class DrawingOverlayView(
                             drawingSession.setLayerVisible(drawingSession.currentLayer.id, true)
                             sessionDirty = true
                         }
+                        dismissRestoreClearBar()
                         activePointerId = event.getPointerId(0)
                         activeToolType = event.getToolType(0)
                         sx = x; sy = y; cx = x; cy = y; isDrawing = true
@@ -329,7 +335,10 @@ class DrawingOverlayView(
         }
     }
 
-    // ===== Pill 悬浮工具栏 =====
+    override fun onDetachedFromWindow() {
+        dismissRestoreClearBar()
+        super.onDetachedFromWindow()
+    }
 
     private fun buildToolbar(): View {
         val screenWidth = windowWidthDp
@@ -355,20 +364,18 @@ class DrawingOverlayView(
         val dragHandle = ToolIconView(context, "drag").apply {
             tag = "toolbar-drag-handle"
             contentDescription = "拖动工具栏"
-            layoutParams = LinearLayout.LayoutParams(30.dp, 40.dp)
+            layoutParams = LinearLayout.LayoutParams(48.dp, 48.dp)
         }
         bar.addView(dragHandle)
-        bar.addView(createActionBtn("canvas", ::toggleCanvasPanel).apply {
-            tag = "canvas-selector"
-            contentDescription = "选择画板和图层"
-        })
         bar.addView(createColorDot())
 
         val toolContent = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             configuredToolIds.take(4).forEach { toolId -> addView(createToolIcon(toolId)) }
-            addView(createActionBtn("more", ::toggleMoreTools).apply { tag = "more-tools" })
+            if (configuredToolIds.size > 4) {
+                addView(createActionBtn("more", ::toggleMoreTools).apply { tag = "more-tools" })
+            }
         }
         val toolScroll = HorizontalScrollView(context).apply {
             tag = "toolbar-tool-scroll"
@@ -388,16 +395,16 @@ class DrawingOverlayView(
                 canvasView.invalidate()
             } else if (elements.isNotEmpty()) {
                 elements.removeAt(elements.lastIndex)
+                drawingSession.discardRecoverableClear()
+                dismissRestoreClearBar()
                 onSessionChanged()
                 canvasView.invalidate()
             }
         }.apply { tag = "undo" })
-        bar.addView(createActionBtn("clear") {
-            discardActiveGesture()
-            elements.clear()
-            onSessionChanged()
-            canvasView.invalidate()
-        }.apply { tag = "clear" })
+        bar.addView(createActionBtn("canvas", ::toggleCanvasPanel).apply {
+            tag = "canvas-selector"
+            contentDescription = "选择画板和图层"
+        })
         bar.addView(createActionBtn("exit", action = {
             finishTextInputMode()
             onExit()
@@ -450,11 +457,13 @@ class DrawingOverlayView(
 
     private fun createColorDot(): View {
         val size = if (compactLayout) 24.dp else 28.dp
+        val resolvedWidth = (drawPaint.strokeWidth / density).toInt()
         val wrapper = LinearLayout(context).apply {
             tag = "color"
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, if (compactLayout) 36.dp else 40.dp).apply { marginEnd = 4.dp }
+            contentDescription = "当前颜色 ${colorLabel(currentColor)}，线宽 ${resolvedWidth}dp"
+            layoutParams = LinearLayout.LayoutParams(48.dp, 48.dp).apply { marginEnd = 4.dp }
             setOnClickListener { toggleColorPanel() }
         }
         // Colored circle
@@ -468,7 +477,7 @@ class DrawingOverlayView(
         })
         // Color name text
         wrapper.addView(TextView(context).apply {
-            text = if (compactLayout) "" else colorLabel(currentColor)
+            text = if (compactLayout) "" else "${colorLabel(currentColor)} · ${resolvedWidth}dp"
             textSize = if (compactLayout) 10f else 11f
             setTextColor(Color.parseColor("#AAFFFFFF"))
             gravity = Gravity.CENTER_VERTICAL
@@ -605,11 +614,7 @@ class DrawingOverlayView(
         }
     }
 
-    private fun actionButtonSize(): Int = when {
-        windowWidthDp in 1..179 -> 32.dp
-        compactLayout -> 40.dp
-        else -> 44.dp
-    }
+    private fun actionButtonSize(): Int = 48.dp
 
     private fun positionPopupAboveToolbar(popup: View) {
         val toolbar = toolbarPopupHost.findViewWithTag<View>("monochrome-toolbar") ?: return
@@ -785,6 +790,7 @@ class DrawingOverlayView(
                 })
                 setOnClickListener {
                     discardActiveGesture(); drawingSession.selectBoard(board.id)
+                    dismissRestoreClearBar(discardSnapshot = false)
                     elements = drawingSession.currentLayer.elements
                     onSessionChanged()
                     toolbarPopupHost.removeView(panel); canvasPanel = null; canvasView.invalidate()
@@ -853,6 +859,7 @@ class DrawingOverlayView(
                 })
                 setOnClickListener {
                     discardActiveGesture(); drawingSession.selectLayer(layer.id)
+                    dismissRestoreClearBar(discardSnapshot = false)
                     elements = drawingSession.currentLayer.elements
                     onSessionChanged()
                     rebuildCanvasPanel(); canvasView.invalidate()
@@ -940,7 +947,12 @@ class DrawingOverlayView(
             drawingSession.boards.firstOrNull { it.id == targetId }?.name
         } ?: return
         val items = if (layer) {
-            arrayOf(if (drawingSession.currentBoard.layers.first { it.id == targetId }.visible) "隐藏图层" else "显示图层", "重命名", "删除图层")
+            arrayOf(
+                if (drawingSession.currentBoard.layers.first { it.id == targetId }.visible) "隐藏图层" else "显示图层",
+                "重命名",
+                "清空当前图层",
+                "删除图层",
+            )
         } else {
             arrayOf("重命名", "删除画板")
         }
@@ -957,7 +969,8 @@ class DrawingOverlayView(
                             canvasView.invalidate()
                         }
                         1 -> renameCanvasTarget(true, targetId)
-                        2 -> confirmCanvasDelete(true, targetId)
+                        2 -> clearLayerRecoverably(targetId)
+                        3 -> confirmCanvasDelete(true, targetId)
                     }
                 } else {
                     when (which) {
@@ -970,6 +983,67 @@ class DrawingOverlayView(
             .create()
         dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
         dialog.show()
+    }
+
+    private fun clearLayerRecoverably(targetId: String) {
+        if (targetId != drawingSession.currentLayer.id) {
+            drawingSession.selectLayer(targetId)
+            dismissRestoreClearBar(discardSnapshot = false)
+            elements = drawingSession.currentLayer.elements
+        }
+        discardActiveGesture()
+        if (!drawingSession.clearCurrentLayerRecoverably()) return
+        onSessionChanged()
+        canvasPanel?.let { toolbarPopupHost.removeView(it); canvasPanel = null }
+        canvasView.invalidate()
+        showRestoreClearBar()
+    }
+
+    private fun showRestoreClearBar() {
+        dismissRestoreClearBar(discardSnapshot = false)
+        val bar = LinearLayout(context).apply {
+            tag = "restore-clear-bar"
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(12.dp, 0, 8.dp, 0)
+            background = GradientDrawable().apply {
+                setColor(Color.argb(242, 29, 38, 48))
+                cornerRadius = FloatInkTheme.PANEL_RADIUS_DP.dpf
+                setStroke(1.dpf.toInt(), Color.argb(120, 140, 180, 220))
+            }
+            addView(TextView(context).apply {
+                text = "已清空当前图层"
+                textSize = 13f
+                setTextColor(Color.WHITE)
+            }, LinearLayout.LayoutParams(0, 48.dp, 1f))
+            addView(TextView(context).apply {
+                tag = "restore-clear-action"
+                text = "恢复"
+                textSize = 13f
+                gravity = Gravity.CENTER
+                contentDescription = "恢复已清空的当前图层"
+                setTextColor(Color.parseColor("#9FD2FF"))
+                setOnClickListener {
+                    if (drawingSession.restoreClearedCurrentLayer()) {
+                        onSessionChanged()
+                        canvasView.invalidate()
+                    }
+                    dismissRestoreClearBar(discardSnapshot = false)
+                }
+            }, LinearLayout.LayoutParams(56.dp, 48.dp))
+        }
+        restoreClearBar = bar
+        toolbarPopupHost.addView(bar, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, 48.dp))
+        positionPopupAboveToolbar(bar)
+        restoreClearTimeout.removeCallbacksAndMessages(null)
+        restoreClearTimeout.postDelayed({ dismissRestoreClearBar() }, RESTORE_CLEAR_TIMEOUT_MS)
+    }
+
+    private fun dismissRestoreClearBar(discardSnapshot: Boolean = true) {
+        if (discardSnapshot) drawingSession.discardRecoverableClear()
+        restoreClearTimeout.removeCallbacksAndMessages(null)
+        restoreClearBar?.let(toolbarPopupHost::removeView)
+        restoreClearBar = null
     }
 
     private fun renameCanvasTarget(layer: Boolean, targetId: String) {
@@ -1007,6 +1081,7 @@ class DrawingOverlayView(
             .setPositiveButton("删除") { _, _ ->
                 if (layer) drawingSession.deleteLayer(targetId)
                 else drawingSession.deleteBoard(targetId)
+                dismissRestoreClearBar(discardSnapshot = false)
                 elements = drawingSession.currentLayer.elements
                 onSessionChanged()
                 rebuildCanvasPanel()
@@ -1057,7 +1132,11 @@ class DrawingOverlayView(
                 ).apply { topMargin = 6.dp }
             }
             colors.forEachIndexed { index, color ->
-                    row.addView(colorSwatch(color, "palette-color:${rowIndex * 4 + index}", !PenSettings.isDefaultColor(color)))
+                row.addView(colorSwatch(
+                    color,
+                    "palette-color:${rowIndex * 4 + index}",
+                    showDelete = colorManageMode && !PenSettings.isDefaultColor(color),
+                ))
             }
             panel.addView(row)
         }
@@ -1069,9 +1148,23 @@ class DrawingOverlayView(
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { topMargin = 8.dp }
         }
-        PenSettings.load(context).recentColors.take(3).forEachIndexed { index, color ->
+        PenSettings.load(context).recentColors.take(6).forEachIndexed { index, color ->
             recentRow.addView(colorSwatch(color, "recent-color:$index"))
         }
+        recentRow.addView(TextView(context).apply {
+            tag = "manage-custom-colors"
+            text = if (colorManageMode) "完成" else "管理"
+            textSize = 12f
+            gravity = Gravity.CENTER
+            contentDescription = if (colorManageMode) "完成管理颜色" else "管理自定义颜色"
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply { setColor(Color.argb(35, 255, 255, 255)); cornerRadius = 6.dpf }
+            layoutParams = LinearLayout.LayoutParams(52.dp, 34.dp).apply { marginStart = 6.dp }
+            setOnClickListener {
+                colorManageMode = !colorManageMode
+                rebuildColorPanel()
+            }
+        })
         recentRow.addView(TextView(context).apply {
             tag = "custom-color"; text = "+"; textSize = 22f; gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
@@ -1083,9 +1176,23 @@ class DrawingOverlayView(
         return panel
     }
 
-    private fun colorSwatch(color: Int, viewTag: String, deletable: Boolean = false) = FrameLayout(context).apply {
+    private fun rebuildColorPanel() {
+        val previous = colorPanel ?: return
+        toolbarPopupHost.removeView(previous)
+        val replacement = buildColorPanel()
+        colorPanel = replacement
+        toolbarPopupHost.addView(replacement)
+        positionPopupAboveToolbar(replacement)
+        replacement.post { positionPopupAboveToolbar(replacement) }
+    }
+
+    private fun colorSwatch(color: Int, viewTag: String, showDelete: Boolean = false) = FrameLayout(context).apply {
         tag = viewTag
-        contentDescription = if (deletable) "自定义颜色，长按删除" else "默认颜色"
+        contentDescription = when {
+            showDelete -> "删除自定义颜色 #%08X".format(java.util.Locale.US, color)
+            !PenSettings.isDefaultColor(color) -> "自定义颜色"
+            else -> "默认颜色"
+        }
         layoutParams = LinearLayout.LayoutParams(48.dp, 48.dp).apply { marginEnd = 2.dp }
         addView(View(context).apply {
             background = GradientDrawable().apply {
@@ -1093,15 +1200,40 @@ class DrawingOverlayView(
                 if (color == currentColor) setStroke(2.dpf.toInt(), Color.WHITE)
             }
         }, FrameLayout.LayoutParams(30.dp, 30.dp, Gravity.CENTER))
-        setOnClickListener { applyColor(color) }
-        setOnLongClickListener {
-            if (deletable) {
-                PenSettings.deleteCustomColor(context, color)
-                if (currentColor == color) applyColor(PenSettings.DEFAULT_PALETTE.first())
-                if (colorPanel != null) toggleColorPanel()
-            }
-            true
+        if (showDelete) {
+            addView(TextView(context).apply {
+                tag = "delete-color:$color"
+                text = "×"
+                textSize = 14f
+                gravity = Gravity.CENTER
+                setTextColor(Color.WHITE)
+                contentDescription = "删除自定义颜色 #%08X".format(java.util.Locale.US, color)
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(Color.parseColor("#35404C"))
+                    setStroke(1.dpf.toInt(), Color.parseColor("#A0AAB5"))
+                }
+                setOnClickListener { confirmDeleteCustomColor(color) }
+            }, FrameLayout.LayoutParams(20.dp, 20.dp, Gravity.TOP or Gravity.END))
         }
+        setOnClickListener { applyColor(color) }
+    }
+
+    private fun confirmDeleteCustomColor(color: Int) {
+        val dialog = AlertDialog.Builder(context)
+            .setTitle("删除自定义颜色？")
+            .setMessage("删除后不会影响已经画出的笔迹。")
+            .setNegativeButton("取消", null)
+            .setPositiveButton("删除") { _, _ ->
+                if (!PenSettings.deleteCustomColorAndReplaceStyles(context, color)) return@setPositiveButton
+                val wasCurrentColor = currentColor == color
+                applyExternalSettings(PenSettings.load(context))
+                if (wasCurrentColor) applyColor(PenSettings.DEFAULT_PALETTE.first())
+                else rebuildColorPanel()
+            }
+            .create()
+        dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+        dialog.show()
     }
 
     private fun showHsvControls(panel: LinearLayout) {
@@ -1310,11 +1442,9 @@ class DrawingOverlayView(
     companion object {
         private const val COLOR_PANEL_COMPACT_WIDTH_DP = 220
         private const val COLOR_PANEL_EDITOR_WIDTH_DP = 280
+        private const val RESTORE_CLEAR_TIMEOUT_MS = 6_000L
 
-        val PALETTE_COLORS = listOf(
-            0xFFF44336.toInt(), 0xFF2196F3.toInt(), 0xFF4CAF50.toInt(), 0xFF212121.toInt(),
-            0xFFFFC107.toInt(), 0xFFFFFFFF.toInt(), 0xFF9C27B0.toInt(), 0xFF00BCD4.toInt(),
-        )
+        val PALETTE_COLORS = PenSettings.DEFAULT_PALETTE
 
         fun resolveArrowHeadLengthDp(strokeWidthDp: Float, arrowScale: Float): Float =
             ArrowGeometry.headLengthDp(strokeWidthDp, arrowScale)

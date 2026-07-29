@@ -164,10 +164,68 @@ class DrawingOverlayViewTest {
         assertEquals("toolbar-drag-handle", toolbar.findByTag("toolbar-drag-handle").tag)
         assertEquals("toolbar-tool-scroll", toolbar.findByTag("toolbar-tool-scroll").tag)
         assertEquals("undo", toolbar.findByTag("undo").tag)
-        assertEquals("clear", toolbar.findByTag("clear").tag)
+        assertEquals("canvas-selector", toolbar.findByTag("canvas-selector").tag)
         assertEquals("exit", toolbar.findByTag("exit").tag)
-        assertEquals("更多工具", toolbar.findByTag("more-tools").contentDescription)
+        assertTrue(runCatching { toolbar.findByTag("clear") }.isFailure)
         assertTrue(view.textLabels().none { it.contains("✏") })
+    }
+
+    @Test
+    fun `lecture toolbar hides more without overflow and keeps fixed controls accessible`() {
+        val view = DrawingOverlayView(context, "pen", 0, toolbarToolIds = listOf("pen", "line", "arrow", "rect")) {}
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
+
+        assertTrue(runCatching { toolbar.findByTag("more-tools") }.isFailure)
+        listOf("toolbar-drag-handle", "undo", "canvas-selector", "exit").forEach { tag ->
+            val control = toolbar.findByTag(tag)
+            assertTrue("$tag width", control.layoutParams.width >= 48.dp)
+            assertTrue("$tag height", control.layoutParams.height >= 48.dp)
+        }
+    }
+
+    @Test
+    fun `canvas menu clear current layer opens restore bar and restores elements`() {
+        val session = DrawingSession()
+        val element = CoreDrawingElement.Line(0f to 0f, 40f to 40f, Color.RED, 6f)
+        session.addElement(element)
+        var changes = 0
+        val view = DrawingOverlayView(context, "pen", 0, drawingSession = session, onSessionChanged = { changes++ }) {}
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
+
+        toolbar.findByTag("canvas-selector").performClick()
+        view.findByTag("canvas-menu-layer:${session.currentLayer.id}").performClick()
+        val dialog = org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog()
+        val list = dialog.listView
+        list.performItemClick(list.getChildAt(2), 2, list.adapter.getItemId(2))
+
+        assertTrue(session.currentLayer.elements.isEmpty())
+        assertNotNull(view.findByTag("restore-clear-bar"))
+        view.findByTag("restore-clear-action").performClick()
+        assertEquals(listOf(element), session.currentLayer.elements)
+        assertEquals(2, changes)
+    }
+
+    @Test
+    fun `changing layer dismisses restore action after recoverable clear`() {
+        val session = DrawingSession()
+        val first = session.currentLayer
+        session.addElement(CoreDrawingElement.Line(0f to 0f, 40f to 40f, Color.RED, 6f))
+        val second = session.createLayer("第二层")
+        session.selectLayer(first.id)
+        val view = DrawingOverlayView(context, "pen", 0, drawingSession = session) {}
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
+
+        toolbar.findByTag("canvas-selector").performClick()
+        view.findByTag("canvas-menu-layer:${first.id}").performClick()
+        val menu = org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog().listView
+        menu.performItemClick(menu.getChildAt(2), 2, menu.adapter.getItemId(2))
+        assertNotNull(view.findByTag("restore-clear-bar"))
+
+        toolbar.findByTag("canvas-selector").performClick()
+        view.findByTag("layer:${second.id}").performClick()
+
+        assertTrue(runCatching { view.findByTag("restore-clear-bar") }.isFailure)
+        assertTrue(runCatching { view.findByTag("restore-clear-action") }.isFailure)
     }
 
     @Test
@@ -302,6 +360,21 @@ class DrawingOverlayViewTest {
     }
 
     @Test
+    fun `color management reveals delete action only for custom swatches`() {
+        val custom = 0xFF123456.toInt()
+        PenSettings.addCustomColor(context, custom)
+        val view = DrawingOverlayView(context, "pen", 0) {}
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
+
+        toolbar.findByTag("color").performClick()
+        assertTrue(runCatching { view.findByTag("delete-color:$custom") }.isFailure)
+        view.findByTag("manage-custom-colors").performClick()
+
+        assertNotNull(view.findByTag("delete-color:$custom"))
+        assertTrue(runCatching { view.findByTag("delete-color:${PenSettings.DEFAULT_PALETTE.first()}") }.isFailure)
+    }
+
+    @Test
     fun `drag handle switches toolbar to bounded top-left positioning`() {
         val view = DrawingOverlayView(context, "pen", 0) {}
         view.measure(
@@ -355,6 +428,33 @@ class DrawingOverlayViewTest {
         val stroke = view.elementsForTest().single() as CoreDrawingElement.Stroke
         assertEquals(DrawingElement.colorValues[2], stroke.drawColor)
         assertEquals(13f * context.resources.displayMetrics.density, stroke.drawWidth)
+    }
+
+    @Test
+    fun `external settings replace cached deleted color for every tool`() {
+        val deleted = 0xFF123456.toInt()
+        val replacement = PenSettings.DEFAULT_PALETTE.first()
+        val view = DrawingOverlayView(
+            context,
+            "pen",
+            mapOf(
+                "pen" to ToolStyle(replacement, 4f),
+                "arrow" to ToolStyle(deleted, 13f),
+            ),
+        ) {}
+        val updated = PenSettings.load(context).copy(
+            toolStyles = mapOf(
+                "pen" to ToolStyle(replacement, 4f),
+                "arrow" to ToolStyle(replacement, 13f),
+            ),
+        )
+
+        view.applyExternalSettings(updated)
+        (view.findByTag("monochrome-toolbar") as LinearLayout).findByTag("tool:arrow").performClick()
+        drawGesture(view.getChildAt(0), 10f, 10f, 30f, 30f)
+
+        val arrow = view.elementsForTest().single() as CoreDrawingElement.Arrow
+        assertEquals(replacement, arrow.drawColor)
     }
 
     @Test
@@ -666,7 +766,7 @@ class DrawingOverlayViewTest {
     }
 
     @Test
-    fun `undo clear and exit actions work`() {
+    fun `undo recoverable clear and exit actions work`() {
         var exits = 0
         val view = DrawingOverlayView(context, "pen", 0) { exits++ }
         val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
@@ -677,8 +777,14 @@ class DrawingOverlayViewTest {
         toolbar.findByTag("undo").performClick()
         assertEquals(1, view.elementsForTest().size)
 
-        toolbar.findByTag("clear").performClick()
+        toolbar.findByTag("canvas-selector").performClick()
+        view.findByTag("canvas-menu-layer:${view.drawingSession.currentLayer.id}").performClick()
+        val dialog = org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog()
+        val list = dialog.listView
+        list.performItemClick(list.getChildAt(2), 2, list.adapter.getItemId(2))
         assertTrue(view.elementsForTest().isEmpty())
+        view.findByTag("restore-clear-action").performClick()
+        assertEquals(1, view.elementsForTest().size)
 
         toolbar.findByTag("exit").performClick()
         assertEquals(1, exits)

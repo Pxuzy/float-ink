@@ -69,6 +69,29 @@ object PenSettings {
         return true
     }
 
+    fun deleteCustomColorAndReplaceStyles(context: Context, color: Int, fallback: Int = DEFAULT_PALETTE.first()): Boolean {
+        if (!deleteCustomColor(context, color)) return false
+        migrateLegacyStyleIfNeeded(context)
+        val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        prefs.edit().apply {
+            putString(
+                KEY_RECENT_COLORS,
+                parseColorList(prefs.getString(KEY_RECENT_COLORS, "").orEmpty())
+                    .filterNot { it == color }
+                    .joinToString(",") { it.toUInt().toString(16) },
+            )
+            if (prefs.getInt(KEY_GLOBAL_COLOR_ARGB, DEFAULT_COLOR_ARGB) == color) {
+                putInt(KEY_GLOBAL_COLOR_ARGB, fallback)
+            }
+            TOOL_IDS.forEach { toolId ->
+                if (prefs.getInt(toolColorKey(toolId), DEFAULT_COLOR_ARGB) == color) {
+                    putInt(toolColorKey(toolId), fallback)
+                }
+            }
+        }.apply()
+        return true
+    }
+
     /** Parses R,G,B or #RRGGBB/#AARRGGBB input and returns an opaque ARGB color. */
     fun parseRgb(text: String): Int? {
         val value = text.trim().removePrefix("#")
