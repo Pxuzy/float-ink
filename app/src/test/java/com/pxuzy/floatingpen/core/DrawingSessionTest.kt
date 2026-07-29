@@ -140,6 +140,17 @@ class DrawingSessionTest {
     }
 
     @Test
+    fun `visible layers are exposed in bottom to top render order`() {
+        val session = DrawingSession()
+        val bottom = session.currentLayer
+        val top = session.createLayer("顶部")
+        val middle = session.createLayer("中间")
+        session.setLayerVisible(middle.id, false)
+
+        assertEquals(listOf(bottom.id, top.id), session.visibleLayersBottomToTop().map { it.id })
+    }
+
+    @Test
     fun `renaming board and layer trims names and rejects blank names`() {
         val session = DrawingSession()
         val boardId = session.currentBoard.id

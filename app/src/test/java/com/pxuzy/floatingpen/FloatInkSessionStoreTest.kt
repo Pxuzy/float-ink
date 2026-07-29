@@ -22,6 +22,7 @@ class FloatInkSessionStoreTest {
         val secondBoard = session.createBoard("讲解板")
         val secondLayer = session.createLayer("重点")
         session.addElement(DrawingElement.Arrow(1f to 2f, 20f to 30f, 0xFF445566.toInt(), 6f, 18f))
+        session.addElement(DrawingElement.Circle(50f to 60f, 24f, 0xFF778899.toInt(), 7f))
 
         val encoded = FloatInkSessionCodec.encode(session, "session-test")
         val restored = FloatInkSessionCodec.decode(encoded)
@@ -32,7 +33,28 @@ class FloatInkSessionStoreTest {
         assertEquals(1, restored.session.boards[0].layers[0].elements.size)
         assertEquals(secondBoard.name, restored.session.currentBoard.name)
         assertEquals(secondLayer.name, restored.session.currentLayer.name)
-        assertTrue(restored.session.currentLayer.elements.single() is DrawingElement.Arrow)
+        assertTrue(restored.session.currentLayer.elements[0] is DrawingElement.Arrow)
+        val circle = restored.session.currentLayer.elements[1] as DrawingElement.Circle
+        assertEquals(50f to 60f, circle.center)
+        assertEquals(24f, circle.radius)
+        assertEquals(7f, circle.width)
+    }
+
+    @Test
+    fun `decoder skips unknown future elements while preserving known legacy elements`() {
+        val session = DrawingSession().apply {
+            addElement(DrawingElement.Line(0f to 0f, 10f to 10f, 1, 2f))
+        }
+        val payload = FloatInkSessionCodec.encode(session, "forward-compatible")
+        val json = org.json.JSONObject(payload)
+        val elements = json.getJSONArray("boards").getJSONObject(0)
+            .getJSONArray("layers").getJSONObject(0).getJSONArray("elements")
+        elements.put(org.json.JSONObject().put("type", "future-shape").put("color", 1).put("width", 2))
+
+        val restored = FloatInkSessionCodec.decode(json.toString())
+
+        assertEquals(1, restored.session.currentLayer.elements.size)
+        assertTrue(restored.session.currentLayer.elements.single() is DrawingElement.Line)
     }
 
     @Test

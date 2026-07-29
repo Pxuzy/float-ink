@@ -67,6 +67,7 @@ object FloatInkSessionCodec {
                 is DrawingElement.Line -> json.put("type", "line").put("start", encodePoint(element.start)).put("end", encodePoint(element.end))
                 is DrawingElement.Arrow -> json.put("type", "arrow").put("start", encodePoint(element.start)).put("end", encodePoint(element.end)).put("headLengthDp", element.headLengthDp)
                 is DrawingElement.Rect -> json.put("type", "rect").put("start", encodePoint(element.start)).put("end", encodePoint(element.end))
+                is DrawingElement.Circle -> json.put("type", "circle").put("center", encodePoint(element.center)).put("radius", element.radius)
             }
             put(json)
         }
@@ -103,7 +104,8 @@ object FloatInkSessionCodec {
                 "line" -> add(DrawingElement.Line(decodePoint(item.getJSONArray("start")), decodePoint(item.getJSONArray("end")), color, width))
                 "arrow" -> add(DrawingElement.Arrow(decodePoint(item.getJSONArray("start")), decodePoint(item.getJSONArray("end")), color, width, item.getDouble("headLengthDp").toFloat()))
                 "rect" -> add(DrawingElement.Rect(decodePoint(item.getJSONArray("start")), decodePoint(item.getJSONArray("end")), color, width))
-                else -> error("未知绘图元素类型")
+                "circle" -> add(DrawingElement.Circle(decodePoint(item.getJSONArray("center")), item.getDouble("radius").toFloat(), color, width))
+                else -> Unit
             }
         }
     }

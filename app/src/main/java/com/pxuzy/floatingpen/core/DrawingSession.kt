@@ -28,6 +28,10 @@ class DrawingSession(
     val currentLayer: DrawingLayer
         get() = currentBoard.layers.first { it.id == currentBoard.activeLayerId }
 
+    /** Layers are stored top-first for the management UI, but Canvas must compose bottom-first. */
+    fun visibleLayersBottomToTop(): List<DrawingLayer> =
+        currentBoard.layers.asReversed().filter { it.visible }
+
     fun createBoard(name: String? = null): DrawingBoard {
         val board = newBoardInternal(name ?: "画板 ${nextBoardNumber++}")
         boards += board

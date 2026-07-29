@@ -202,6 +202,7 @@ class DrawingOverlayView(
                                     resolveArrowHeadLengthDp(drawPaint.strokeWidth / density, arrowScale)
                                 )
                                 "rect" -> CoreDrawingElement.Rect(Pair(sx, sy), Pair(x, y), selectedColor, drawPaint.strokeWidth)
+                                "circle" -> circleElement(sx, sy, x, y, selectedColor, drawPaint.strokeWidth)
                                 else -> null
                             }
                             if (el != null && (x != sx || y != sy)) elements.add(el)
@@ -230,9 +231,12 @@ class DrawingOverlayView(
                     sessionDirty = false
                     onSessionChanged()
                 }
-                if (elements.isEmpty() && !isDrawing)
+                val visibleLayers = drawingSession.visibleLayersBottomToTop()
+                if (visibleLayers.all { it.elements.isEmpty() } && !isDrawing)
                     canvas.drawText("手指滑动开始画线", width / 2f, height / 2f - 120.dpf, hintPaint)
-                elements.forEach { drawElement(canvas, it) }
+                visibleLayers.forEach { layer ->
+                    layer.elements.forEach { drawElement(canvas, it) }
+                }
                 if (isDrawing && currentToolId != "pen") {
                     val pe = when (currentToolId) {
                         "line" -> CoreDrawingElement.Line(Pair(sx, sy), Pair(cx, cy), selectedColor, drawPaint.strokeWidth)
@@ -241,6 +245,7 @@ class DrawingOverlayView(
                             resolveArrowHeadLengthDp(drawPaint.strokeWidth / density, arrowScale)
                         )
                         "rect" -> CoreDrawingElement.Rect(Pair(sx, sy), Pair(cx, cy), selectedColor, drawPaint.strokeWidth)
+                        "circle" -> circleElement(sx, sy, cx, cy, selectedColor, drawPaint.strokeWidth)
                         else -> null
                     }
                     if (pe != null) drawElement(canvas, pe)
@@ -261,6 +266,20 @@ class DrawingOverlayView(
 
     private val selectedColor: Int
         get() = currentColor
+
+    private fun circleElement(
+        centerX: Float,
+        centerY: Float,
+        endX: Float,
+        endY: Float,
+        color: Int,
+        width: Float,
+    ): CoreDrawingElement.Circle = CoreDrawingElement.Circle(
+        center = centerX to centerY,
+        radius = max(abs(endX - centerX), abs(endY - centerY)),
+        color = color,
+        width = width,
+    )
 
     private fun drawElement(canvas: Canvas, el: DrawingElement) {
         drawPaint.color = el.drawColor; drawPaint.strokeWidth = el.drawWidth
@@ -302,6 +321,7 @@ class DrawingOverlayView(
                 val r = maxOf(el.start.first, el.end.first); val b = maxOf(el.start.second, el.end.second)
                 canvas.drawRect(l, t, r, b, drawPaint)
             }
+            is CoreDrawingElement.Circle -> canvas.drawCircle(el.center.first, el.center.second, el.radius, drawPaint)
         }
     }
 
@@ -672,18 +692,36 @@ class DrawingOverlayView(
                 cornerRadius = FloatInkTheme.PANEL_RADIUS_DP.dpf
                 setStroke(1.dpf.toInt(), Color.argb(82, 255, 255, 255))
             }
+            val overflowToolIds = configuredToolIds.drop(4)
             addView(TextView(context).apply {
                 text = "更多形状"
                 textSize = 13f
                 setTextColor(Color.WHITE)
                 gravity = Gravity.CENTER
             }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, 32.dp))
-            addView(TextView(context).apply {
-                text = "后续新增工具会显示在这里"
-                textSize = 12f
-                setTextColor(Color.parseColor("#91A0B2"))
-                gravity = Gravity.CENTER
-            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, 28.dp))
+            if (overflowToolIds.isEmpty()) {
+                addView(TextView(context).apply {
+                    text = "暂无更多工具"
+                    textSize = 12f
+                    setTextColor(Color.parseColor("#91A0B2"))
+                    gravity = Gravity.CENTER
+                }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, 40.dp))
+            } else {
+                val toolRow = LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER
+                }
+                overflowToolIds.forEach { toolId ->
+                    toolRow.addView(createToolIcon(toolId).apply {
+                        setOnClickListener {
+                            selectTool(toolId)
+                            moreToolsPanel?.let(toolbarPopupHost::removeView)
+                            moreToolsPanel = null
+                        }
+                    })
+                }
+                addView(toolRow, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, 48.dp))
+            }
         }
         moreToolsPanel = panel
         toolbarPopupHost.addView(panel, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT))
@@ -708,6 +746,7 @@ class DrawingOverlayView(
         panel.addView(canvasSectionHeader("画板", "canvas-add-board") {
             drawingSession.createBoard()
             elements = drawingSession.currentLayer.elements
+            onSessionChanged()
             rebuildCanvasPanel()
         })
         val listContent = LinearLayout(context).apply {
@@ -736,6 +775,7 @@ class DrawingOverlayView(
                 setOnClickListener {
                     discardActiveGesture(); drawingSession.selectBoard(board.id)
                     elements = drawingSession.currentLayer.elements
+                    onSessionChanged()
                     toolbarPopupHost.removeView(panel); canvasPanel = null; canvasView.invalidate()
                 }
             }
@@ -744,6 +784,7 @@ class DrawingOverlayView(
         listContent.addView(canvasSectionHeader("图层 · ${drawingSession.currentBoard.name}", "canvas-add-layer") {
             drawingSession.createLayer()
             elements = drawingSession.currentLayer.elements
+            onSessionChanged()
             rebuildCanvasPanel()
         })
         drawingSession.currentBoard.layers.forEach { layer ->
@@ -785,6 +826,7 @@ class DrawingOverlayView(
                     setIconColor(Color.parseColor("#B7C0CC"))
                     setOnClickListener {
                         drawingSession.setLayerVisible(layer.id, !layer.visible)
+                        onSessionChanged()
                         rebuildCanvasPanel(); canvasView.invalidate()
                     }
                 })
@@ -794,10 +836,12 @@ class DrawingOverlayView(
                 setOnClickListener {
                     discardActiveGesture(); drawingSession.selectLayer(layer.id)
                     elements = drawingSession.currentLayer.elements
+                    onSessionChanged()
                     rebuildCanvasPanel(); canvasView.invalidate()
                 }
                 setOnLongClickListener {
                     drawingSession.moveLayer(layer.id, 0)
+                    onSessionChanged()
                     rebuildCanvasPanel()
                     true
                 }
@@ -882,6 +926,7 @@ class DrawingOverlayView(
                         0 -> {
                             val current = drawingSession.currentBoard.layers.first { it.id == targetId }
                             drawingSession.setLayerVisible(targetId, !current.visible)
+                            onSessionChanged()
                             rebuildCanvasPanel()
                         }
                         1 -> renameCanvasTarget(true, targetId)
@@ -914,6 +959,7 @@ class DrawingOverlayView(
             .setPositiveButton("保存") { _, _ ->
                 if (layer) drawingSession.renameLayer(targetId, input.text.toString())
                 else drawingSession.renameBoard(targetId, input.text.toString())
+                onSessionChanged()
                 rebuildCanvasPanel()
             }
             .create()
@@ -935,6 +981,7 @@ class DrawingOverlayView(
                 if (layer) drawingSession.deleteLayer(targetId)
                 else drawingSession.deleteBoard(targetId)
                 elements = drawingSession.currentLayer.elements
+                onSessionChanged()
                 rebuildCanvasPanel()
                 canvasView.invalidate()
             }
@@ -1189,6 +1236,7 @@ class DrawingOverlayView(
                     canvas.drawLine(cx + r, cy - r, cx + r, cy - r * 0.2f, paint)
                 }
                 "rect" -> canvas.drawRoundRect(cx - r, cy - r * 0.75f, cx + r, cy + r * 0.75f, r * 0.16f, r * 0.16f, paint)
+                "circle" -> canvas.drawCircle(cx, cy, r, paint)
                 "more" -> {
                     val oldStyle = paint.style
                     paint.style = Paint.Style.FILL

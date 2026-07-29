@@ -2,6 +2,7 @@ package com.pxuzy.floatingpen
 
 import android.app.Application
 import android.content.res.Configuration
+import android.graphics.Color
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -34,6 +35,36 @@ class DrawingOverlayViewTest {
 
         assertEquals(1, reopened.elementsForTest().size)
         assertEquals(1, session.currentLayer.elements.size)
+    }
+
+    @Test
+    fun `visible layers expose elements in bottom to top order and omit hidden layers`() {
+        val session = DrawingSession()
+        val bottom = session.currentLayer
+        val bottomElement = CoreDrawingElement.Rect(0f to 0f, 80f to 80f, Color.RED, 20f)
+        bottom.elements += bottomElement
+        val top = session.createLayer("顶部")
+        val topElement = CoreDrawingElement.Rect(0f to 0f, 80f to 80f, Color.BLUE, 20f)
+        top.elements += topElement
+
+        assertEquals(listOf(bottomElement, topElement), session.visibleLayersBottomToTop().flatMap { it.elements })
+        session.setLayerVisible(top.id, false)
+        assertEquals(listOf(bottomElement), session.visibleLayersBottomToTop().flatMap { it.elements })
+    }
+
+    @Test
+    fun `layer visibility action changes model and notifies session autosave`() {
+        val session = DrawingSession()
+        val top = session.createLayer("顶部")
+        var changes = 0
+        val view = DrawingOverlayView(context, "pen", 0, drawingSession = session, onSessionChanged = { changes++ }) {}
+        (view.findByTag("monochrome-toolbar") as LinearLayout).findByTag("canvas-selector").performClick()
+
+        view.findByTag("layer-visibility:${top.id}").performClick()
+
+        assertTrue(!top.visible)
+        assertTrue(session.visibleLayersBottomToTop().none { it.id == top.id })
+        assertEquals(1, changes)
     }
 
     @Test
@@ -338,6 +369,22 @@ class DrawingOverlayViewTest {
             assertEquals(tool, view.currentToolForTest())
             assertTrue(elementType.isInstance(view.elementsForTest().last()))
         }
+    }
+
+    @Test
+    fun `circle is reachable from more tools and creates a centered radius shape`() {
+        val view = DrawingOverlayView(context, "pen", 0) {}
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
+        val canvas = view.getChildAt(0)
+
+        toolbar.findByTag("more-tools").performClick()
+        view.findByTag("tool:circle").performClick()
+        drawGesture(canvas, 20f, 30f, 50f, 80f)
+
+        val circle = view.elementsForTest().single() as CoreDrawingElement.Circle
+        assertEquals("circle", view.currentToolForTest())
+        assertEquals(20f to 30f, circle.center)
+        assertEquals(50f, circle.radius)
     }
 
     @Test
