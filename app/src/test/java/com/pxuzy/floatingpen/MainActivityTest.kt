@@ -212,7 +212,7 @@ class MainActivityTest {
         val colorRow = colorGrid.getChildAt(0) as ViewGroup
 
         assertEquals(1, colorGrid.childCount)
-        assertEquals(DrawingOverlayView.PALETTE_COLORS.size + 1, colorRow.childCount)
+        assertEquals(DrawingOverlayView.PALETTE_COLORS.size + 2, colorRow.childCount)
     }
 
     @Test
@@ -223,7 +223,7 @@ class MainActivityTest {
 
         val palette = root.findByTag("tool-color-grid") as ViewGroup
         val row = palette.getChildAt(0) as ViewGroup
-        assertEquals(DrawingOverlayView.PALETTE_COLORS.size + 1, row.childCount)
+        assertEquals(DrawingOverlayView.PALETTE_COLORS.size + 2, row.childCount)
         assertTrue((0 until DrawingOverlayView.PALETTE_COLORS.size).all { row.getChildAt(it).layoutParams.width == 48.dp })
     }
 
@@ -315,6 +315,21 @@ class MainActivityTest {
         root.findByTag("nav-pen").performClick()
         assertNotNull(root.findByTag("global-add-color"))
         assertNotNull(root.findByTag("tool-add-color"))
+    }
+
+    @Test
+    fun `color management reveals deletion only for custom colors`() {
+        val custom = 0xFF123456.toInt()
+        PenSettings.addCustomColor(context, custom)
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        root.findByTag("nav-pen").performClick()
+
+        assertEquals(null, root.findByTagOrNull("tool-delete-color:$custom"))
+        root.findByTag("tool-manage-colors").performClick()
+
+        assertNotNull(root.findByTag("tool-delete-color:$custom"))
+        assertEquals(null, root.findByTagOrNull("tool-delete-color:${PenSettings.DEFAULT_PALETTE.first()}"))
     }
 
     @Test

@@ -69,6 +69,7 @@ class MainActivity : ComponentActivity() {
     private var selectedColor = PenSettings.DEFAULT_COLOR_ARGB
     private var selectedWidthDp = PenSettings.DEFAULT_WIDTH_DP
     private var selectedArrowScale = PenSettings.DEFAULT_ARROW_SCALE
+    private val colorManageModes = mutableMapOf<String, Boolean>()
 
     private val overlayPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -313,26 +314,44 @@ class MainActivity : ComponentActivity() {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(4.dp, 4.dp, 4.dp, 4.dp)
         }
+        val manageMode = colorManageModes[prefix] == true
         PenSettings.allColors(this).forEachIndexed { index, color ->
             val isCustom = !PenSettings.isDefaultColor(color)
             val slot = FrameLayout(this).apply {
                 tag = "$prefix-color:$index"
                 contentDescription = "${if (prefix == "global") "全局" else "当前工具"}颜色 ${index + 1}"
                 setOnClickListener { onSelect(color) }
-                setOnLongClickListener {
-                    if (isCustom) {
-                        showDeleteColorDialog(color, prefix)
-                    } else {
-                        Toast.makeText(this@MainActivity, "默认颜色不能删除", Toast.LENGTH_SHORT).show()
-                    }
-                    true
-                }
             }
             val swatch = View(this).apply { background = colorButtonBackground(color, color == selected) }
             if (prefix == "tool") colorButtons += swatch
             slot.addView(swatch, FrameLayout.LayoutParams(34.dp, 34.dp, Gravity.CENTER))
+            if (manageMode && isCustom) {
+                slot.addView(TextView(this).apply {
+                    tag = "$prefix-delete-color:$color"
+                    text = "×"
+                    gravity = Gravity.CENTER
+                    textSize = 14f
+                    contentDescription = "删除自定义颜色 #%08X".format(java.util.Locale.US, color)
+                    setTextColor(Color.WHITE)
+                    background = roundedBackground(Color.parseColor("#35404C"), 10f)
+                    setOnClickListener { showDeleteColorDialog(color, prefix) }
+                }, FrameLayout.LayoutParams(20.dp, 20.dp, Gravity.TOP or Gravity.END))
+            }
             row.addView(slot, LinearLayout.LayoutParams(48.dp, 48.dp).apply { marginEnd = 6.dp })
         }
+        row.addView(TextView(this).apply {
+            tag = "$prefix-manage-colors"
+            text = if (manageMode) "完成" else "管理"
+            textSize = 12f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            contentDescription = if (manageMode) "完成管理颜色" else "管理自定义颜色"
+            background = roundedBackground(Color.parseColor("#26303B"), 7f)
+            setOnClickListener {
+                colorManageModes[prefix] = !manageMode
+                showPage(currentPage)
+            }
+        }, LinearLayout.LayoutParams(52.dp, 48.dp).apply { marginStart = 2.dp })
         row.addView(TextView(this).apply {
             tag = "$prefix-add-color"
             text = "+"; textSize = 22f; gravity = Gravity.CENTER; setTextColor(Color.WHITE)
@@ -467,16 +486,16 @@ class MainActivity : ComponentActivity() {
             .setMessage("删除后不会影响已经画出的笔迹。")
             .setNegativeButton("取消", null)
             .setPositiveButton("删除") { _, _ ->
-                PenSettings.deleteCustomColor(this, color)
+                PenSettings.deleteCustomColorAndReplaceStyles(this, color)
+                val fallback = PenSettings.DEFAULT_PALETTE.first()
                 if (selectedColor == color) {
-                    val fallback = PenSettings.DEFAULT_PALETTE.first()
                     selectedColor = fallback
-                    PenSettings.saveToolStyle(this, selectedTool, fallback, selectedWidthDp)
+                    selectedWidthDp = PenSettings.load(this).styleFor(selectedTool).widthDp
                 }
                 if (selectedGlobalColor == color) {
-                    selectedGlobalColor = PenSettings.DEFAULT_PALETTE.first()
-                    PenSettings.saveGlobalStyle(this, selectedGlobalColor, selectedGlobalWidthDp)
+                    selectedGlobalColor = fallback
                 }
+                notifyOverlaySettingsChanged()
                 showPage(currentPage)
             }
             .show()

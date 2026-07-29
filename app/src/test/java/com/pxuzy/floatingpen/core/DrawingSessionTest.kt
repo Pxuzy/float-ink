@@ -89,6 +89,64 @@ class DrawingSessionTest {
     }
 
     @Test
+    fun `recoverable clear restores only the active layer and a new element expires restore`() {
+        val session = DrawingSession()
+        val bottom = session.currentLayer
+        val bottomElement = DrawingElement.Line(0f to 0f, 10f to 10f, 1, 2f)
+        session.addElement(bottomElement)
+        val top = session.createLayer("重点")
+        val topElement = DrawingElement.Rect(1f to 1f, 20f to 20f, 2, 3f)
+        session.addElement(topElement)
+
+        assertTrue(session.clearCurrentLayerRecoverably())
+        assertTrue(top.elements.isEmpty())
+        assertEquals(listOf(bottomElement), bottom.elements)
+        assertTrue(session.restoreClearedCurrentLayer())
+        assertEquals(listOf(topElement), top.elements)
+
+        assertTrue(session.clearCurrentLayerRecoverably())
+        session.addElement(DrawingElement.Circle(5f to 5f, 4f, 3, 2f))
+        assertFalse(session.restoreClearedCurrentLayer())
+        assertEquals(1, top.elements.size)
+    }
+
+    @Test
+    fun `switching layer expires recoverable clear snapshot`() {
+        val session = DrawingSession()
+        session.addElement(DrawingElement.Line(0f to 0f, 10f to 10f, 1, 2f))
+        val other = session.createLayer("其他")
+
+        session.selectLayer(session.currentBoard.layers.last().id)
+        assertTrue(session.clearCurrentLayerRecoverably())
+        session.selectLayer(other.id)
+
+        assertFalse(session.restoreClearedCurrentLayer())
+    }
+
+    @Test
+    fun `structural session changes expire recoverable clear snapshot`() {
+        val session = DrawingSession()
+        val first = session.currentLayer
+        session.addElement(DrawingElement.Line(0f to 0f, 10f to 10f, 1, 2f))
+        val second = session.createLayer("第二层")
+        session.addElement(DrawingElement.Rect(1f to 1f, 20f to 20f, 2, 3f))
+
+        assertTrue(session.clearCurrentLayerRecoverably())
+        assertTrue(session.deleteLayer(second.id))
+        assertFalse(session.restoreClearedCurrentLayer())
+
+        session.selectLayer(first.id)
+        assertTrue(session.clearCurrentLayerRecoverably())
+        session.clear()
+        assertFalse(session.restoreClearedCurrentLayer())
+
+        session.addElement(DrawingElement.Circle(5f to 5f, 4f, 3, 2f))
+        assertTrue(session.clearCurrentLayerRecoverably())
+        session.replaceFrom(DrawingSession())
+        assertFalse(session.restoreClearedCurrentLayer())
+    }
+
+    @Test
     fun `deleting current layer selects adjacent layer and keeps one layer`() {
         val session = DrawingSession()
         val defaultLayerId = session.currentLayer.id

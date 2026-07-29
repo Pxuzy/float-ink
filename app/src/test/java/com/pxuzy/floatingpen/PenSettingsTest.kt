@@ -135,6 +135,29 @@ class PenSettingsTest {
     }
 
     @Test
+    fun `deleting active custom color replaces every persisted style with safe fallback`() {
+        val custom = 0xFF123456.toInt()
+        PenSettings.addCustomColor(context, custom)
+        PenSettings.addRecentColor(context, custom)
+        PenSettings.addRecentColor(context, 0xFF778899.toInt())
+        PenSettings.saveGlobalStyle(context, custom, 9f)
+        PenSettings.saveToolStyle(context, "pen", custom, 4f)
+        PenSettings.saveToolStyle(context, "arrow", 0xFFABCDEF.toInt(), 8f)
+        PenSettings.saveToolStyle(context, "rect", custom, 12f)
+
+        assertTrue(PenSettings.deleteCustomColorAndReplaceStyles(context, custom))
+
+        val values = PenSettings.load(context)
+        assertTrue(custom !in PenSettings.customColors(context))
+        assertTrue(custom !in values.recentColors)
+        assertEquals(listOf(0xFF778899.toInt()), values.recentColors)
+        assertEquals(PenSettings.DEFAULT_PALETTE.first(), values.globalColor)
+        assertEquals(PenSettings.DEFAULT_PALETTE.first(), values.styleFor("pen").color)
+        assertEquals(PenSettings.DEFAULT_PALETTE.first(), values.styleFor("rect").color)
+        assertEquals(0xFFABCDEF.toInt(), values.styleFor("arrow").color)
+    }
+
+    @Test
     fun `custom colors are unique and newest first`() {
         val first = 0xFF112233.toInt()
         val second = 0xFF445566.toInt()

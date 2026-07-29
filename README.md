@@ -6,7 +6,7 @@
 
 - GitHub：<https://github.com/Pxuzy/float-ink>
 - 应用包名：`com.pxuzy.floatingpen`
-- 当前版本：`0.3.0`（`versionCode 14`）
+- 当前版本：`0.3.1`（`versionCode 15`）
 - 技术栈：原生 Android / Kotlin / Gradle
 - 支持范围：Android 29+（手机和平板）
 
