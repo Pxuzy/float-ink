@@ -16,8 +16,8 @@ object UndoIconGeometry {
     fun forRadius(radius: Float): Values = Values(
         startDegrees = 222f,
         sweepDegrees = -188f,
-        arrowTipX = -radius * 0.76f,
-        arrowTipY = -radius * 0.26f,
+        arrowTipX = -radius * 0.7431448f,
+        arrowTipY = -radius * 0.6691306f,
         arrowWingUpperX = -radius * 0.28f,
         arrowWingUpperY = -radius * 0.70f,
         arrowWingLowerX = -radius * 0.17f,
