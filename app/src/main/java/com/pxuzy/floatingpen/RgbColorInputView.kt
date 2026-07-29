@@ -17,6 +17,7 @@ class RgbColorInputView(context: Context) : LinearLayout(context) {
     private val inputs = linkedMapOf<Channel, EditText>()
     private var onInputActivated: ((EditText) -> Unit)? = null
     private var synchronizing = false
+    private var normalizingInput = false
     var fromUserInput: Boolean = false
         private set
     private val errorText = TextView(context).apply {
@@ -101,7 +102,15 @@ class RgbColorInputView(context: Context) : LinearLayout(context) {
                     override fun onTextChanged(text: CharSequence?, start: Int, before: Int, count: Int) {
                         if (!synchronizing) fromUserInput = true
                     }
-                    override fun afterTextChanged(text: Editable?) = Unit
+                    override fun afterTextChanged(text: Editable?) {
+                        if (synchronizing || normalizingInput || text.isNullOrEmpty()) return
+                        val value = text.toString().toIntOrNull() ?: return
+                        if (value <= MAX_CHANNEL_VALUE) return
+                        normalizingInput = true
+                        setText(MAX_CHANNEL_VALUE.toString())
+                        setSelection(length())
+                        normalizingInput = false
+                    }
                 })
             }
             inputs[channel] = input
@@ -114,5 +123,9 @@ class RgbColorInputView(context: Context) : LinearLayout(context) {
     private fun clearError() {
         errorText.text = ""
         errorText.visibility = GONE
+    }
+
+    private companion object {
+        const val MAX_CHANNEL_VALUE = 255
     }
 }
