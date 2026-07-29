@@ -37,7 +37,8 @@ class MainActivityTest {
         assertNotNull(root.findByTag("setting-tool:pen"))
         assertNotNull(root.findByTag("default-drawing-section"))
         assertNotNull(root.findByTag("primary-tools"))
-        assertTrue(root.findByTagOrNull("more-tools-section") == null)
+        assertNotNull(root.findByTag("more-tools-section"))
+        assertNotNull(root.findByTag("setting-tool:circle"))
         assertNotNull(root.findByTag("global-color:0"))
         assertNotNull(root.findByTag("global-width"))
         assertNotNull(root.findByTag("apply-global-style"))
@@ -104,6 +105,25 @@ class MainActivityTest {
         root.findByTag("setting-tool:pen").performClick()
         assertEquals("4 dp", (root.findByTag("tool-width-label") as TextView).text.toString())
         assertTrue(root.findByTagOrNull("setting-arrow-scale") == null)
+    }
+
+    @Test
+    fun `circle loads its own width and preview updates while slider changes`() {
+        PenSettings.saveToolStyle(context, "circle", DrawingElement.colorValues[2], 9f)
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        root.findByTag("nav-pen").performClick()
+
+        root.findByTag("setting-tool:circle").performClick()
+        assertEquals("9 dp", (root.findByTag("tool-width-label") as TextView).text.toString())
+        assertEquals("circle", root.findByTag("tool-preview").getTag(R.id.tag_preview_tool))
+        assertEquals(9f, root.findByTag("tool-preview").getTag(R.id.tag_preview_width_dp))
+
+        (root.findByTag("tool-width") as SeekBar).setProgress(14, true)
+
+        assertEquals("16 dp", (root.findByTag("tool-width-label") as TextView).text.toString())
+        assertEquals(16f, PenSettings.load(activity).styleFor("circle").widthDp)
+        assertEquals(16f, root.findByTag("tool-preview").getTag(R.id.tag_preview_width_dp))
     }
 
     @Test

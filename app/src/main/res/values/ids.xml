@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <item name="tag_selected_color" type="id" />
+    <item name="tag_preview_tool" type="id" />
+    <item name="tag_preview_width_dp" type="id" />
 </resources>
