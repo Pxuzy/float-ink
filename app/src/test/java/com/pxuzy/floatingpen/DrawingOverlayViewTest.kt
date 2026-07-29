@@ -335,7 +335,7 @@ class DrawingOverlayViewTest {
     }
 
     @Test
-    fun `custom color editor expands within the available window`() {
+    fun `overlay color panel exposes selection only`() {
         val view = DrawingOverlayView(context, "pen", 0) {}
         view.applyWindowConfiguration(Configuration(context.resources.configuration).apply { screenWidthDp = 320 })
         view.measure(
@@ -343,24 +343,15 @@ class DrawingOverlayViewTest {
             View.MeasureSpec.makeMeasureSpec(640.dp, View.MeasureSpec.EXACTLY),
         )
         view.layout(0, 0, 320.dp, 640.dp)
-
         (view.findByTag("monochrome-toolbar") as LinearLayout).findByTag("color").performClick()
-        view.findByTag("custom-color").performClick()
-        val colorPanel = view.findByTag("color-panel")
-        val controls = view.findByTag("hsv-controls")
-
-        assertEquals(280.dp, colorPanel.layoutParams.width)
-        assertTrue(colorPanel.layoutParams.width <= 304.dp)
-        assertTrue(controls.layoutParams.width <= 260.dp)
-        assertNotNull(view.findByTag("rgb-r"))
-        assertNotNull(view.findByTag("rgb-g"))
-        assertNotNull(view.findByTag("rgb-b"))
-        assertNotNull(view.findByTag("cancel-custom-color"))
-        assertNotNull(view.findByTag("save-custom-color"))
+        assertNotNull(view.findByTag("color-panel"))
+        assertTrue(runCatching { view.findByTag("manage-custom-colors") }.isFailure)
+        assertTrue(runCatching { view.findByTag("custom-color") }.isFailure)
+        assertTrue(runCatching { view.findByTag("custom-rgb-input") }.isFailure)
     }
 
     @Test
-    fun `color management reveals delete action only for custom swatches`() {
+    fun `overlay color panel uses builtins and recents without custom management`() {
         val custom = 0xFF123456.toInt()
         PenSettings.addCustomColor(context, custom)
         val view = DrawingOverlayView(context, "pen", 0) {}
@@ -368,10 +359,8 @@ class DrawingOverlayViewTest {
 
         toolbar.findByTag("color").performClick()
         assertTrue(runCatching { view.findByTag("delete-color:$custom") }.isFailure)
-        view.findByTag("manage-custom-colors").performClick()
-
-        assertNotNull(view.findByTag("delete-color:$custom"))
-        assertTrue(runCatching { view.findByTag("delete-color:${PenSettings.DEFAULT_PALETTE.first()}") }.isFailure)
+        assertTrue(runCatching { view.findByTag("manage-custom-colors") }.isFailure)
+        assertTrue(runCatching { view.findByTag("custom-color") }.isFailure)
     }
 
     @Test
