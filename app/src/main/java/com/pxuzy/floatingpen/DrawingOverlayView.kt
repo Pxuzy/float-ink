@@ -734,6 +734,8 @@ class DrawingOverlayView(
         canvasPanel?.let { toolbarPopupHost.removeView(it); canvasPanel = null; return }
         colorPanel?.let { toolbarPopupHost.removeView(it); colorPanel = null }
         moreToolsPanel?.let { toolbarPopupHost.removeView(it); moreToolsPanel = null }
+        val availablePanelWidth = (((windowWidthDp.takeIf { it > 0 } ?: 360) * density).toInt() - 16.dp).coerceAtLeast(1)
+        val panelWidth = minOf(360.dp, availablePanelWidth)
         val panel = LinearLayout(context).apply {
             tag = "canvas-panel"
             orientation = LinearLayout.VERTICAL
@@ -742,14 +744,19 @@ class DrawingOverlayView(
                 setColor(Color.argb(238, 12, 16, 21)); cornerRadius = FloatInkTheme.PANEL_RADIUS_DP.dpf
                 setStroke(1.dpf.toInt(), Color.argb(82, 255, 255, 255))
             }
+            layoutParams = FrameLayout.LayoutParams(panelWidth, FrameLayout.LayoutParams.WRAP_CONTENT)
         }
-        panel.addView(canvasSectionHeader("画板", "canvas-add-board") {
+        val boardSection = LinearLayout(context).apply {
+            tag = "canvas-board-section"
+            orientation = LinearLayout.VERTICAL
+        }
+        boardSection.addView(canvasSectionHeader("画板", "canvas-add-board") {
             drawingSession.createBoard()
             elements = drawingSession.currentLayer.elements
             onSessionChanged()
             rebuildCanvasPanel()
         })
-        val listContent = LinearLayout(context).apply {
+        val boardListContent = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
         }
         drawingSession.boards.forEach { board ->
@@ -779,14 +786,21 @@ class DrawingOverlayView(
                     toolbarPopupHost.removeView(panel); canvasPanel = null; canvasView.invalidate()
                 }
             }
-            listContent.addView(boardRow)
+            boardListContent.addView(boardRow)
         }
-        listContent.addView(canvasSectionHeader("图层 · ${drawingSession.currentBoard.name}", "canvas-add-layer") {
+        val layerSection = LinearLayout(context).apply {
+            tag = "canvas-layer-section"
+            orientation = LinearLayout.VERTICAL
+        }
+        layerSection.addView(canvasSectionHeader("图层 · ${drawingSession.currentBoard.name}", "canvas-add-layer") {
             drawingSession.createLayer()
             elements = drawingSession.currentLayer.elements
             onSessionChanged()
             rebuildCanvasPanel()
         })
+        val layerListContent = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+        }
         drawingSession.currentBoard.layers.forEach { layer ->
             val layerRow = LinearLayout(context).apply {
                 tag = "layer:${layer.id}"
@@ -846,15 +860,22 @@ class DrawingOverlayView(
                     true
                 }
             }
-            listContent.addView(layerRow)
+            layerListContent.addView(layerRow)
         }
         val maxPanelHeight = ((resources.configuration.screenHeightDp.takeIf { it > 0 } ?: 640) * 0.55f).toInt().dp
-        val listHeight = (maxPanelHeight - 92.dp).coerceIn(96.dp, 280.dp)
-        panel.addView(ScrollView(context).apply {
-            tag = "canvas-list-scroll"
+        val sectionListHeight = ((maxPanelHeight - 88.dp) / 2).coerceIn(72.dp, 180.dp)
+        boardSection.addView(ScrollView(context).apply {
+            tag = "canvas-board-scroll"
             isVerticalScrollBarEnabled = true
-            addView(listContent, FrameLayout.LayoutParams(220.dp, FrameLayout.LayoutParams.WRAP_CONTENT))
-        }, LinearLayout.LayoutParams(220.dp, listHeight))
+            addView(boardListContent, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT))
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, sectionListHeight))
+        layerSection.addView(ScrollView(context).apply {
+            tag = "canvas-layer-scroll"
+            isVerticalScrollBarEnabled = true
+            addView(layerListContent, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT))
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, sectionListHeight))
+        panel.addView(boardSection, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        panel.addView(layerSection, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         canvasPanel = panel
         toolbarPopupHost.addView(panel)
         positionPopupAboveToolbar(panel)

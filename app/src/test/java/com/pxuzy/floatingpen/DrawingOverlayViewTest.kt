@@ -88,7 +88,7 @@ class DrawingOverlayViewTest {
     }
 
     @Test
-    fun `canvas panel structure has bounded scroll view and fixed action bar in popup host`() {
+    fun `canvas panel separates board and layer sections with bounded lists`() {
         val session = DrawingSession()
         repeat(3) { session.createBoard() }
         repeat(4) { session.createLayer("L$it") }
@@ -103,11 +103,21 @@ class DrawingOverlayViewTest {
         val host = view.findByTag("toolbar-popup-host") as FrameLayout
         assertTrue(host === panel.parent)
 
-        // Contains a ScrollView with bounded height
-        val scrollView = view.findByTag("canvas-list-scroll") as ScrollView
-        val scrollParams = scrollView.layoutParams as LinearLayout.LayoutParams
-        assertTrue("scroll height $scrollParams must be <= 240dp", scrollParams.height <= 240.dp)
-        assertTrue("scroll height $scrollParams must be >= 72dp", scrollParams.height >= 72.dp)
+        val boardSection = view.findByTag("canvas-board-section") as LinearLayout
+        val layerSection = view.findByTag("canvas-layer-section") as LinearLayout
+        assertNotNull(boardSection.findByTag("canvas-add-board"))
+        assertNotNull(layerSection.findByTag("canvas-add-layer"))
+
+        val boardScroll = view.findByTag("canvas-board-scroll") as ScrollView
+        val layerScroll = view.findByTag("canvas-layer-scroll") as ScrollView
+        listOf(boardScroll, layerScroll).forEach { scrollView ->
+            val scrollParams = scrollView.layoutParams as LinearLayout.LayoutParams
+            assertTrue("section height must be bounded", scrollParams.height in 72.dp..180.dp)
+        }
+
+        val panelParams = panel.layoutParams as FrameLayout.LayoutParams
+        assertTrue(panelParams.width <= 360.dp)
+        assertTrue(panelParams.width > 0)
 
         // Creation is discoverable at the section headers, while destructive
         // actions live in each row's overflow menu instead of below the list.
