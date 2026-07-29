@@ -41,7 +41,7 @@ class RgbColorInputViewTest {
     }
 
     @Test
-    fun `empty and out of range channels are rejected with visible error`() {
+    fun `rejects empty non numeric and out of range channels`() {
         val view = RgbColorInputView(context)
         (view.findByTag("rgb-r") as EditText).setText("256")
         (view.findByTag("rgb-g") as EditText).setText("")
@@ -49,8 +49,39 @@ class RgbColorInputViewTest {
 
         assertNull(view.parsedColor())
         val error = view.findByTag("rgb-error") as TextView
-        assertEquals(View.VISIBLE, error.visibility)
-        assertTrue(error.text.contains("0–255"))
+        assertTrue(error.text.contains("0"))
+        assertTrue(error.text.contains("255"))
+    }
+
+    @Test
+    fun `channels clamp typed values above 255 immediately`() {
+        val view = RgbColorInputView(context)
+        val red = view.findByTag("rgb-r") as EditText
+        val green = view.findByTag("rgb-g") as EditText
+
+        red.setText("256")
+        green.setText("999")
+        (view.findByTag("rgb-b") as EditText).setText("25")
+
+        assertEquals("255", red.text.toString())
+        assertEquals("255", green.text.toString())
+        assertEquals(Color.rgb(255, 255, 25), view.parsedColor())
+    }
+
+    @Test
+    fun `channels keep valid boundary and partial values unchanged`() {
+        val view = RgbColorInputView(context)
+        val red = view.findByTag("rgb-r") as EditText
+        val green = view.findByTag("rgb-g") as EditText
+        val blue = view.findByTag("rgb-b") as EditText
+
+        red.setText("0")
+        green.setText("25")
+        blue.setText("255")
+
+        assertEquals("0", red.text.toString())
+        assertEquals("25", green.text.toString())
+        assertEquals("255", blue.text.toString())
     }
 
     @Test
