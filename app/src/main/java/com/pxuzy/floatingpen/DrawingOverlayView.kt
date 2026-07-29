@@ -1421,10 +1421,11 @@ class DrawingOverlayView(
                     canvas.drawRoundRect(cx - r * 0.5f, cy + r * 0.45f, cx + r * 0.5f, cy + r, r * 0.12f, r * 0.12f, paint)
                 }
                 "undo" -> {
+                    val undo = UndoIconGeometry.forRadius(r)
                     arcBounds.set(cx - r, cy - r, cx + r, cy + r)
-                    canvas.drawArc(arcBounds, 35f, -250f, false, paint)
-                    canvas.drawLine(cx - r, cy, cx - r * 0.35f, cy - r * 0.55f, paint)
-                    canvas.drawLine(cx - r, cy, cx - r * 0.2f, cy + r * 0.1f, paint)
+                    canvas.drawArc(arcBounds, undo.startDegrees, undo.sweepDegrees, false, paint)
+                    canvas.drawLine(cx + undo.arrowTipX, cy + undo.arrowTipY, cx + undo.arrowWingUpperX, cy + undo.arrowWingUpperY, paint)
+                    canvas.drawLine(cx + undo.arrowTipX, cy + undo.arrowTipY, cx + undo.arrowWingLowerX, cy + undo.arrowWingLowerY, paint)
                 }
                 "clear" -> {
                     canvas.drawRoundRect(cx - r * 0.62f, cy - r * 0.42f, cx + r * 0.62f, cy + r, r * 0.12f, r * 0.12f, paint)
