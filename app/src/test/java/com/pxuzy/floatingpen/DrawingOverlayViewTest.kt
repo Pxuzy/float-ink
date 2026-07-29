@@ -447,7 +447,7 @@ class DrawingOverlayViewTest {
     }
 
     @Test
-    fun `overlay color change updates only current tool style`() {
+    fun `overlay color change updates the global tool color`() {
         val styles = mapOf(
             "pen" to ToolStyle(DrawingElement.colorValues[0], 4f),
             "line" to ToolStyle(DrawingElement.colorValues[2], 9f),
@@ -460,7 +460,7 @@ class DrawingOverlayViewTest {
 
         val values = PenSettings.load(context)
         assertEquals(DrawingElement.colorValues[1], values.styleFor("line").color)
-        assertEquals(DrawingElement.colorValues[0], values.styleFor("pen").color)
+        assertEquals(DrawingElement.colorValues[1], values.styleFor("pen").color)
     }
 
     @Test

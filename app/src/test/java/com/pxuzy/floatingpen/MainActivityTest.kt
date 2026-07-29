@@ -42,7 +42,7 @@ class MainActivityTest {
         assertNotNull(root.findByTag("global-color:0"))
         assertNotNull(root.findByTag("global-width"))
         assertNotNull(root.findByTag("apply-global-style"))
-        assertNotNull(root.findByTag("tool-color:0"))
+        assertNull(root.findByTagOrNull("tool-color:0"))
         assertNotNull(root.findByTag("tool-width"))
         assertNotNull(root.findByTag("tool-preview"))
         assertTrue(root.findByTagOrNull("setting-arrow-scale") == null)
@@ -64,30 +64,26 @@ class MainActivityTest {
     }
 
     @Test
-    fun `pen page keeps global and tool styles isolated until apply all`() {
+    fun `global color selection synchronizes every tool while widths remain independent`() {
         val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
         val root = activity.findViewById<ViewGroup>(android.R.id.content)
 
         root.findByTag("nav-pen").performClick()
         root.findByTag("setting-tool:arrow").performClick()
-        root.findByTag("tool-color:2").performClick()
         (root.findByTag("tool-width") as SeekBar).setProgress(10, true)
         root.findByTag("global-color:1").performClick()
         (root.findByTag("global-width") as SeekBar).setProgress(4, true)
 
         var values = PenSettings.load(activity)
-        assertEquals(DrawingElement.colorValues[2], values.styleFor("arrow").color)
+        assertEquals(DrawingElement.colorValues[1], values.styleFor("arrow").color)
         assertEquals(12f, values.styleFor("arrow").widthDp)
         assertEquals(DrawingElement.colorValues[1], values.globalColor)
         assertEquals(6f, values.globalWidthDp)
 
-        root.findByTag("apply-global-style").performClick()
-        values = PenSettings.load(activity)
         PenSettings.TOOL_IDS.forEach { tool ->
             assertEquals(DrawingElement.colorValues[1], values.styleFor(tool).color)
-            assertEquals(6f, values.styleFor(tool).widthDp)
         }
-        assertEquals("6 dp", (root.findByTag("tool-width-label") as TextView).text.toString())
+        assertEquals(12f, values.styleFor("arrow").widthDp)
     }
 
     @Test
@@ -208,7 +204,7 @@ class MainActivityTest {
         val root = activity.findViewById<ViewGroup>(android.R.id.content)
 
         root.findByTag("nav-pen").performClick()
-        val colorGrid = root.findByTag("tool-color-grid") as ViewGroup
+        val colorGrid = root.findByTag("global-color-grid") as ViewGroup
         val colorRow = colorGrid.getChildAt(0) as ViewGroup
 
         assertEquals(1, colorGrid.childCount)
@@ -221,7 +217,7 @@ class MainActivityTest {
         val root = activity.findViewById<ViewGroup>(android.R.id.content)
         root.findByTag("nav-pen").performClick()
 
-        val palette = root.findByTag("tool-color-grid") as ViewGroup
+        val palette = root.findByTag("global-color-grid") as ViewGroup
         val row = palette.getChildAt(0) as ViewGroup
         assertEquals(DrawingOverlayView.PALETTE_COLORS.size + 2, row.childCount)
         assertTrue((0 until DrawingOverlayView.PALETTE_COLORS.size).all { row.getChildAt(it).layoutParams.width == 48.dp })
@@ -235,10 +231,8 @@ class MainActivityTest {
         root.findByTag("nav-pen").performClick()
         root.findByTag("nav-home").performClick()
         root.findByTag("nav-pen").performClick()
-        root.findByTag("tool-color:0").performClick()
-
-        val buttons = activity.privateField("colorButtons") as List<*>
-        assertEquals(DrawingOverlayView.PALETTE_COLORS.size, buttons.size)
+        assertNotNull(root.findByTag("global-color-grid"))
+        assertNull(root.findByTagOrNull("tool-color-grid"))
     }
 
     @Test
@@ -246,11 +240,11 @@ class MainActivityTest {
         val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
         val root = activity.findViewById<ViewGroup>(android.R.id.content)
         root.findByTag("nav-pen").performClick()
-        val paletteBefore = root.findByTag("tool-color-grid")
+        val paletteBefore = root.findByTag("global-color-grid")
 
-        root.findByTag("tool-color:1").performClick()
+        root.findByTag("global-color:1").performClick()
 
-        assertSame(paletteBefore, root.findByTag("tool-color-grid"))
+        assertSame(paletteBefore, root.findByTag("global-color-grid"))
     }
 
     @Test
@@ -261,7 +255,7 @@ class MainActivityTest {
         assertEquals("首页", root.findByTag("nav-home").contentDescription)
         root.findByTag("nav-pen").performClick()
         assertEquals(48.dp, root.findByTag("setting-tool:pen").layoutParams.height)
-        assertEquals(48.dp, root.findByTag("tool-color:0").layoutParams.width)
+        assertEquals(48.dp, root.findByTag("global-color:0").layoutParams.width)
     }
 
     @Test
@@ -309,12 +303,12 @@ class MainActivityTest {
     }
 
     @Test
-    fun `custom color add action is present in both pen palettes`() {
+    fun `custom color add action exists only in global palette`() {
         val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
         val root = activity.findViewById<ViewGroup>(android.R.id.content)
         root.findByTag("nav-pen").performClick()
         assertNotNull(root.findByTag("global-add-color"))
-        assertNotNull(root.findByTag("tool-add-color"))
+        assertNull(root.findByTagOrNull("tool-add-color"))
     }
 
     @Test
@@ -325,11 +319,11 @@ class MainActivityTest {
         val root = activity.findViewById<ViewGroup>(android.R.id.content)
         root.findByTag("nav-pen").performClick()
 
-        assertEquals(null, root.findByTagOrNull("tool-delete-color:$custom"))
-        root.findByTag("tool-manage-colors").performClick()
+        assertEquals(null, root.findByTagOrNull("global-delete-color:$custom"))
+        root.findByTag("global-manage-colors").performClick()
 
-        assertNotNull(root.findByTag("tool-delete-color:$custom"))
-        assertEquals(null, root.findByTagOrNull("tool-delete-color:${PenSettings.DEFAULT_PALETTE.first()}"))
+        assertNotNull(root.findByTag("global-delete-color:$custom"))
+        assertEquals(null, root.findByTagOrNull("global-delete-color:${PenSettings.DEFAULT_PALETTE.first()}"))
     }
 
     @Test
@@ -337,7 +331,7 @@ class MainActivityTest {
         val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
         val root = activity.findViewById<ViewGroup>(android.R.id.content)
         root.findByTag("nav-pen").performClick()
-        root.findByTag("tool-add-color").performClick()
+        root.findByTag("global-add-color").performClick()
 
         val dialog = ShadowAlertDialog.getLatestAlertDialog()
         val content = dialog.findViewById<ViewGroup>(android.R.id.custom)
@@ -356,7 +350,7 @@ class MainActivityTest {
         val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
         val root = activity.findViewById<ViewGroup>(android.R.id.content)
         root.findByTag("nav-pen").performClick()
-        root.findByTag("tool-add-color").performClick()
+        root.findByTag("global-add-color").performClick()
         org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
         val dialog = ShadowAlertDialog.getLatestAlertDialog()
         val content = dialog.findViewById<ViewGroup>(android.R.id.custom)

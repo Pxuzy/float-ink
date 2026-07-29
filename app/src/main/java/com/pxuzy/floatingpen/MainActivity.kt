@@ -69,7 +69,7 @@ class MainActivity : ComponentActivity() {
     private var selectedColor = PenSettings.DEFAULT_COLOR_ARGB
     private var selectedWidthDp = PenSettings.DEFAULT_WIDTH_DP
     private var selectedArrowScale = PenSettings.DEFAULT_ARROW_SCALE
-    private val colorManageModes = mutableMapOf<String, Boolean>()
+    private var globalColorManageMode = false
 
     private val overlayPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -224,11 +224,14 @@ class MainActivity : ComponentActivity() {
         selectedGlobalWidthDp = settings.globalWidthDp
         selectedColor = settings.color
         selectedWidthDp = settings.widthDp
-        return buildPage("画笔", "先设置默认绘制，再微调当前工具") {
+        return buildPage("画笔", "统一设置绘制颜色，按工具调整线宽") {
             addView(sectionTitle("默认绘制").apply { tag = "default-drawing-section" })
             addView(buildColorGrid("global") { color ->
                 selectedGlobalColor = color
-                PenSettings.saveGlobalStyle(this@MainActivity, color, selectedGlobalWidthDp)
+                selectedColor = color
+                PenSettings.saveGlobalColor(this@MainActivity, color)
+                PenSettings.addRecentColor(this@MainActivity, color)
+                notifyOverlaySettingsChanged()
                 refreshPaletteSelection("global", color)
             })
             addView(buildWidthControl("global", selectedGlobalWidthDp) { width ->
@@ -255,17 +258,6 @@ class MainActivity : ComponentActivity() {
                 addView(sectionTitle("更多工具").apply { tag = "more-tools-section" })
                 addView(buildToolSelectorRow(expandableTools, "more-tools"))
             }
-            addView(buildColorGrid("tool") { color ->
-                selectedColor = color
-                PenSettings.saveToolStyle(this@MainActivity, selectedTool, color, selectedWidthDp)
-                PenSettings.addRecentColor(this@MainActivity, color)
-                notifyOverlaySettingsChanged()
-                refreshPaletteSelection("tool", color)
-                updateToolButtons()
-                strokePreview.invalidate()
-                if (::arrowScaleLabel.isInitialized) arrowScaleLabel.setTextColor(selectedColor)
-                if (::arrowPreview.isInitialized) arrowPreview.invalidate()
-            })
             addView(buildWidthControl("tool", selectedWidthDp) { width ->
                 selectedWidthDp = width
                 PenSettings.saveToolStyle(this@MainActivity, selectedTool, selectedColor, width)
@@ -308,22 +300,22 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun buildColorGrid(prefix: String, onSelect: (Int) -> Unit): View {
-        val selected = if (prefix == "global") selectedGlobalColor else selectedColor
+        val selected = selectedGlobalColor
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(4.dp, 4.dp, 4.dp, 4.dp)
         }
-        val manageMode = colorManageModes[prefix] == true
+        val manageMode = globalColorManageMode
         PenSettings.allColors(this).forEachIndexed { index, color ->
             val isCustom = !PenSettings.isDefaultColor(color)
             val slot = FrameLayout(this).apply {
                 tag = "$prefix-color:$index"
-                contentDescription = "${if (prefix == "global") "全局" else "当前工具"}颜色 ${index + 1}"
+                contentDescription = "全局颜色 ${index + 1}"
                 setOnClickListener { onSelect(color) }
             }
             val swatch = View(this).apply { background = colorButtonBackground(color, color == selected) }
-            if (prefix == "tool") colorButtons += swatch
+
             slot.addView(swatch, FrameLayout.LayoutParams(34.dp, 34.dp, Gravity.CENTER))
             if (manageMode && isCustom) {
                 slot.addView(TextView(this).apply {
@@ -348,7 +340,7 @@ class MainActivity : ComponentActivity() {
             contentDescription = if (manageMode) "完成管理颜色" else "管理自定义颜色"
             background = roundedBackground(Color.parseColor("#26303B"), 7f)
             setOnClickListener {
-                colorManageModes[prefix] = !manageMode
+                globalColorManageMode = !manageMode
                 showPage(currentPage)
             }
         }, LinearLayout.LayoutParams(52.dp, 48.dp).apply { marginStart = 2.dp })
@@ -377,7 +369,7 @@ class MainActivity : ComponentActivity() {
         }
     }
     private fun showRgbColorDialog(prefix: String, onSelect: (Int) -> Unit) {
-        val initialColor = if (prefix == "global") selectedGlobalColor else selectedColor
+        val initialColor = selectedGlobalColor
         val picker = HsvColorPickerView(this).apply {
             tag = "custom-color-picker"
             color = initialColor
