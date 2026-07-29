@@ -162,13 +162,18 @@ class DrawingOverlayViewTest {
         val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
         assertEquals(LinearLayout.HORIZONTAL, toolbar.orientation)
         assertEquals("toolbar-drag-handle", toolbar.findByTag("toolbar-drag-handle").tag)
-        assertEquals("toolbar-tool-scroll", toolbar.findByTag("toolbar-tool-scroll").tag)
+        val scrollRegion = toolbar.findByTag("toolbar-tool-scroll") as android.widget.HorizontalScrollView
         assertEquals("undo", toolbar.findByTag("undo").tag)
         assertEquals("canvas-selector", toolbar.findByTag("canvas-selector").tag)
-        assertEquals("exit", toolbar.findByTag("exit").tag)
-        val clear = toolbar.findByTag("clear")
-        assertEquals(48.dp, clear.layoutParams.width)
-        assertEquals(48.dp, clear.layoutParams.height)
+        val exit = toolbar.findByTag("exit")
+        assertEquals("exit", exit.tag)
+        assertTrue(exit.parent === toolbar)
+        listOf("toolbar-drag-handle", "color", "undo", "clear", "canvas-selector").forEach { tag ->
+            val operation = toolbar.findByTag(tag)
+            assertTrue("$tag must be inside the scrollable operation region", isDescendantOf(operation, scrollRegion))
+            assertEquals("$tag width", 48.dp, operation.layoutParams.width)
+            assertEquals("$tag height", 48.dp, operation.layoutParams.height)
+        }
         assertTrue(view.textLabels().none { it.contains("✏") })
     }
 
@@ -820,6 +825,15 @@ class DrawingOverlayViewTest {
         drawGesture(view.getChildAt(0), 40f, 40f, 40f, 40f)
 
         assertTrue(view.elementsForTest().isEmpty())
+    }
+
+    private fun isDescendantOf(view: View, ancestor: ViewGroup): Boolean {
+        var current: View? = view
+        while (current?.parent is View) {
+            current = current.parent as View
+            if (current === ancestor) return true
+        }
+        return current === ancestor
     }
 
     private fun assertPopupPositionIsSafe(params: FrameLayout.LayoutParams, toolbar: View, root: ViewGroup) {
