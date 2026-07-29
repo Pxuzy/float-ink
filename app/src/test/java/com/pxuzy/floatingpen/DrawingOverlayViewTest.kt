@@ -166,7 +166,9 @@ class DrawingOverlayViewTest {
         assertEquals("undo", toolbar.findByTag("undo").tag)
         assertEquals("canvas-selector", toolbar.findByTag("canvas-selector").tag)
         assertEquals("exit", toolbar.findByTag("exit").tag)
-        assertTrue(runCatching { toolbar.findByTag("clear") }.isFailure)
+        val clear = toolbar.findByTag("clear")
+        assertEquals(48.dp, clear.layoutParams.width)
+        assertEquals(48.dp, clear.layoutParams.height)
         assertTrue(view.textLabels().none { it.contains("✏") })
     }
 
@@ -289,6 +291,10 @@ class DrawingOverlayViewTest {
         view.layout(0, 0, 220.dp, 640.dp)
         val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
         assertTrue(toolbar.layoutParams.width <= 204.dp)
+        val exit = toolbar.findByTag("exit")
+        assertEquals(48.dp, exit.layoutParams.width)
+        assertEquals(48.dp, exit.layoutParams.height)
+        assertTrue("退出必须留在窄屏工具栏内", exit.right <= toolbar.width)
 
         toolbar.findByTag("color").performClick()
         val colorPanel = view.findByTag("color-panel")

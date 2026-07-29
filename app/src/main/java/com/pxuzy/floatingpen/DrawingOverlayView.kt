@@ -366,45 +366,51 @@ class DrawingOverlayView(
             contentDescription = "拖动工具栏"
             layoutParams = LinearLayout.LayoutParams(48.dp, 48.dp)
         }
-        bar.addView(dragHandle)
-        bar.addView(createColorDot())
-
-        val toolContent = LinearLayout(context).apply {
+        val content = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            addView(dragHandle)
+            addView(createColorDot())
             configuredToolIds.take(4).forEach { toolId -> addView(createToolIcon(toolId)) }
             if (configuredToolIds.size > 4) {
                 addView(createActionBtn("more", ::toggleMoreTools).apply { tag = "more-tools" })
             }
+            addView(View(context).apply {
+                layoutParams = LinearLayout.LayoutParams(1.dpf.toInt(), 24.dp).apply { marginStart = 4.dp; marginEnd = 2.dp }
+                setBackgroundColor(Color.parseColor("#44FFFFFF"))
+            })
+            addView(createActionBtn("undo") {
+                if (isDrawing) {
+                    discardActiveGesture()
+                    canvasView.invalidate()
+                } else if (elements.isNotEmpty()) {
+                    elements.removeAt(elements.lastIndex)
+                    drawingSession.discardRecoverableClear()
+                    dismissRestoreClearBar()
+                    onSessionChanged()
+                    canvasView.invalidate()
+                }
+            }.apply { tag = "undo" })
+            addView(createActionBtn("clear") {
+                discardActiveGesture()
+                if (drawingSession.clearCurrentLayerRecoverably()) {
+                    onSessionChanged()
+                    canvasView.invalidate()
+                    showRestoreClearBar()
+                }
+            }.apply { tag = "clear" })
+            addView(createActionBtn("canvas", ::toggleCanvasPanel).apply {
+                tag = "canvas-selector"
+                contentDescription = "选择画板和图层"
+            })
         }
         val toolScroll = HorizontalScrollView(context).apply {
             tag = "toolbar-tool-scroll"
             isHorizontalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
-            addView(toolContent, FrameLayout.LayoutParams(LayoutParams.WRAP_CONTENT, 48.dp))
+            addView(content, FrameLayout.LayoutParams(LayoutParams.WRAP_CONTENT, 48.dp))
         }
         bar.addView(toolScroll, LinearLayout.LayoutParams(0, 52.dp, 1f))
-
-        bar.addView(View(context).apply {
-            layoutParams = LinearLayout.LayoutParams(1.dpf.toInt(), 24.dp).apply { marginStart = 4.dp; marginEnd = 2.dp }
-            setBackgroundColor(Color.parseColor("#44FFFFFF"))
-        })
-        bar.addView(createActionBtn("undo") {
-            if (isDrawing) {
-                discardActiveGesture()
-                canvasView.invalidate()
-            } else if (elements.isNotEmpty()) {
-                elements.removeAt(elements.lastIndex)
-                drawingSession.discardRecoverableClear()
-                dismissRestoreClearBar()
-                onSessionChanged()
-                canvasView.invalidate()
-            }
-        }.apply { tag = "undo" })
-        bar.addView(createActionBtn("canvas", ::toggleCanvasPanel).apply {
-            tag = "canvas-selector"
-            contentDescription = "选择画板和图层"
-        })
         bar.addView(createActionBtn("exit", action = {
             finishTextInputMode()
             onExit()
@@ -1256,7 +1262,7 @@ class DrawingOverlayView(
         controls.addView(preview, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 20.dp))
         fun slider(label: String, maxValue: Int, progressValue: Int, onChange: (Int) -> Unit) {
             val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-            row.addView(TextView(context).apply { text = label; textSize = 12f; setTextColor(Color.WHITE) }, LinearLayout.LayoutParams(36.dp, 36.dp))
+            row.addView(TextView(context).apply { text = label; textSize = 12f; setTextColor(Color.WHITE) }, LinearLayout.LayoutParams(36.dp, 48.dp))
             row.addView(SeekBar(context).apply {
                 max = maxValue; progress = progressValue
                 setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -1267,7 +1273,7 @@ class DrawingOverlayView(
                     override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
                     override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
                 })
-            }, LinearLayout.LayoutParams(0, 36.dp, 1f))
+            }, LinearLayout.LayoutParams(0, 48.dp, 1f))
             controls.addView(row)
         }
         slider("色相", 360, hsv[0].toInt()) { hsv[0] = it.toFloat() }
@@ -1300,7 +1306,7 @@ class DrawingOverlayView(
                 panel.removeView(controls)
                 positionPopupAboveToolbar(panel)
             }
-        }, LinearLayout.LayoutParams(0, 40.dp, 1f).apply { marginEnd = 6.dp })
+        }, LinearLayout.LayoutParams(0, 48.dp, 1f).apply { marginEnd = 6.dp })
         actions.addView(TextView(context).apply {
             tag = "save-custom-color"; text = "保存"; gravity = Gravity.CENTER; textSize = 13f
             setTextColor(Color.BLACK); background = GradientDrawable().apply { setColor(Color.WHITE); cornerRadius = 6.dpf }
@@ -1311,8 +1317,8 @@ class DrawingOverlayView(
                     applyColor(selected)
                 }
             }
-        }, LinearLayout.LayoutParams(0, 40.dp, 1f))
-        controls.addView(actions, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 40.dp).apply { topMargin = 8.dp })
+        }, LinearLayout.LayoutParams(0, 48.dp, 1f))
+        controls.addView(actions, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 48.dp).apply { topMargin = 8.dp })
         panel.addView(controls)
         positionPopupAboveToolbar(panel)
     }
