@@ -68,6 +68,19 @@ class DrawingOverlayViewTest {
     }
 
     @Test
+    fun `drawing on a hidden active layer reveals it before adding the stroke`() {
+        val session = DrawingSession()
+        session.setLayerVisible(session.currentLayer.id, false)
+        val view = DrawingOverlayView(context, "pen", 0, drawingSession = session) {}
+
+        drawGesture(view.getChildAt(0), 10f, 10f, 40f, 40f)
+
+        assertTrue(session.currentLayer.visible)
+        assertEquals(1, session.currentLayer.elements.size)
+        assertTrue(session.visibleLayersBottomToTop().contains(session.currentLayer))
+    }
+
+    @Test
     fun `canvas panel lists current boards and layers and switches selection`() {
         val session = DrawingSession()
         val firstBoard = session.currentBoard
