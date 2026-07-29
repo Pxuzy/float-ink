@@ -22,7 +22,7 @@
   → 清除本次笔迹并返回原 App
 ```
 
-## 当前能力
+## 当前能力（代码已实现，真机仍需验收）
 
 - 可拖动、贴边和自动隐藏的悬浮按钮
 - 透明全屏绘图覆盖层
@@ -153,7 +153,7 @@ app/src/test/java/com/pxuzy/floatingpen/
 
 ## 当前验证状态
 
-自动化单元测试和 Debug APK 构建已完成。真实 Android 手机/平板验证仍需要在目标设备上完成，重点包括：
+自动化单元测试和 Debug APK 构建已完成，但这不等同于真实设备验收。真实 Android 手机/平板验证仍需要在目标设备上完成，重点包括：
 
 - 悬浮窗权限授予与拒绝
 - 悬浮服务启动、停止和后台保活
@@ -167,7 +167,7 @@ app/src/test/java/com/pxuzy/floatingpen/
 项目不在 Android 设备上执行 `git pull`，而是使用 GitHub Releases 发布 APK：
 
 ```text
-git push / 创建 v0.2.0 标签
+git push / 创建 v0.3.0 标签
   → GitHub Actions 拉取仓库、测试并构建 APK
   → GitHub Release 发布新版本
   → App 检查 GitHub Releases
@@ -180,10 +180,10 @@ git push / 创建 v0.2.0 标签
 
 ```bash
 git add .
-git commit -m "feat(update): 接入 GitHub Releases 远程更新"
+git commit -m "chore(release): 准备 v0.3.0 发布"
 git push origin main
-git tag v0.2.0
-git push origin v0.2.0
+git tag v0.3.0
+git push origin v0.3.0
 ```
 
 App 内入口：`设置 → 软件更新 → 检查远程更新`。更新地址固定为 `Pxuzy/float-ink`，只接受 Release 中的 `.apk` 资产。
