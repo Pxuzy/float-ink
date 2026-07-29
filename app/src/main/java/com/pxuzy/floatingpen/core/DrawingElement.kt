@@ -44,6 +44,16 @@ sealed class DrawingElement {
         override val drawWidth: Float get() = width
     }
 
+    data class Circle(
+        val center: Pair<Float, Float>,
+        val radius: Float,
+        val color: Int,
+        val width: Float,
+    ) : DrawingElement() {
+        override val drawColor: Int get() = color
+        override val drawWidth: Float get() = width
+    }
+
     companion object {
         val colorNames = listOf("红色", "蓝色", "绿色", "黑色", "琥珀色")
         val colorValues = listOf(
@@ -58,6 +68,7 @@ sealed class DrawingElement {
             ToolDef("line", "直线", intArrayOf(0xFF10B981.toInt(), 0xFF059669.toInt())),
             ToolDef("arrow", "箭头", intArrayOf(0xFFF59E0B.toInt(), 0xFFD97706.toInt())),
             ToolDef("rect", "矩形", intArrayOf(0xFF8B5CF6.toInt(), 0xFF7C3AED.toInt())),
+            ToolDef("circle", "圆形", intArrayOf(0xFF06B6D4.toInt(), 0xFF0891B2.toInt())),
         )
         val toolNames: Map<String, String> = tools.associate { it.id to it.label }
         const val ARROW_HEAD_ANGLE_RAD = 0.436332

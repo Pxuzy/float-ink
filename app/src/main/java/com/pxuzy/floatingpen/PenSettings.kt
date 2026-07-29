@@ -39,7 +39,7 @@ object PenSettings {
     const val MIN_ARROW_SCALE = 1f
     const val MAX_ARROW_SCALE = 4f
 
-    val TOOL_IDS = listOf("pen", "line", "arrow", "rect")
+    val TOOL_IDS = listOf("pen", "line", "arrow", "rect", "circle")
     /** Built-in colors are immutable; user colors live in a separate persisted list. */
     val DEFAULT_PALETTE = listOf(
         0xFFF44336.toInt(), 0xFF2196F3.toInt(), 0xFF4CAF50.toInt(), 0xFF212121.toInt(),
