@@ -85,7 +85,7 @@ class DrawingOverlayView(
     private var colorPanel: View? = null
     private var moreToolsPanel: View? = null
     private var canvasPanel: View? = null
-    private var colorManageMode = false
+
     private var restoreClearBar: View? = null
     private val toolButtons = mutableMapOf<String, View>()
     private var windowWidthDp = resources.configuration.screenWidthDp
@@ -548,7 +548,6 @@ class DrawingOverlayView(
     private fun rebuildToolbar() {
         if (childCount < 2) return
         val restoreColorPanel = colorPanel != null
-        val restoreHsvControls = colorPanel?.findViewWithTag<View>("hsv-controls") != null
         val restoreMorePanel = moreToolsPanel != null
         colorPanel?.let { toolbarPopupHost.removeView(it); colorPanel = null }
         moreToolsPanel?.let { toolbarPopupHost.removeView(it); moreToolsPanel = null }
@@ -560,7 +559,6 @@ class DrawingOverlayView(
                 val panel = buildColorPanel() as LinearLayout
                 colorPanel = panel
                 toolbarPopupHost.addView(panel)
-                if (restoreHsvControls) showHsvControls(panel)
                 positionPopupAboveToolbar(panel)
                 panel.post { positionPopupAboveToolbar(panel) }
             }
@@ -1122,7 +1120,7 @@ class DrawingOverlayView(
                 setStroke(1.dpf.toInt(), Color.argb(82, 255, 255, 255))
             }
         }
-        PenSettings.allColors(context).chunked(4).forEachIndexed { rowIndex, colors ->
+        PenSettings.DEFAULT_PALETTE.chunked(4).forEachIndexed { rowIndex, colors ->
             val row = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER
@@ -1135,7 +1133,6 @@ class DrawingOverlayView(
                 row.addView(colorSwatch(
                     color,
                     "palette-color:${rowIndex * 4 + index}",
-                    showDelete = colorManageMode && !PenSettings.isDefaultColor(color),
                 ))
             }
             panel.addView(row)
@@ -1151,48 +1148,13 @@ class DrawingOverlayView(
         PenSettings.load(context).recentColors.take(6).forEachIndexed { index, color ->
             recentRow.addView(colorSwatch(color, "recent-color:$index"))
         }
-        recentRow.addView(TextView(context).apply {
-            tag = "manage-custom-colors"
-            text = if (colorManageMode) "完成" else "管理"
-            textSize = 12f
-            gravity = Gravity.CENTER
-            contentDescription = if (colorManageMode) "完成管理颜色" else "管理自定义颜色"
-            setTextColor(Color.WHITE)
-            background = GradientDrawable().apply { setColor(Color.argb(35, 255, 255, 255)); cornerRadius = 6.dpf }
-            layoutParams = LinearLayout.LayoutParams(52.dp, 34.dp).apply { marginStart = 6.dp }
-            setOnClickListener {
-                colorManageMode = !colorManageMode
-                rebuildColorPanel()
-            }
-        })
-        recentRow.addView(TextView(context).apply {
-            tag = "custom-color"; text = "+"; textSize = 22f; gravity = Gravity.CENTER
-            setTextColor(Color.WHITE)
-            background = GradientDrawable().apply { setColor(Color.argb(35, 255, 255, 255)); cornerRadius = 6.dpf }
-            layoutParams = LinearLayout.LayoutParams(34.dp, 34.dp).apply { marginStart = 6.dp }
-            setOnClickListener { showHsvControls(panel) }
-        })
         panel.addView(recentRow)
         return panel
     }
 
-    private fun rebuildColorPanel() {
-        val previous = colorPanel ?: return
-        toolbarPopupHost.removeView(previous)
-        val replacement = buildColorPanel()
-        colorPanel = replacement
-        toolbarPopupHost.addView(replacement)
-        positionPopupAboveToolbar(replacement)
-        replacement.post { positionPopupAboveToolbar(replacement) }
-    }
-
-    private fun colorSwatch(color: Int, viewTag: String, showDelete: Boolean = false) = FrameLayout(context).apply {
+    private fun colorSwatch(color: Int, viewTag: String) = FrameLayout(context).apply {
         tag = viewTag
-        contentDescription = when {
-            showDelete -> "删除自定义颜色 #%08X".format(java.util.Locale.US, color)
-            !PenSettings.isDefaultColor(color) -> "自定义颜色"
-            else -> "默认颜色"
-        }
+        contentDescription = if (PenSettings.isDefaultColor(color)) "默认颜色" else "最近使用颜色"
         layoutParams = LinearLayout.LayoutParams(48.dp, 48.dp).apply { marginEnd = 2.dp }
         addView(View(context).apply {
             background = GradientDrawable().apply {
@@ -1200,121 +1162,7 @@ class DrawingOverlayView(
                 if (color == currentColor) setStroke(2.dpf.toInt(), Color.WHITE)
             }
         }, FrameLayout.LayoutParams(30.dp, 30.dp, Gravity.CENTER))
-        if (showDelete) {
-            addView(TextView(context).apply {
-                tag = "delete-color:$color"
-                text = "×"
-                textSize = 14f
-                gravity = Gravity.CENTER
-                setTextColor(Color.WHITE)
-                contentDescription = "删除自定义颜色 #%08X".format(java.util.Locale.US, color)
-                background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setColor(Color.parseColor("#35404C"))
-                    setStroke(1.dpf.toInt(), Color.parseColor("#A0AAB5"))
-                }
-                setOnClickListener { confirmDeleteCustomColor(color) }
-            }, FrameLayout.LayoutParams(20.dp, 20.dp, Gravity.TOP or Gravity.END))
-        }
         setOnClickListener { applyColor(color) }
-    }
-
-    private fun confirmDeleteCustomColor(color: Int) {
-        val dialog = AlertDialog.Builder(context)
-            .setTitle("删除自定义颜色？")
-            .setMessage("删除后不会影响已经画出的笔迹。")
-            .setNegativeButton("取消", null)
-            .setPositiveButton("删除") { _, _ ->
-                if (!PenSettings.deleteCustomColorAndReplaceStyles(context, color)) return@setPositiveButton
-                val wasCurrentColor = currentColor == color
-                applyExternalSettings(PenSettings.load(context))
-                if (wasCurrentColor) applyColor(PenSettings.DEFAULT_PALETTE.first())
-                else rebuildColorPanel()
-            }
-            .create()
-        dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
-        dialog.show()
-    }
-
-    private fun showHsvControls(panel: LinearLayout) {
-        if (panel.findViewWithTag<View>("hsv-controls") != null) return
-        val availableWidth = ((width.takeIf { it > 0 } ?: (windowWidthDp * density).toInt()) - 16.dp).coerceAtLeast(1)
-        (panel.layoutParams as? FrameLayout.LayoutParams)?.let { params ->
-            params.width = COLOR_PANEL_EDITOR_WIDTH_DP.dp.coerceAtMost(availableWidth)
-            panel.layoutParams = params
-        }
-        val hsv = FloatArray(3)
-        Color.colorToHSV(currentColor, hsv)
-        val controls = LinearLayout(context).apply {
-            tag = "hsv-controls"; orientation = LinearLayout.VERTICAL
-            val available = ((width.takeIf { it > 0 } ?: (windowWidthDp * density).toInt()) - 32.dp).coerceAtLeast(1)
-            layoutParams = LinearLayout.LayoutParams(minOf(260.dp, available), LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = 8.dp }
-        }
-        val preview = View(context).apply {
-            tag = "hsv-preview"; background = GradientDrawable().apply { setColor(currentColor); cornerRadius = 4.dpf }
-        }
-        controls.addView(preview, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 20.dp))
-        fun slider(label: String, maxValue: Int, progressValue: Int, onChange: (Int) -> Unit) {
-            val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-            row.addView(TextView(context).apply { text = label; textSize = 12f; setTextColor(Color.WHITE) }, LinearLayout.LayoutParams(36.dp, 36.dp))
-            row.addView(SeekBar(context).apply {
-                max = maxValue; progress = progressValue
-                setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                    override fun onProgressChanged(seekBar: SeekBar?, value: Int, fromUser: Boolean) {
-                        onChange(value)
-                        preview.background = GradientDrawable().apply { setColor(Color.HSVToColor(hsv)); cornerRadius = 4.dpf }
-                    }
-                    override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
-                    override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
-                })
-            }, LinearLayout.LayoutParams(0, 36.dp, 1f))
-            controls.addView(row)
-        }
-        slider("色相", 360, hsv[0].toInt()) { hsv[0] = it.toFloat() }
-        slider("饱和", 100, (hsv[1] * 100).toInt()) { hsv[1] = it / 100f }
-        slider("明度", 100, (hsv[2] * 100).toInt()) { hsv[2] = it / 100f }
-        val rgbInput = RgbColorInputView(context).apply {
-            tag = "custom-rgb-input"
-            color = currentColor
-            setOnInputActivatedListener { input ->
-                onTextInputModeChanged(true)
-                input.post {
-                    input.requestFocus()
-                    if (input.hasWindowFocus()) {
-                        (context.getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
-                            .showSoftInput(input, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
-                    }
-                }
-            }
-        }
-        controls.addView(rgbInput, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = 6.dp })
-        val actions = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        actions.addView(TextView(context).apply {
-            tag = "cancel-custom-color"; text = "取消"; gravity = Gravity.CENTER; textSize = 13f
-            setTextColor(Color.WHITE); background = GradientDrawable().apply { setColor(Color.argb(35, 255, 255, 255)); cornerRadius = 6.dpf }
-            setOnClickListener {
-                finishTextInputMode()
-                panel.removeView(controls)
-                positionPopupAboveToolbar(panel)
-            }
-        }, LinearLayout.LayoutParams(0, 40.dp, 1f).apply { marginEnd = 6.dp })
-        actions.addView(TextView(context).apply {
-            tag = "save-custom-color"; text = "保存"; gravity = Gravity.CENTER; textSize = 13f
-            setTextColor(Color.BLACK); background = GradientDrawable().apply { setColor(Color.WHITE); cornerRadius = 6.dpf }
-            setOnClickListener {
-                val selected = if (rgbInput.fromUserInput) rgbInput.parsedColor() else Color.HSVToColor(hsv)
-                if (selected != null) {
-                    finishTextInputMode()
-                    applyColor(selected)
-                }
-            }
-        }, LinearLayout.LayoutParams(0, 40.dp, 1f))
-        controls.addView(actions, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 40.dp).apply { topMargin = 8.dp })
-        panel.addView(controls)
-        positionPopupAboveToolbar(panel)
     }
 
     private fun finishTextInputMode() {
@@ -1441,7 +1289,7 @@ class DrawingOverlayView(
 
     companion object {
         private const val COLOR_PANEL_COMPACT_WIDTH_DP = 220
-        private const val COLOR_PANEL_EDITOR_WIDTH_DP = 280
+
         private const val RESTORE_CLEAR_TIMEOUT_MS = 6_000L
 
         val PALETTE_COLORS = PenSettings.DEFAULT_PALETTE
