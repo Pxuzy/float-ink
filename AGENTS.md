@@ -20,18 +20,16 @@ The current main branch is based on `v0.3.0`. Stabilize and verify the existing 
 
 Do not implement or reintroduce:
 - iPad
-- Screenshots, screen recording, image export, saving or uploading
-- Login, cloud sync, analytics, cloud data sync
-- Screenshots, screen recording, image export, cloud sync, or broad storage access
+- Screenshots, screen recording, image export, or broad storage access
+- Login, cloud sync, analytics, or cloud data sync
 - AccessibilityService or MediaProjection
-- iPad support
 - Unrelated server-side tools or large dependencies
 
 ## Product rules
 
 - The current drawing session is temporary in memory. Exiting the drawing overlay may retain the current session; stopping the overlay service is the explicit session-clear boundary.
 - Do not use AccessibilityService, MediaProjection, PixelCopy, camera, microphone, or broad storage permissions. The only network use is the explicit GitHub Releases update check.
-- The V0 prototype only needs to prove the core flow on a real Android phone or tablet.
+- The current baseline must be proven on a real Android phone or tablet before further feature expansion.
 - Use native Android Kotlin. Do not use WebView for the drawing overlay.
 
 ## Workflow
