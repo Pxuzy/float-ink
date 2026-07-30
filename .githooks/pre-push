@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+failed=0
+
+while read -r LOCAL_REF LOCAL_OID REMOTE_REF REMOTE_OID; do
+  [[ -z "${LOCAL_REF:-}" ]] && continue
+  if [[ "$LOCAL_OID" == "0000000000000000000000000000000000000000" ]]; then
+    continue
+  fi
+  if [[ "$REMOTE_OID" == "0000000000000000000000000000000000000000" ]]; then
+    OLD="$(git hash-object -t tree /dev/null)"
+  else
+    OLD="$REMOTE_OID"
+  fi
+  if ! "$ROOT_DIR/scripts/check-git-privacy.sh" range "$OLD" "$LOCAL_OID"; then
+    failed=1
+  fi
+done
+
+exit "$failed"
