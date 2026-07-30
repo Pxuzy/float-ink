@@ -24,6 +24,9 @@ object PenSettings {
     private const val KEY_BUBBLE_SNAPPED_LEFT = "bubble_snapped_left"
     private const val KEY_STYLE_MIGRATED = "tool_style_migrated_v1"
 
+    private fun prefs(context: Context) =
+        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+
     const val DEFAULT_TOOL = "pen"
     const val DEFAULT_COLOR = 0
     val DEFAULT_COLOR_ARGB: Int = DrawingElement.colorValues[DEFAULT_COLOR]
@@ -49,7 +52,7 @@ object PenSettings {
     fun isDefaultColor(color: Int): Boolean = color in DEFAULT_PALETTE
 
     fun customColors(context: Context): List<Int> = parseColorList(
-        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        prefs(context)
             .getString(KEY_CUSTOM_COLORS, "").orEmpty()
     )
 
@@ -72,7 +75,7 @@ object PenSettings {
     fun deleteCustomColorAndReplaceStyles(context: Context, color: Int, fallback: Int = DEFAULT_PALETTE.first()): Boolean {
         if (!deleteCustomColor(context, color)) return false
         migrateLegacyStyleIfNeeded(context)
-        val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        val prefs = prefs(context)
         prefs.edit().apply {
             putString(
                 KEY_RECENT_COLORS,
@@ -135,7 +138,7 @@ object PenSettings {
     data class BubblePosition(val x: Int, val y: Int, val snappedLeft: Boolean)
 
     fun loadBubblePosition(context: Context): BubblePosition? {
-        val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        val prefs = prefs(context)
         if (!prefs.contains(KEY_BUBBLE_X) || !prefs.contains(KEY_BUBBLE_Y)) return null
         return BubblePosition(
             prefs.getInt(KEY_BUBBLE_X, 0),
@@ -145,7 +148,7 @@ object PenSettings {
     }
 
     fun saveBubblePosition(context: Context, x: Int, y: Int, snappedLeft: Boolean) {
-        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE).edit()
+        prefs(context).edit()
             .putInt(KEY_BUBBLE_X, x)
             .putInt(KEY_BUBBLE_Y, y)
             .putBoolean(KEY_BUBBLE_SNAPPED_LEFT, snappedLeft)
@@ -153,7 +156,7 @@ object PenSettings {
     }
 
     fun load(context: Context): Values {
-        val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        val prefs = prefs(context)
         migrateLegacyStyleIfNeeded(context)
         val tool = normalizeTool(prefs.getString(KEY_TOOL, DEFAULT_TOOL))
         val globalColor = prefs.getInt(KEY_GLOBAL_COLOR_ARGB, DEFAULT_COLOR_ARGB)
@@ -176,7 +179,7 @@ object PenSettings {
     }
 
     private fun migrateLegacyStyleIfNeeded(context: Context) {
-        val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        val prefs = prefs(context)
         if (prefs.getBoolean(KEY_STYLE_MIGRATED, false)) return
         val legacyIndex = prefs.getInt(KEY_COLOR, DEFAULT_COLOR).coerceIn(DrawingElement.colorValues.indices)
         val legacyColor = if (prefs.contains(KEY_COLOR_ARGB)) {
@@ -200,21 +203,21 @@ object PenSettings {
     }
 
     fun saveTool(context: Context, tool: String) {
-        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        prefs(context)
             .edit().putString(KEY_TOOL, normalizeTool(tool)).apply()
     }
 
     fun saveGlobalStyle(context: Context, color: Int, widthDp: Float) {
         migrateLegacyStyleIfNeeded(context)
         saveGlobalColor(context, color)
-        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE).edit()
+        prefs(context).edit()
             .putFloat(KEY_GLOBAL_WIDTH_DP, clampWidth(widthDp)).apply()
     }
 
     /** The ink color is global; keep every tool style synchronized for legacy callers. */
     fun saveGlobalColor(context: Context, color: Int) {
         migrateLegacyStyleIfNeeded(context)
-        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE).edit().apply {
+        prefs(context).edit().apply {
             putInt(KEY_GLOBAL_COLOR_ARGB, color)
             TOOL_IDS.forEach { toolId -> putInt(toolColorKey(toolId), color) }
         }.apply()
@@ -223,7 +226,7 @@ object PenSettings {
     fun saveToolStyle(context: Context, tool: String, color: Int, widthDp: Float) {
         migrateLegacyStyleIfNeeded(context)
         val toolId = normalizeTool(tool)
-        val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        val prefs = prefs(context)
         prefs.edit()
             .putInt(toolColorKey(toolId), prefs.getInt(KEY_GLOBAL_COLOR_ARGB, DEFAULT_COLOR_ARGB))
             .putFloat(toolWidthKey(toolId), clampWidth(widthDp))
@@ -232,7 +235,7 @@ object PenSettings {
 
     fun applyGlobalStyleToAllTools(context: Context) {
         val values = load(context)
-        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE).edit().apply {
+        prefs(context).edit().apply {
             TOOL_IDS.forEach { toolId ->
                 putInt(toolColorKey(toolId), values.globalColor)
                 putFloat(toolWidthKey(toolId), values.globalWidthDp)
@@ -254,7 +257,7 @@ object PenSettings {
 
     fun addRecentColor(context: Context, color: Int) {
         val updated = listOf(color) + load(context).recentColors.filterNot { it == color }
-        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE).edit()
+        prefs(context).edit()
             .putString(KEY_RECENT_COLORS, updated.take(6).joinToString(",") { it.toUInt().toString(16) })
             .apply()
     }
@@ -264,34 +267,34 @@ object PenSettings {
         .distinct()
 
     private fun saveColorList(context: Context, key: String, colors: List<Int>) {
-        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE).edit()
+        prefs(context).edit()
             .putString(key, colors.distinct().joinToString(",") { it.toUInt().toString(16) })
             .apply()
     }
 
     fun saveBubbleOpacity(context: Context, opacity: Float) {
-        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        prefs(context)
             .edit().putFloat(KEY_BUBBLE_OPACITY, opacity).apply()
     }
 
     fun saveAutoHide(context: Context, enabled: Boolean) {
-        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        prefs(context)
             .edit().putBoolean(KEY_AUTO_HIDE, enabled).apply()
     }
 
     fun saveAutoHideDelay(context: Context, delayMs: Long) {
-        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        prefs(context)
             .edit().putLong(KEY_AUTO_HIDE_DELAY, delayMs).apply()
     }
 
     fun saveArrowScale(context: Context, scale: Float) {
         migrateLegacyStyleIfNeeded(context)
-        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        prefs(context)
             .edit().putFloat(KEY_TOOL_ARROW_SCALE, scale.coerceIn(MIN_ARROW_SCALE, MAX_ARROW_SCALE)).apply()
     }
 
     fun loadToolbarLayout(context: Context): ToolbarLayout {
-        val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        val prefs = prefs(context)
         val storedOrder = parseToolIds(prefs.getString(KEY_TOOLBAR_ORDER, "").orEmpty())
         val order = (storedOrder + TOOL_IDS).filter { it in TOOL_IDS }.distinct()
         val storedEnabled = parseToolIds(prefs.getString(KEY_TOOLBAR_ENABLED, "").orEmpty()).toSet()
@@ -306,7 +309,7 @@ object PenSettings {
     fun saveToolbarLayout(context: Context, order: List<String>, enabled: Set<String>) {
         val normalizedOrder = (order + TOOL_IDS).filter { it in TOOL_IDS }.distinct()
         val normalizedEnabled = (enabled intersect normalizedOrder.toSet()).ifEmpty { setOf(normalizedOrder.first()) }
-        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE).edit()
+        prefs(context).edit()
             .putString(KEY_TOOLBAR_ORDER, normalizedOrder.joinToString(","))
             .putString(KEY_TOOLBAR_ENABLED, normalizedEnabled.joinToString(","))
             .apply()
