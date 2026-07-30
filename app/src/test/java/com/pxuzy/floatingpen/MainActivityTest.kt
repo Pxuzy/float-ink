@@ -64,6 +64,20 @@ class MainActivityTest {
     }
 
     @Test
+    fun `home page exposes every tool preview and persisted style`() {
+        PenSettings.saveToolStyle(context, "pen", 0xFF123456.toInt(), 4f)
+        PenSettings.saveToolStyle(context, "circle", 0xFF654321.toInt(), 11f)
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        PenSettings.TOOL_IDS.forEach { toolId ->
+            assertNotNull(root.findByTag("home-tool:$toolId"))
+            assertNotNull(root.findByTag("home-tool-preview:$toolId"))
+        }
+        assertEquals(4f, PenSettings.load(activity).styleFor("pen").widthDp)
+        assertEquals(11f, PenSettings.load(activity).styleFor("circle").widthDp)
+    }
+
+    @Test
     fun `global color selection synchronizes every tool while widths remain independent`() {
         val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
         val root = activity.findViewById<ViewGroup>(android.R.id.content)

@@ -213,6 +213,20 @@ class MainActivity : ComponentActivity() {
                 textSize = 15f; setTextColor(Color.WHITE)
             })
         })
+        addView(sectionTitle("各画笔状态"))
+        addView(LinearLayout(this@MainActivity).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(12.dp, 8.dp, 12.dp, 8.dp); background = panelBackground()
+            val values = PenSettings.load(this@MainActivity)
+            PenSettings.TOOL_IDS.forEach { toolId ->
+                val style = values.styleFor(toolId)
+                addView(LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; minimumHeight = 56.dp; tag = "home-tool:$toolId"
+                    addView(ToolPreviewView(this@MainActivity, toolId, style.color, style.widthDp).apply { tag = "home-tool-preview:$toolId" }, LinearLayout.LayoutParams(64.dp, 48.dp).apply { marginEnd = 10.dp })
+                    addView(TextView(this@MainActivity).apply { text = DrawingElement.toolNames[toolId] ?: toolId; textSize = 14f; setTextColor(Color.WHITE); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) })
+                    addView(TextView(this@MainActivity).apply { text = "${colorLabel(style.color)}  ·  ${style.widthDp.toInt()} dp"; textSize = 13f; setTextColor(style.color); contentDescription = "${DrawingElement.toolNames[toolId]}：${colorLabel(style.color)}，线宽 ${style.widthDp.toInt()}dp" })
+                })
+            }
+        })
         updateUi()
     }
 
@@ -539,46 +553,65 @@ class MainActivity : ComponentActivity() {
         parent.addView(arrowPreview, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 72.dp).apply { topMargin = 4.dp })
     }
 
-    private inner class ToolPreviewView(context: Context, private val tool: String) : View(context) {
+    private inner class ToolPreviewView(
+        context: Context,
+        private val tool: String,
+        private val previewColor: Int = selectedColor,
+        private val previewWidthDp: Float = selectedWidthDp,
+    ) : View(context) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
         private val path = Path()
         override fun onDraw(canvas: Canvas) {
-            val left = 24.dp.toFloat(); val right = width - 24.dp.toFloat(); val center = height / 2f
-            paint.color = selectedColor; paint.strokeWidth = selectedWidthDp.dp; paint.style = Paint.Style.STROKE
+            val left = 12.dp.toFloat(); val right = width - 12.dp.toFloat(); val center = height / 2f
+            val inset = 5.dp.toFloat()
+            paint.color = Color.parseColor("#18212B"); paint.style = Paint.Style.FILL
+            canvas.drawRoundRect(inset, inset, width - inset, height - inset, 10.dp.toFloat(), 10.dp.toFloat(), paint)
+            paint.color = previewColor; paint.strokeWidth = (previewWidthDp * .72f).coerceAtLeast(2f).dp; paint.style = Paint.Style.STROKE
+            paint.strokeCap = Paint.Cap.ROUND; paint.strokeJoin = Paint.Join.ROUND
             setTag(R.id.tag_preview_tool, tool)
-            setTag(R.id.tag_preview_width_dp, selectedWidthDp)
+            setTag(R.id.tag_preview_width_dp, previewWidthDp)
             when (tool) {
-                "pen" -> { path.rewind(); path.moveTo(left, center); path.cubicTo(width * .35f, center - 16.dp, width * .65f, center + 16.dp, right, center); canvas.drawPath(path, paint) }
-                "rect" -> canvas.drawRect(left, 16.dp.toFloat(), right, height - 16.dp.toFloat(), paint)
-                "circle" -> canvas.drawCircle(width / 2f, center, minOf((right - left) / 2f, height / 2f - 12.dp), paint)
-            else -> {
-                val head = if (tool == "arrow") DrawingOverlayView.resolveArrowHeadLengthDp(selectedWidthDp, selectedArrowScale).dp else 0f
-                canvas.drawLine(left, center, if (tool == "arrow") right - head else right, center, paint)
-                if (tool == "arrow") {
-                    path.rewind(); path.moveTo(right, center); path.lineTo(right - head, center - head * .45f); path.lineTo(right - head, center + head * .45f); path.close()
-                    paint.style = Paint.Style.FILL; canvas.drawPath(path, paint)
+                "pen" -> {
+                    path.rewind(); path.moveTo(left, center + 5.dp); path.cubicTo(width * .35f, center - 15.dp, width * .62f, center + 15.dp, right - 5.dp, center - 3.dp); canvas.drawPath(path, paint)
+                    paint.style = Paint.Style.FILL; canvas.drawCircle(right - 5.dp, center - 3.dp, 3.dp.toFloat(), paint)
                 }
+                "line" -> { canvas.drawLine(left, center, right, center, paint); paint.style = Paint.Style.FILL; canvas.drawCircle(left, center, 3.dp.toFloat(), paint); canvas.drawCircle(right, center, 3.dp.toFloat(), paint) }
+                "arrow" -> {
+                    val head = 13.dp.toFloat(); canvas.drawLine(left, center, right - head, center, paint)
+                    path.rewind(); path.moveTo(right, center); path.lineTo(right - head, center - 8.dp); path.lineTo(right - head, center + 8.dp); path.close(); paint.style = Paint.Style.FILL; canvas.drawPath(path, paint)
+                }
+                "rect" -> canvas.drawRoundRect(left, 14.dp.toFloat(), right, height - 14.dp.toFloat(), 5.dp.toFloat(), 5.dp.toFloat(), paint)
+                "circle" -> { canvas.drawCircle(width / 2f, center, minOf((right - left) / 2f, height / 2f - 13.dp), paint); paint.style = Paint.Style.FILL; canvas.drawCircle(width / 2f, center, 2.5f.dp, paint) }
             }
         }
     }
-}
 
-    private fun buildSettingsPage(): View = buildPage("设置", "调整悬浮按钮的显示行为") {
+    private fun buildSettingsPage(): View = buildPage("设置", "让悬浮按钮更贴合你的使用习惯") {
         val settings = PenSettings.load(this@MainActivity)
-        addView(sectionTitle("悬浮按钮").apply { tag = "settings-bubble-section" })
-        addView(settingHeader("透明度", "${(settings.bubbleOpacity * 100).toInt()}%", "setting-opacity-label"))
+
+        addView(sectionTitle("显示与自动隐藏").apply { tag = "settings-bubble-section" })
+        addView(sectionTitle("自动隐藏").apply { tag = "settings-auto-hide-section" })
+        val behaviorPanel = LinearLayout(this@MainActivity).apply {
+            tag = "settings-behavior-panel"
+            orientation = LinearLayout.VERTICAL
+            setPadding(14.dp, 12.dp, 14.dp, 12.dp)
+            background = panelBackground()
+        }
+        behaviorPanel.addView(settingHeader("按钮透明度", "${(settings.bubbleOpacity * 100).toInt()}%", "setting-opacity-label"))
         bubbleOpacityPreview = TextView(this@MainActivity).apply {
             tag = "setting-opacity-preview"
-            text = "  悬浮按钮预览  "
+            text = "悬浮按钮预览"
             gravity = Gravity.CENTER
             textSize = 13f
             setTextColor(Color.WHITE)
             alpha = settings.bubbleOpacity
             background = roundedBackground(Color.BLACK, 8f)
         }
-        addView(bubbleOpacityPreview, LinearLayout.LayoutParams(132.dp, 40.dp).apply { bottomMargin = 4.dp })
-        addView(SeekBar(this@MainActivity).apply {
-            tag = "setting-bubble-opacity"; max = 65; progress = ((settings.bubbleOpacity - 0.35f) * 100).toInt()
+        behaviorPanel.addView(bubbleOpacityPreview, LinearLayout.LayoutParams(132.dp, 40.dp).apply { topMargin = 6.dp; bottomMargin = 4.dp })
+        behaviorPanel.addView(SeekBar(this@MainActivity).apply {
+            tag = "setting-bubble-opacity"
+            max = 65
+            progress = ((settings.bubbleOpacity - 0.35f) * 100).toInt()
             setOnSeekBarChangeListener(userSeek { value ->
                 val opacity = 0.35f + value / 100f
                 PenSettings.saveBubbleOpacity(this@MainActivity, opacity)
@@ -587,21 +620,23 @@ class MainActivity : ComponentActivity() {
                 bubbleOpacityPreview?.alpha = opacity
             })
         }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 48.dp))
-
-        lateinit var delaySeek: SeekBar
-        addView(sectionTitle("自动隐藏").apply { tag = "settings-auto-hide-section" })
-        addView(CheckBox(this@MainActivity).apply {
-            tag = "setting-auto-hide"; text = "自动隐藏到屏幕边缘"; textSize = 15f; setTextColor(Color.WHITE); minHeight = 48.dp
+        behaviorPanel.addView(CheckBox(this@MainActivity).apply {
+            tag = "setting-auto-hide"
+            text = "自动隐藏到屏幕边缘"
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            minHeight = 48.dp
             isChecked = settings.autoHide
             setOnCheckedChangeListener { _, checked ->
                 PenSettings.saveAutoHide(this@MainActivity, checked)
                 notifyOverlaySettingsChanged()
-                delaySeek.isEnabled = checked
+                pageContainer.findViewWithTag<SeekBar>("setting-auto-hide-delay")?.isEnabled = checked
             }
         })
-        addView(settingHeader("自动隐藏延迟", "${settings.autoHideDelayMs / 1000f} 秒", "setting-delay-label"))
-        delaySeek = SeekBar(this@MainActivity).apply {
-            tag = "setting-auto-hide-delay"; max = 9
+        behaviorPanel.addView(settingHeader("隐藏延迟", "${settings.autoHideDelayMs / 1000f} 秒", "setting-delay-label"))
+        behaviorPanel.addView(SeekBar(this@MainActivity).apply {
+            tag = "setting-auto-hide-delay"
+            max = 9
             progress = ((settings.autoHideDelayMs - 500L) / 500L).toInt()
             isEnabled = settings.autoHide
             setOnSeekBarChangeListener(userSeek { value ->
@@ -610,42 +645,55 @@ class MainActivity : ComponentActivity() {
                 notifyOverlaySettingsChanged()
                 pageContainer.findViewWithTag<TextView>("setting-delay-label")?.text = "${delay / 1000f} 秒"
             })
-        }
-        addView(delaySeek, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 48.dp))
-        addView(TextView(this@MainActivity).apply {
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 48.dp))
+        behaviorPanel.addView(TextView(this@MainActivity).apply {
             tag = "settings-live-copy"
-            text = "修改会立即应用到当前悬浮球"; textSize = 12f; setTextColor(Color.parseColor("#7F8A99"))
+            text = "修改会立即应用到当前悬浮球"
+            textSize = 12f
+            setTextColor(Color.parseColor("#7F8A99"))
         })
+        addView(behaviorPanel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = 12.dp })
+
+        addView(sectionTitle("悬浮工具栏").apply { tag = "toolbar-layout-section" })
+        val toolbarLayout = PenSettings.load(this@MainActivity)
+        addView(LinearLayout(this@MainActivity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(14.dp, 12.dp, 14.dp, 12.dp)
+            background = panelBackground()
+            addView(TextView(this@MainActivity).apply {
+                tag = "toolbar-layout-help"
+                text = "长按拖动调整顺序，关闭开关隐藏工具；其他工具会收进“更多”"
+                textSize = 12f
+                setTextColor(Color.parseColor("#91A0B2"))
+            })
+            addView(ToolbarLayoutEditorView(this@MainActivity, toolbarLayout.toolbarOrder, toolbarLayout.toolbarEnabled) { order, enabled ->
+                PenSettings.saveToolbarLayout(this@MainActivity, order, enabled)
+                notifyOverlaySettingsChanged()
+            })
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = 12.dp })
+
+        addView(sectionTitle("历史画板"))
         addView(buildHistorySection())
         addView(sectionTitle("软件更新").apply { tag = "settings-update-section" })
-        addView(TextView(this@MainActivity).apply {
-            tag = "settings-update-status"
-            text = "当前版本：${BuildConfig.VERSION_NAME}"
-            textSize = 12f
-            setTextColor(Color.parseColor("#91A0B2"))
-        })
-        addView(Button(this@MainActivity).apply {
-            tag = "settings-check-update"
-            text = "检查远程更新"
-            isAllCaps = false
-            minHeight = 48.dp
-            setOnClickListener { checkForUpdate() }
-        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 48.dp).apply { topMargin = 8.dp })
-        addView(sectionTitle("悬浮工具栏").apply { tag = "toolbar-layout-section" })
-        addView(TextView(this@MainActivity).apply {
-            tag = "toolbar-layout-help"
-            text = "长按拖动调整顺序，关闭开关隐藏工具；超过首屏数量的工具会显示在更多工具"
-            textSize = 12f
-            setTextColor(Color.parseColor("#91A0B2"))
-        })
-        val toolbarLayout = PenSettings.load(this@MainActivity)
-        addView(ToolbarLayoutEditorView(
-            this@MainActivity,
-            toolbarLayout.toolbarOrder,
-            toolbarLayout.toolbarEnabled,
-        ) { order, enabled ->
-            PenSettings.saveToolbarLayout(this@MainActivity, order, enabled)
-            notifyOverlaySettingsChanged()
+        addView(LinearLayout(this@MainActivity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(14.dp, 10.dp, 10.dp, 10.dp)
+            background = panelBackground()
+            addView(TextView(this@MainActivity).apply {
+                tag = "settings-update-status"
+                text = "当前版本：${BuildConfig.VERSION_NAME}"
+                textSize = 12f
+                setTextColor(Color.parseColor("#91A0B2"))
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            })
+            addView(Button(this@MainActivity).apply {
+                tag = "settings-check-update"
+                text = "检查更新"
+                isAllCaps = false
+                minHeight = 44.dp
+                setOnClickListener { checkForUpdate() }
+            }, LinearLayout.LayoutParams(112.dp, 44.dp))
         })
     }
 
@@ -1038,6 +1086,10 @@ class MainActivity : ComponentActivity() {
         setStroke(if (selected) 3.dp else 1.dp, if (selected) Color.WHITE else Color.parseColor("#44505E"))
     }
     private fun colorCircle(color: Int) = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(color) }
+    private fun colorLabel(color: Int): String {
+        val index = DrawingElement.colorValues.indexOf(color)
+        return if (index >= 0) DrawingElement.colorNames[index] else "自定义"
+    }
     private fun panelBackground() = GradientDrawable().apply {
         setColor(FloatInkTheme.surfaceRaised)
         cornerRadius = FloatInkTheme.PANEL_RADIUS_DP * resources.displayMetrics.density

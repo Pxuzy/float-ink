@@ -320,7 +320,10 @@ class FloatingBubbleView(context: Context, private val onTap: () -> Unit, privat
 
     private fun safeUpdateViewLayout(wm: android.view.WindowManager, lp: WindowManager.LayoutParams) {
         try {
+            lp.gravity = Gravity.TOP or Gravity.START
+            layoutParams = lp
             wm.updateViewLayout(this, lp)
+            invalidate()
         } catch (error: IllegalArgumentException) {
             android.util.Log.w("FloatingBubble", "window already removed", error)
         } catch (error: SecurityException) {
