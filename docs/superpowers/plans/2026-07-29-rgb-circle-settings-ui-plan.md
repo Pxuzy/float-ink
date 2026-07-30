@@ -40,7 +40,7 @@ Add tests proving that typing `256` immediately becomes `255`, typing `999` beco
 Run:
 
 ```bash
-export ANDROID_HOME=/home/ubuntu/Android/Sdk
+export ANDROID_HOME="$HOME/Android/Sdk"
 ./gradlew testDebugUnitTest --tests '*RgbColorInputViewTest*' --no-daemon
 ```
 
@@ -53,7 +53,7 @@ Use an `InputFilter` that accepts numeric input, clamps the resulting text to `2
 - [ ] **Step 4: Run focused and full tests**
 
 ```bash
-export ANDROID_HOME=/home/ubuntu/Android/Sdk
+export ANDROID_HOME="$HOME/Android/Sdk"
 ./gradlew testDebugUnitTest --tests '*RgbColorInputViewTest*' --no-daemon
 ```
 
@@ -90,7 +90,7 @@ Test that circle is a tool, `PenSettings.normalizeTool("circle")` returns `circl
 - [ ] **Step 2: Run focused tests and verify failure**
 
 ```bash
-export ANDROID_HOME=/home/ubuntu/Android/Sdk
+export ANDROID_HOME="$HOME/Android/Sdk"
 ./gradlew testDebugUnitTest --tests '*DrawingElementTest*' --tests '*FloatInkSessionStoreTest*' --tests '*MainActivityTest*' --no-daemon
 ```
 
@@ -132,7 +132,7 @@ Add tests that the circle tool is visible/selectable, a drag creates exactly one
 - [ ] **Step 2: Run focused tests and verify failure**
 
 ```bash
-export ANDROID_HOME=/home/ubuntu/Android/Sdk
+export ANDROID_HOME="$HOME/Android/Sdk"
 ./gradlew testDebugUnitTest --tests '*DrawingOverlayViewTest*' --no-daemon
 ```
 
@@ -145,7 +145,7 @@ Add a pure helper for `circleGeometry(startX, startY, endX, endY)` returning cen
 - [ ] **Step 4: Run focused tests and build**
 
 ```bash
-export ANDROID_HOME=/home/ubuntu/Android/Sdk
+export ANDROID_HOME="$HOME/Android/Sdk"
 ./gradlew testDebugUnitTest --tests '*DrawingOverlayViewTest*' --no-daemon
 ./gradlew :app:assembleDebug --no-daemon
 ```
@@ -176,7 +176,7 @@ Add tests that selecting each tool shows its persisted width, changing the tool 
 - [ ] **Step 2: Run focused tests and verify failure**
 
 ```bash
-export ANDROID_HOME=/home/ubuntu/Android/Sdk
+export ANDROID_HOME="$HOME/Android/Sdk"
 ./gradlew testDebugUnitTest --tests '*MainActivityTest*' --no-daemon
 ```
 
@@ -216,7 +216,7 @@ Add structural tests for 220dp, 320dp, and tablet widths: panel width never exce
 - [ ] **Step 2: Run focused tests and verify failure**
 
 ```bash
-export ANDROID_HOME=/home/ubuntu/Android/Sdk
+export ANDROID_HOME="$HOME/Android/Sdk"
 ./gradlew testDebugUnitTest --tests '*DrawingOverlayViewTest*' --no-daemon
 ```
 
@@ -229,7 +229,7 @@ Use a panel width of `min(availableHostWidth - 16dp, 360dp)` with a minimum clam
 - [ ] **Step 4: Run full verification**
 
 ```bash
-export ANDROID_HOME=/home/ubuntu/Android/Sdk
+export ANDROID_HOME="$HOME/Android/Sdk"
 ./gradlew testDebugUnitTest :app:assembleDebug --no-daemon
 git diff --check
 ```
@@ -258,7 +258,7 @@ Record RGB immediate clamping, circle support, per-tool live width preview, and 
 - [ ] **Step 2: Run final verification and inspect scope**
 
 ```bash
-export ANDROID_HOME=/home/ubuntu/Android/Sdk
+export ANDROID_HOME="$HOME/Android/Sdk"
 ./gradlew testDebugUnitTest :app:assembleDebug --no-daemon
 git diff --check
 git status --short --branch

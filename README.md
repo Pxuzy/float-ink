@@ -84,6 +84,22 @@ APK 输出位置：
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
+## Git 隐私安全钩子
+
+项目提供提交前和推送前的隐私安全检查，阻止私钥、Token、密码、本机绝对路径、IP、个人邮箱以及构建产物进入 Git。
+
+首次使用时执行：
+
+```bash
+bash scripts/install-git-hooks.sh
+```
+
+之后：
+
+- `pre-commit` 检查暂存内容；
+- `pre-push` 检查即将推送的提交范围；
+- 检查失败时必须移除敏感内容或改为环境变量/占位符，不能用 `--no-verify` 绕过正常发布流程。
+
 也可以使用项目脚本：
 
 ```bash

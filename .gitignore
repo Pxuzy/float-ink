@@ -50,3 +50,9 @@ keystore.properties
 # Internal design drafts
 /docs/superpowers/
 /docs/UI_DESIGN.html
+
+# Local agent/session artifacts
+/.superpowers/
+
+# Local Git hook configuration
+/.git/hooks/
