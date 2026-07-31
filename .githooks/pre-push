@@ -9,14 +9,16 @@ while read -r LOCAL_REF LOCAL_OID REMOTE_REF REMOTE_OID; do
     continue
   fi
   if [[ "$REMOTE_OID" == "0000000000000000000000000000000000000000" ]]; then
-    OLD="$(git hash-object -t tree /dev/null)"
+    if [[ "$LOCAL_REF" == refs/tags/v* ]]; then
+      TAG_COMMIT="$(git rev-parse "$LOCAL_OID^{}")"
+      OLD="$(git rev-parse "$TAG_COMMIT^")"
+    else
+      OLD="$(git hash-object -t tree /dev/null)"
+    fi
   else
     OLD="$REMOTE_OID"
   fi
-  if ! "$ROOT_DIR/scripts/check-git-privacy.sh" range "$OLD" "$LOCAL_OID"; then
-    failed=1
-  fi
-  if ! "$ROOT_DIR/scripts/check-android-resources.sh" range "$OLD" "$LOCAL_OID"; then
+  if ! "$ROOT_DIR/scripts/check-project-gate.sh" range "$OLD" "$LOCAL_OID" "$LOCAL_REF"; then
     failed=1
   fi
 done
