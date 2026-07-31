@@ -14,6 +14,15 @@ import org.robolectric.RobolectricTestRunner
 class PenSettingsTest {
     private val context: Application = ApplicationProvider.getApplicationContext()
 
+    @Test
+    fun `global width defaults to 3dp when no width is saved`() {
+        context.getSharedPreferences(PenSettings.PREF_NAME, Application.MODE_PRIVATE)
+            .edit().clear().commit()
+
+        assertEquals(3f, PenSettings.load(context).globalWidthDp)
+        assertEquals(3f, PenSettings.load(context).styleFor("pen").widthDp)
+    }
+
     @Before
     fun clearSettings() {
         context.getSharedPreferences(PenSettings.PREF_NAME, Application.MODE_PRIVATE)

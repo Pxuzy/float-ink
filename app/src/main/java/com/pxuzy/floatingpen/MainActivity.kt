@@ -660,6 +660,18 @@ class MainActivity : ComponentActivity() {
             orientation = LinearLayout.VERTICAL
             setPadding(14.dp, 12.dp, 14.dp, 12.dp)
             background = panelBackground()
+            addView(settingHeader("工具栏大小", "${toolbarLayout.toolbarButtonSizeDp}dp", "setting-toolbar-size-label"))
+            addView(SeekBar(this@MainActivity).apply {
+                tag = "setting-toolbar-size"
+                max = PenSettings.MAX_TOOLBAR_BUTTON_SIZE_DP - PenSettings.MIN_TOOLBAR_BUTTON_SIZE_DP
+                progress = toolbarLayout.toolbarButtonSizeDp - PenSettings.MIN_TOOLBAR_BUTTON_SIZE_DP
+                setOnSeekBarChangeListener(userSeek { value ->
+                    val size = PenSettings.MIN_TOOLBAR_BUTTON_SIZE_DP + value
+                    PenSettings.saveToolbarButtonSize(this@MainActivity, size)
+                    notifyOverlaySettingsChanged()
+                    pageContainer.findViewWithTag<TextView>("setting-toolbar-size-label")?.text = "${size}dp"
+                })
+            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 48.dp))
             addView(TextView(this@MainActivity).apply {
                 tag = "toolbar-layout-help"
                 text = "长按拖动调整顺序，关闭开关隐藏工具；其他工具会收进“更多”"

@@ -34,6 +34,7 @@ class DrawingOverlayView(
     private val onSessionChanged: () -> Unit = {},
     private val onSelectionChanged: (toolId: String, color: Int) -> Unit = { _, _ -> },
     private val onTextInputModeChanged: (Boolean) -> Unit = {},
+    toolbarButtonSizeDp: Int = PenSettings.DEFAULT_TOOLBAR_BUTTON_SIZE_DP,
     private val onExit: () -> Unit,
 ) : FrameLayout(context) {
 
@@ -51,6 +52,7 @@ class DrawingOverlayView(
         onSessionChanged: () -> Unit = {},
         onSelectionChanged: (toolId: String, color: Int) -> Unit = { _, _ -> },
         onTextInputModeChanged: (Boolean) -> Unit = {},
+        toolbarButtonSizeDp: Int = PenSettings.DEFAULT_TOOLBAR_BUTTON_SIZE_DP,
         onExit: () -> Unit,
     ) : this(
         context = context,
@@ -64,6 +66,7 @@ class DrawingOverlayView(
         onExit = onExit,
         drawingSession = drawingSession,
         onSessionChanged = onSessionChanged,
+        toolbarButtonSizeDp = toolbarButtonSizeDp,
     ) {
         toolStyles.putAll(styles.mapKeys { PenSettings.normalizeTool(it.key) })
         applyCurrentToolStyle()
@@ -90,6 +93,10 @@ class DrawingOverlayView(
     private val toolButtons = mutableMapOf<String, View>()
     private var windowWidthDp = resources.configuration.screenWidthDp
     private var compactLayout = isCompactWidth()
+    private var toolbarButtonSizeDp = toolbarButtonSizeDp.coerceIn(
+        PenSettings.MIN_TOOLBAR_BUTTON_SIZE_DP,
+        PenSettings.MAX_TOOLBAR_BUTTON_SIZE_DP,
+    )
 
     private fun isCompactWidth(): Boolean =
         resources.configuration.screenWidthDp in 1..399
@@ -351,12 +358,13 @@ class DrawingOverlayView(
             tag = "monochrome-toolbar"
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            val horizontalPadding = if (compactLayout) 6.dp else 10.dp
-            setPadding(horizontalPadding, 6.dp, horizontalPadding, 6.dp)
+            val horizontalPadding = if (compactLayout) 4.dp else 6.dp
+            val verticalPadding = if (compactLayout) 3.dp else 4.dp
+            setPadding(horizontalPadding, verticalPadding, horizontalPadding, verticalPadding)
             background = GradientDrawable().apply {
-                setColor(Color.argb(236, 12, 16, 21))
+                setColor(FloatInkTheme.overlayBar)
                 cornerRadius = FloatInkTheme.PANEL_RADIUS_DP.dpf
-                setStroke(1.dpf.toInt(), Color.argb(88, 255, 255, 255))
+                setStroke(1.dpf.toInt(), FloatInkTheme.overlayStroke)
             }
             elevation = 8f
         }
@@ -364,7 +372,7 @@ class DrawingOverlayView(
         val dragHandle = ToolIconView(context, "drag").apply {
             tag = "toolbar-drag-handle"
             contentDescription = "拖动工具栏"
-            layoutParams = LinearLayout.LayoutParams(48.dp, 48.dp)
+            layoutParams = LinearLayout.LayoutParams(actionButtonSize(), actionButtonSize())
         }
         bar.addView(dragHandle)
         bar.addView(createColorDot())
@@ -381,12 +389,15 @@ class DrawingOverlayView(
             tag = "toolbar-tool-scroll"
             isHorizontalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
-            addView(toolContent, FrameLayout.LayoutParams(LayoutParams.WRAP_CONTENT, 48.dp))
+            addView(toolContent, FrameLayout.LayoutParams(LayoutParams.WRAP_CONTENT, actionButtonSize()))
         }
-        bar.addView(toolScroll, LinearLayout.LayoutParams(0, 52.dp, 1f))
+        bar.addView(toolScroll, LinearLayout.LayoutParams(0, actionButtonSize(), 1f))
 
         bar.addView(View(context).apply {
-            layoutParams = LinearLayout.LayoutParams(1.dpf.toInt(), 24.dp).apply { marginStart = 4.dp; marginEnd = 2.dp }
+            layoutParams = LinearLayout.LayoutParams(1.dpf.toInt(), (actionButtonSize() * 0.65f).toInt().coerceAtLeast(14.dp)).apply {
+                marginStart = 2.dp
+                marginEnd = 1.dp
+            }
             setBackgroundColor(Color.parseColor("#44FFFFFF"))
         })
         bar.addView(createActionBtn("undo") {
@@ -401,6 +412,15 @@ class DrawingOverlayView(
                 canvasView.invalidate()
             }
         }.apply { tag = "undo" })
+        bar.addView(createActionBtn("clear") {
+            if (isDrawing) discardActiveGesture()
+            if (drawingSession.clearCurrentLayerRecoverably()) {
+                elements = drawingSession.currentLayer.elements
+                onSessionChanged()
+                canvasView.invalidate()
+                showRestoreClearBar()
+            }
+        }.apply { tag = "clear" })
         bar.addView(createActionBtn("canvas", ::toggleCanvasPanel).apply {
             tag = "canvas-selector"
             contentDescription = "选择画板和图层"
@@ -411,7 +431,8 @@ class DrawingOverlayView(
         }).apply { tag = "exit" })
 
         installToolbarDragHandle(dragHandle, bar)
-        bar.layoutParams = LayoutParams(maxWidth, 56.dp, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
+        val toolbarHeight = actionButtonSize() + if (compactLayout) 6.dp else 8.dp
+        bar.layoutParams = LayoutParams(maxWidth, toolbarHeight, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
             bottomMargin = 20.dp
         }
         return bar
@@ -456,19 +477,22 @@ class DrawingOverlayView(
     }
 
     private fun createColorDot(): View {
-        val size = if (compactLayout) 24.dp else 28.dp
+        val baseSize = toolbarButtonSizeDp
+        val dotSize = (baseSize * 0.58f).dpf.toInt().coerceAtLeast(10.dp)
+        val size = dotSize
+        val wrapperSize = baseSize.dp
         val resolvedWidth = (drawPaint.strokeWidth / density).toInt()
         val wrapper = LinearLayout(context).apply {
             tag = "color"
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             contentDescription = "当前颜色 ${colorLabel(currentColor)}，线宽 ${resolvedWidth}dp"
-            layoutParams = LinearLayout.LayoutParams(48.dp, 48.dp).apply { marginEnd = 4.dp }
+            layoutParams = LinearLayout.LayoutParams(wrapperSize, wrapperSize).apply { marginEnd = 1.dp }
             setOnClickListener { toggleColorPanel() }
         }
         // Colored circle
         wrapper.addView(View(context).apply {
-            layoutParams = LinearLayout.LayoutParams(size, size).apply { marginEnd = 4.dp }
+            layoutParams = LinearLayout.LayoutParams(size, size).apply { marginEnd = 1.dp }
             background = GradientDrawable().apply {
                 setColor(currentColor)
                 cornerRadius = (size / 2).toFloat()
@@ -484,14 +508,15 @@ class DrawingOverlayView(
         })
         // Separator
         wrapper.addView(View(context).apply {
-            layoutParams = LinearLayout.LayoutParams(1.dpf.toInt(), 24.dp).apply { marginStart = 8.dp }
+            layoutParams = LinearLayout.LayoutParams(1.dpf.toInt(), (baseSize * 0.65f).dp.toInt().coerceAtLeast(14.dp)).apply { marginStart = 2.dp }
             setBackgroundColor(Color.parseColor("#33FFFFFF"))
         })
         return wrapper
     }
 
     private fun createToolIcon(toolId: String): View {
-        val size = if (compactLayout) 36.dp else 40.dp
+        val baseSize = toolbarButtonSizeDp
+        val size = baseSize.dp
         return ToolIconView(context, toolId).apply {
             tag = "tool:$toolId"
             contentDescription = DrawingElement.toolNames[toolId]
@@ -534,8 +559,11 @@ class DrawingOverlayView(
     internal fun applyExternalSettings(settings: PenSettings.Values) {
         toolStyles.putAll(settings.toolStyles)
         arrowScale = settings.arrowScale
+        val previousButtonSize = toolbarButtonSizeDp
+        toolbarButtonSizeDp = settings.toolbarButtonSizeDp
         val nextToolbarIds = normalizeToolbarToolIds(settings.visibleToolbarToolIds())
-        if (nextToolbarIds != configuredToolIds) {
+        val sizeChanged = previousButtonSize != toolbarButtonSizeDp
+        if (sizeChanged || nextToolbarIds != configuredToolIds) {
             configuredToolIds = nextToolbarIds
             rebuildToolbar()
         }
@@ -584,7 +612,7 @@ class DrawingOverlayView(
         button.background = GradientDrawable().apply {
             if (isActive) {
                 setStroke(2.dpf.toInt(), Color.WHITE)
-                setColor(Color.argb(34, 255, 255, 255))
+                setColor(FloatInkTheme.overlaySelected)
             } else {
                 setColor(Color.TRANSPARENT)
             }
@@ -601,8 +629,13 @@ class DrawingOverlayView(
                 "canvas" -> "选择画板和图层"
                 else -> "退出"
             }
-            val horizontalPadding = if (compactLayout) 6.dp else 10.dp
-            setPadding(horizontalPadding, 6.dp, horizontalPadding, 6.dp)
+            val horizontalPadding = (toolbarButtonSizeDp * if (compactLayout) 0.08f else 0.12f).dp.toInt()
+            val verticalPadding = (toolbarButtonSizeDp * if (compactLayout) 0.06f else 0.08f).dp.toInt()
+            setMinimumWidth(0)
+            setMinimumHeight(0)
+            minimumWidth = 0
+            minimumHeight = 0
+            setPadding(horizontalPadding, verticalPadding, horizontalPadding, verticalPadding)
             setOnClickListener { action() }
             background = GradientDrawable().apply {
                 setColor(Color.TRANSPARENT)
@@ -612,7 +645,7 @@ class DrawingOverlayView(
         }
     }
 
-    private fun actionButtonSize(): Int = 48.dp
+    private fun actionButtonSize(): Int = toolbarButtonSizeDp.dp
 
     private fun positionPopupAboveToolbar(popup: View) {
         val toolbar = toolbarPopupHost.findViewWithTag<View>("monochrome-toolbar") ?: return
@@ -695,9 +728,9 @@ class DrawingOverlayView(
             gravity = Gravity.CENTER
             setPadding(18.dp, 14.dp, 18.dp, 14.dp)
             background = GradientDrawable().apply {
-                setColor(Color.argb(238, 12, 16, 21))
+                setColor(FloatInkTheme.overlayPanel)
                 cornerRadius = FloatInkTheme.PANEL_RADIUS_DP.dpf
-                setStroke(1.dpf.toInt(), Color.argb(82, 255, 255, 255))
+                setStroke(1.dpf.toInt(), FloatInkTheme.overlayStroke)
             }
             val overflowToolIds = configuredToolIds.drop(4)
             addView(TextView(context).apply {
@@ -727,7 +760,7 @@ class DrawingOverlayView(
                         }
                     })
                 }
-                addView(toolRow, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, 48.dp))
+                addView(toolRow, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, actionButtonSize()))
             }
         }
         moreToolsPanel = panel
@@ -748,8 +781,8 @@ class DrawingOverlayView(
             orientation = LinearLayout.VERTICAL
             setPadding(10.dp, 10.dp, 10.dp, 10.dp)
             background = GradientDrawable().apply {
-                setColor(Color.argb(238, 12, 16, 21)); cornerRadius = FloatInkTheme.PANEL_RADIUS_DP.dpf
-                setStroke(1.dpf.toInt(), Color.argb(82, 255, 255, 255))
+                setColor(FloatInkTheme.overlayPanel); cornerRadius = FloatInkTheme.PANEL_RADIUS_DP.dpf
+                setStroke(1.dpf.toInt(), FloatInkTheme.overlayStroke)
             }
             layoutParams = FrameLayout.LayoutParams(panelWidth, FrameLayout.LayoutParams.WRAP_CONTENT)
         }
@@ -1117,7 +1150,7 @@ class DrawingOverlayView(
             setPadding(10.dp, 10.dp, 10.dp, 10.dp)
             background = GradientDrawable().apply {
                 setColor(Color.argb(236, 12, 16, 21)); cornerRadius = FloatInkTheme.PANEL_RADIUS_DP.dpf
-                setStroke(1.dpf.toInt(), Color.argb(82, 255, 255, 255))
+                setStroke(1.dpf.toInt(), FloatInkTheme.overlayStroke)
             }
         }
         PenSettings.DEFAULT_PALETTE.chunked(4).forEachIndexed { rowIndex, colors ->
@@ -1209,6 +1242,24 @@ class DrawingOverlayView(
             strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
         }
         private val arcBounds = RectF()
+        private val tablerUndoIcon = if (icon == "undo") {
+            context.getDrawable(R.drawable.ic_tabler_arrow_back_up)
+        } else {
+            null
+        }
+
+        init {
+            val tablerName = when (icon) {
+                "drag" -> "grip-vertical"
+                "pen" -> "pen"
+                "undo" -> "arrow-back-up"
+                else -> null
+            }
+            if (tablerName != null) {
+                setTag(R.id.tag_icon_family, "tabler")
+                setTag(R.id.tag_icon_name, tablerName)
+            }
+        }
 
         fun setIconColor(color: Int) {
             paint.color = color
@@ -1222,8 +1273,13 @@ class DrawingOverlayView(
                     val oldStyle = paint.style
                     paint.style = Paint.Style.FILL
                     for (row in -1..1) {
-                        for (column in -1..1) {
-                            canvas.drawCircle(cx + column * r * 0.75f, cy + row * r * 0.75f, r * 0.14f, paint)
+                        for (column in 0..1) {
+                            canvas.drawCircle(
+                                cx + (column - 0.5f) * r * 0.9f,
+                                cy + row * r * 0.72f,
+                                r * 0.14f,
+                                paint,
+                            )
                         }
                     }
                     paint.style = oldStyle
@@ -1253,20 +1309,24 @@ class DrawingOverlayView(
                     paint.style = oldStyle
                 }
                 "canvas" -> {
-                    canvas.drawRect(cx - r, cy - r * 0.7f, cx + r, cy + r * 0.7f, paint)
-                    canvas.drawLine(cx - r * 0.65f, cy - r * 0.25f, cx + r * 0.65f, cy - r * 0.25f, paint)
-                    canvas.drawLine(cx - r * 0.65f, cy + r * 0.25f, cx + r * 0.65f, cy + r * 0.25f, paint)
+                    canvas.drawRoundRect(cx - r, cy - r * 0.65f, cx + r, cy + r * 0.72f, r * 0.12f, r * 0.12f, paint)
+                    canvas.drawLine(cx - r * 0.55f, cy + r * 0.72f, cx - r * 0.78f, cy + r, paint)
+                    canvas.drawLine(cx + r * 0.55f, cy + r * 0.72f, cx + r * 0.78f, cy + r, paint)
                 }
                 "layer" -> {
-                    canvas.drawRoundRect(cx - r, cy - r * 0.55f, cx + r, cy + r * 0.05f, r * 0.12f, r * 0.12f, paint)
-                    canvas.drawRoundRect(cx - r * 0.75f, cy - r * 0.05f, cx + r * 0.75f, cy + r * 0.5f, r * 0.12f, r * 0.12f, paint)
-                    canvas.drawRoundRect(cx - r * 0.5f, cy + r * 0.45f, cx + r * 0.5f, cy + r, r * 0.12f, r * 0.12f, paint)
+                    canvas.drawLine(cx, cy - r, cx + r, cy - r * 0.42f, paint)
+                    canvas.drawLine(cx + r, cy - r * 0.42f, cx, cy + r * 0.12f, paint)
+                    canvas.drawLine(cx, cy + r * 0.12f, cx - r, cy - r * 0.42f, paint)
+                    canvas.drawLine(cx - r, cy - r * 0.42f, cx, cy - r, paint)
+                    canvas.drawLine(cx - r, cy, cx, cy + r * 0.55f, paint)
+                    canvas.drawLine(cx, cy + r * 0.55f, cx + r, cy, paint)
                 }
-                "undo" -> {
+                "undo" -> drawTablerUndoIcon(canvas, tablerUndoIcon, cx, cy)
+                "redo" -> {
                     arcBounds.set(cx - r, cy - r, cx + r, cy + r)
-                    canvas.drawArc(arcBounds, 35f, -250f, false, paint)
-                    canvas.drawLine(cx - r, cy, cx - r * 0.35f, cy - r * 0.55f, paint)
-                    canvas.drawLine(cx - r, cy, cx - r * 0.2f, cy + r * 0.1f, paint)
+                    canvas.drawArc(arcBounds, 145f, -250f, false, paint)
+                    canvas.drawLine(cx + r, cy, cx + r * 0.35f, cy - r * 0.55f, paint)
+                    canvas.drawLine(cx + r, cy, cx + r * 0.2f, cy + r * 0.1f, paint)
                 }
                 "clear" -> {
                     canvas.drawRoundRect(cx - r * 0.62f, cy - r * 0.42f, cx + r * 0.62f, cy + r, r * 0.12f, r * 0.12f, paint)
@@ -1279,6 +1339,26 @@ class DrawingOverlayView(
                 }
             }
         }
+
+        private fun drawTablerUndoIcon(
+            canvas: Canvas,
+            drawable: android.graphics.drawable.Drawable?,
+            cx: Float,
+            cy: Float,
+        ) {
+            if (drawable == null) return
+            val maxSide = (minOf(width, height) * 0.66f).toInt()
+            val half = maxSide / 2
+            drawable.setTint(paint.color)
+            drawable.setBounds(
+                (cx - half).toInt(),
+                (cy - half).toInt(),
+                (cx + half).toInt(),
+                (cy + half).toInt(),
+            )
+            drawable.draw(canvas)
+        }
+
     }
 
     override fun onTouchEvent(event: MotionEvent?): Boolean = true

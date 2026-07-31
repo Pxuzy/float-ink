@@ -164,10 +164,45 @@ class DrawingOverlayViewTest {
         assertEquals("toolbar-drag-handle", toolbar.findByTag("toolbar-drag-handle").tag)
         assertEquals("toolbar-tool-scroll", toolbar.findByTag("toolbar-tool-scroll").tag)
         assertEquals("undo", toolbar.findByTag("undo").tag)
+        assertEquals("clear", toolbar.findByTag("clear").tag)
         assertEquals("canvas-selector", toolbar.findByTag("canvas-selector").tag)
         assertEquals("exit", toolbar.findByTag("exit").tag)
-        assertTrue(runCatching { toolbar.findByTag("clear") }.isFailure)
+        assertNotNull(toolbar.findByTag("clear"))
         assertTrue(view.textLabels().none { it.contains("✏") })
+    }
+
+    @Test
+    fun `toolbar uses approved Tabler canvas icons`() {
+        val view = DrawingOverlayView(context, "pen", 0) {}
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
+        val controls = mapOf(
+            "toolbar-drag-handle" to "grip-vertical",
+            "tool:pen" to "pen",
+            "undo" to "arrow-back-up",
+        )
+
+        controls.forEach { (tag, iconName) ->
+            val control = toolbar.findByTag(tag)
+            assertEquals("tabler", control.getTag(R.id.tag_icon_family))
+            assertEquals(iconName, control.getTag(R.id.tag_icon_name))
+        }
+    }
+
+    @Test
+    fun `toolbar keeps transparent black surface and clear restores the current layer`() {
+        val session = DrawingSession()
+        session.addElement(CoreDrawingElement.Line(0f to 0f, 20f to 20f, Color.RED, 3f))
+        val view = DrawingOverlayView(context, "pen", 0, drawingSession = session) {}
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
+        val background = toolbar.background as android.graphics.drawable.GradientDrawable
+        val clear = toolbar.findByTag("clear")
+
+        assertEquals(FloatInkTheme.overlayBar, background.color?.defaultColor)
+        assertEquals("清空", clear.contentDescription)
+        clear.performClick()
+
+        assertTrue(session.currentLayer.elements.isEmpty())
+        assertNotNull(view.findByTag("restore-clear-bar"))
     }
 
     @Test
@@ -178,8 +213,8 @@ class DrawingOverlayViewTest {
         assertTrue(runCatching { toolbar.findByTag("more-tools") }.isFailure)
         listOf("toolbar-drag-handle", "undo", "canvas-selector", "exit").forEach { tag ->
             val control = toolbar.findByTag(tag)
-            assertTrue("$tag width", control.layoutParams.width >= 48.dp)
-            assertTrue("$tag height", control.layoutParams.height >= 48.dp)
+            assertEquals(36.dp, control.layoutParams.width)
+            assertEquals(36.dp, control.layoutParams.height)
         }
     }
 
@@ -276,6 +311,31 @@ class DrawingOverlayViewTest {
         toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
         assertEquals(520.dp, toolbar.layoutParams.width)
         assertEquals("exit", toolbar.findByTag("exit").tag)
+    }
+
+    @Test
+    fun `toolbar button size is applied when overlay is created`() {
+        val view = DrawingOverlayView(
+            context,
+            "pen",
+            PenSettings.load(context).toolStyles,
+            toolbarButtonSizeDp = 56,
+        ) {}
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
+
+        assertEquals(56.dp, toolbar.findByTag("toolbar-drag-handle").layoutParams.width)
+        assertEquals(56.dp, toolbar.findByTag("undo").layoutParams.width)
+        assertEquals(56.dp, toolbar.findByTag("exit").layoutParams.width)
+    }
+
+    @Test
+    fun `runtime toolbar size refresh rebuilds controls`() {
+        val view = DrawingOverlayView(context, "pen", PenSettings.load(context).toolStyles) {}
+        view.applyExternalSettings(PenSettings.load(context).copy(toolbarButtonSizeDp = 40))
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
+
+        assertEquals(40.dp, toolbar.findByTag("toolbar-drag-handle").layoutParams.width)
+        assertEquals(40.dp, toolbar.findByTag("exit").layoutParams.height)
     }
 
     @Test

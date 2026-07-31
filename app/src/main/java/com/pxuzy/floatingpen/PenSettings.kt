@@ -19,6 +19,8 @@ object PenSettings {
     const val KEY_TOOL_ARROW_SCALE = "tool_arrow_scale"
     const val KEY_TOOLBAR_ORDER = "toolbar_order"
     const val KEY_TOOLBAR_ENABLED = "toolbar_enabled"
+    const val KEY_BUBBLE_SIZE_DP = "bubble_size_dp"
+    const val KEY_TOOLBAR_BUTTON_SIZE_DP = "toolbar_button_size_dp"
     private const val KEY_BUBBLE_X = "bubble_x"
     private const val KEY_BUBBLE_Y = "bubble_y"
     private const val KEY_BUBBLE_SNAPPED_LEFT = "bubble_snapped_left"
@@ -30,7 +32,7 @@ object PenSettings {
     const val DEFAULT_TOOL = "pen"
     const val DEFAULT_COLOR = 0
     val DEFAULT_COLOR_ARGB: Int = DrawingElement.colorValues[DEFAULT_COLOR]
-    const val DEFAULT_WIDTH_DP = 6f
+    const val DEFAULT_WIDTH_DP = 3f
     const val MIN_WIDTH_DP = 2
     const val MAX_WIDTH_DP = 24
     const val DEFAULT_BUBBLE_OPACITY = 0.66f
@@ -41,6 +43,13 @@ object PenSettings {
     const val DEFAULT_ARROW_SCALE = 2f
     const val MIN_ARROW_SCALE = 1f
     const val MAX_ARROW_SCALE = 4f
+
+    const val DEFAULT_BUBBLE_SIZE_DP = 48
+    const val MIN_BUBBLE_SIZE_DP = 36
+    const val MAX_BUBBLE_SIZE_DP = 64
+    const val DEFAULT_TOOLBAR_BUTTON_SIZE_DP = 36
+    const val MIN_TOOLBAR_BUTTON_SIZE_DP = 20
+    const val MAX_TOOLBAR_BUTTON_SIZE_DP = 60
 
     val TOOL_IDS = listOf("pen", "line", "arrow", "rect", "circle")
     /** Built-in colors are immutable; user colors live in a separate persisted list. */
@@ -120,6 +129,8 @@ object PenSettings {
         val arrowScale: Float,
         val toolbarOrder: List<String>,
         val toolbarEnabled: Set<String>,
+        val bubbleSizeDp: Int = DEFAULT_BUBBLE_SIZE_DP,
+        val toolbarButtonSizeDp: Int = DEFAULT_TOOLBAR_BUTTON_SIZE_DP,
     ) {
         val color: Int get() = styleFor(tool).color
         val widthDp: Float get() = styleFor(tool).widthDp
@@ -175,7 +186,11 @@ object PenSettings {
         val arrowScale = prefs.getFloat(KEY_TOOL_ARROW_SCALE, DEFAULT_ARROW_SCALE)
             .coerceIn(MIN_ARROW_SCALE, MAX_ARROW_SCALE)
         val layout = loadToolbarLayout(context)
-        return Values(tool, globalColor, globalWidth, styles, recentColors, opacity, autoHide, delay, arrowScale, layout.order, layout.enabled)
+        val bubbleSize = prefs.getInt(KEY_BUBBLE_SIZE_DP, DEFAULT_BUBBLE_SIZE_DP)
+            .coerceIn(MIN_BUBBLE_SIZE_DP, MAX_BUBBLE_SIZE_DP)
+        val toolbarButtonSize = prefs.getInt(KEY_TOOLBAR_BUTTON_SIZE_DP, DEFAULT_TOOLBAR_BUTTON_SIZE_DP)
+            .coerceIn(MIN_TOOLBAR_BUTTON_SIZE_DP, MAX_TOOLBAR_BUTTON_SIZE_DP)
+        return Values(tool, globalColor, globalWidth, styles, recentColors, opacity, autoHide, delay, arrowScale, layout.order, layout.enabled, bubbleSize, toolbarButtonSize)
     }
 
     private fun migrateLegacyStyleIfNeeded(context: Context) {
@@ -291,6 +306,18 @@ object PenSettings {
         migrateLegacyStyleIfNeeded(context)
         prefs(context)
             .edit().putFloat(KEY_TOOL_ARROW_SCALE, scale.coerceIn(MIN_ARROW_SCALE, MAX_ARROW_SCALE)).apply()
+    }
+
+    fun saveBubbleSize(context: Context, sizeDp: Int) {
+        prefs(context).edit()
+            .putInt(KEY_BUBBLE_SIZE_DP, sizeDp.coerceIn(MIN_BUBBLE_SIZE_DP, MAX_BUBBLE_SIZE_DP))
+            .apply()
+    }
+
+    fun saveToolbarButtonSize(context: Context, sizeDp: Int) {
+        prefs(context).edit()
+            .putInt(KEY_TOOLBAR_BUTTON_SIZE_DP, sizeDp.coerceIn(MIN_TOOLBAR_BUTTON_SIZE_DP, MAX_TOOLBAR_BUTTON_SIZE_DP))
+            .apply()
     }
 
     fun loadToolbarLayout(context: Context): ToolbarLayout {
