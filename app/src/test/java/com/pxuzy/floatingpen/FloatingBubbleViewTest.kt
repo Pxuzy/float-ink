@@ -64,7 +64,8 @@ class FloatingBubbleViewTest {
             isAccessible = true
             get(bubble) as android.graphics.Paint
         }
-        assertEquals(89, android.graphics.Color.alpha(paint.color))
+        assertEquals(255, android.graphics.Color.alpha(paint.color))
+        assertEquals(0.35f, bubble.alpha, 0.001f)
     }
 
     @Test

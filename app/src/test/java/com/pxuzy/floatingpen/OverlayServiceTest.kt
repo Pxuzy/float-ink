@@ -80,11 +80,7 @@ class OverlayServiceTest {
             action = OverlayService.ACTION_SETTINGS_CHANGED
         }, 0, 2)
 
-        val paint = bubble.javaClass.getDeclaredField("buttonPaint").run {
-            isAccessible = true
-            get(bubble) as android.graphics.Paint
-        }
-        assertEquals(89, android.graphics.Color.alpha(paint.color))
+        assertEquals(0.35f, bubble.alpha, 0.001f)
         controller.destroy()
     }
 

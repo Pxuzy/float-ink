@@ -20,11 +20,11 @@ import kotlin.math.hypot
  * - 触摸时滑出 + 放大动画
  * - 点击触发菜单，长按快速切换
  * - 位置按屏幕方向持久化
+ * - 尺寸可在设置中调节（36-64dp）
  */
 class FloatingBubbleView(context: Context, private val onTap: () -> Unit, private val onLongPress: () -> Unit) : View(context) {
 
     companion object {
-        private const val BUBBLE_SIZE = 48
         private const val EDGE_MARGIN = 8
         private const val HIDDEN_WIDTH = 8
         private const val STATUS_SAFE = 48
@@ -43,6 +43,7 @@ class FloatingBubbleView(context: Context, private val onTap: () -> Unit, privat
     private var touchDownTime = 0L
 
     private val density = resources.displayMetrics.density
+    private var bubbleSizeDp = PenSettings.DEFAULT_BUBBLE_SIZE_DP
     private val initialSettings = PenSettings.load(context)
     private var bubbleOpacity = initialSettings.bubbleOpacity
     private var autoHideEnabled = initialSettings.autoHide
@@ -64,7 +65,7 @@ class FloatingBubbleView(context: Context, private val onTap: () -> Unit, privat
         color = Color.argb(96, 255, 255, 255); strokeWidth = 1.2f * density; style = Paint.Style.STROKE
     }
     private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE; strokeWidth = 2.4f * density; style = Paint.Style.STROKE
+        color = Color.WHITE; strokeWidth = 2.0f * density; style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
     }
     private val accentPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -74,17 +75,25 @@ class FloatingBubbleView(context: Context, private val onTap: () -> Unit, privat
         color = Color.argb(220, 10, 13, 17); style = Paint.Style.FILL
     }
     private val bubbleBounds = RectF()
+    private val penIcon = context.getDrawable(R.drawable.ic_lucide_pen_line)
 
-    init { contentDescription = "悬浮画笔" }
+    init {
+        contentDescription = "悬浮画笔"
+        bubbleSizeDp = initialSettings.bubbleSizeDp
+        alpha = bubbleOpacity
+    }
 
     /** 实时获取屏幕尺寸 — 每次触摸时刷新，解决旋转后坐标失效 */
     private val screenW: Int get() = resources.displayMetrics.widthPixels
     private val screenH: Int get() = resources.displayMetrics.heightPixels
 
+    private val bubbleSizePx: Int get() = (bubbleSizeDp * density).toInt()
+
     // ===== 生命周期 =====
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        val initialSize = bubbleSizePx
         val lp = layoutParams as WindowManager.LayoutParams
         // OverlayService uses TOP|START, so gravity is intentionally not NO_GRAVITY.
         // A zero position is the uninitialized WindowManager default; place the first
@@ -96,7 +105,7 @@ class FloatingBubbleView(context: Context, private val onTap: () -> Unit, privat
                 lp.y = saved.y
                 isSnappedLeft = saved.snappedLeft
             } else {
-                lp.x = screenW - (BUBBLE_SIZE * density).toInt() - (EDGE_MARGIN * density).toInt()
+                lp.x = screenW - initialSize - (EDGE_MARGIN * density).toInt()
                 lp.y = (STATUS_SAFE * density).toInt()
                 isSnappedLeft = false
             }
@@ -122,11 +131,25 @@ class FloatingBubbleView(context: Context, private val onTap: () -> Unit, privat
 
     internal fun applySettings(settings: PenSettings.Values) {
         bubbleOpacity = settings.bubbleOpacity
+        alpha = bubbleOpacity
         autoHideEnabled = settings.autoHide
         autoHideDelayMs = settings.autoHideDelayMs
         accentColor = settings.color
         accentPaint.color = accentColor
-        buttonPaint.color = Color.argb((255 * bubbleOpacity).toInt(), 12, 12, 12)
+        // View alpha must cover the icon and border as well as the background.
+        // Keeping the paint opaque avoids applying opacity twice to the panel fill.
+        buttonPaint.color = Color.rgb(12, 12, 12)
+
+        if (bubbleSizeDp != settings.bubbleSizeDp) {
+            bubbleSizeDp = settings.bubbleSizeDp
+            requestLayout()
+            if (isAttachedToWindow) {
+                val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+                val lp = layoutParams as WindowManager.LayoutParams
+                clampToScreenBounds(lp)
+                updateBubblePosition(wm, lp)
+            }
+        }
 
         if (autoHideEnabled) {
             scheduleHide()
@@ -159,7 +182,7 @@ class FloatingBubbleView(context: Context, private val onTap: () -> Unit, privat
     // ===== 绘制 =====
 
     override fun onDraw(canvas: Canvas) {
-        val offset = if (isHidden) (BUBBLE_SIZE / 2 - HIDDEN_WIDTH).dpf else 0f
+        val offset = if (isHidden) (bubbleSizeDp / 2 - HIDDEN_WIDTH).dpf else 0f
         val shiftX = if (isSnappedLeft) -offset else offset
 
         val cx = width / 2f + shiftX
@@ -170,15 +193,17 @@ class FloatingBubbleView(context: Context, private val onTap: () -> Unit, privat
         canvas.drawRoundRect(bubbleBounds, radius, radius, buttonPaint)
         canvas.drawRoundRect(bubbleBounds, radius, radius, borderPaint)
 
-        val s = 10.dpf
-        canvas.save()
-        canvas.rotate(-45f, cx, cy)
-        canvas.drawLine(cx, cy - s, cx, cy + s * 0.55f, strokePaint)
-        canvas.drawLine(cx - 3.dpf, cy - s, cx + 3.dpf, cy - s, strokePaint)
-        canvas.drawLine(cx - 3.dpf, cy - s, cx, cy - s - 4.dpf, strokePaint)
-        canvas.drawLine(cx + 3.dpf, cy - s, cx, cy - s - 4.dpf, strokePaint)
-        canvas.drawLine(cx - 3.dpf, cy + s * 0.55f, cx + 3.dpf, cy + s * 0.55f, strokePaint)
-        canvas.restore()
+        val iconHalf = minOf(width, height) * 0.25f
+        penIcon?.apply {
+            setTint(Color.WHITE)
+            setBounds(
+                (cx - iconHalf).toInt(),
+                (cy - iconHalf).toInt(),
+                (cx + iconHalf).toInt(),
+                (cy + iconHalf).toInt(),
+            )
+            draw(canvas)
+        }
         canvas.drawCircle(cx + half * 0.58f, cy + half * 0.58f, 5f.dpf, accentRingPaint)
         canvas.drawCircle(cx + half * 0.58f, cy + half * 0.58f, 3.5f.dpf, accentPaint)
     }
@@ -262,7 +287,7 @@ class FloatingBubbleView(context: Context, private val onTap: () -> Unit, privat
     // ===== 贴边 & 隐藏 =====
 
     private fun snapToEdgeAndHide(wm: android.view.WindowManager, lp: WindowManager.LayoutParams) {
-        val bSize = (BUBBLE_SIZE * density).toInt()
+        val bSize = bubbleSizePx
         val maxX = screenW - bSize
         val maxY = screenH - bSize
         val safeMinY = (STATUS_SAFE * density).toInt()
@@ -277,7 +302,7 @@ class FloatingBubbleView(context: Context, private val onTap: () -> Unit, privat
     }
 
     private fun updateBubblePosition(wm: android.view.WindowManager, lp: WindowManager.LayoutParams) {
-        val bSize = (BUBBLE_SIZE * density).toInt()
+        val bSize = bubbleSizePx
         if (isHidden) {
             lp.x = if (isSnappedLeft) (EDGE_MARGIN * density).toInt()
                     else screenW - bSize - (EDGE_MARGIN * density).toInt()
@@ -287,7 +312,7 @@ class FloatingBubbleView(context: Context, private val onTap: () -> Unit, privat
 
     /** Clamp bubble position to valid screen bounds — prevents off-screen after rotation */
     private fun clampToScreenBounds(lp: WindowManager.LayoutParams) {
-        val bSize = (BUBBLE_SIZE * density).toInt()
+        val bSize = bubbleSizePx
         val maxX = screenW - bSize - (EDGE_MARGIN * density).toInt()
         val maxY = screenH - bSize - (STATUS_SAFE * density).toInt()
         val minX = (EDGE_MARGIN * density).toInt()
@@ -332,7 +357,7 @@ class FloatingBubbleView(context: Context, private val onTap: () -> Unit, privat
     }
 
     override fun onMeasure(wms: Int, hms: Int) {
-        val size = (BUBBLE_SIZE * density).toInt()
+        val size = bubbleSizePx
         setMeasuredDimension(size, size)
     }
 

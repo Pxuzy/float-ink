@@ -17,8 +17,8 @@ android {
         applicationId = "com.pxuzy.floatingpen"
         minSdk = 29
         targetSdk = 35
-        versionCode = 18
-        versionName = "0.3.4"
+        versionCode = 19
+        versionName = "0.3.5"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

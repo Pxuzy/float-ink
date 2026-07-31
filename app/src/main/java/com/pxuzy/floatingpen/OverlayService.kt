@@ -197,6 +197,7 @@ class OverlayService : Service() {
             drawingSession = drawingSession,
             onSessionChanged = { sessionAutoSaver.markDirty() },
             onTextInputModeChanged = ::setDrawingTextInputMode,
+            toolbarButtonSizeDp = settings.toolbarButtonSizeDp,
             onSelectionChanged = { tool, color ->
                 pendingTool = tool
                 pendingColor = color
