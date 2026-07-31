@@ -50,10 +50,21 @@ check_added "hard-coded credential assignment" '(api[_-]?key|access[_-]?token|cl
 check_added "absolute local home path" '/home/[A-Za-z0-9._-]+|/Users/[A-Za-z0-9._-]+'
 check_added "IPv4 address; use a placeholder or environment value" '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b'
 check_added "personal email; use a GitHub noreply address or placeholder" '\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'
-check_added "local secret/config artifact" '(^|/)(\.env($|\.)|local\.properties$|[^/]+\.(jks|keystore|p12|pfx|pem|key))'
+# Local secret/config files are checked as paths, not as arbitrary added text.
+# This avoids false positives for safe documentation and ignore-rule lines such
+# as `local.properties` or `*.jks`.
+if [[ "$MODE" == "staged" ]]; then
+  CHANGED_PATHS="$(git diff --cached --name-only --diff-filter=ACMR)"
+else
+  CHANGED_PATHS="$(git diff "$2" "$3" --name-only --diff-filter=ACMR)"
+fi
+if printf '%s\n' "$CHANGED_PATHS" | grep -EIn '(^|/)(\.env($|\.)|local\.properties$|[^/]+\.(jks|keystore|p12|pfx|pem|key))' >/tmp/floatink-privacy-hit.$$ 2>/dev/null; then
+  while IFS= read -r line; do report "local secret/config artifact: $line"; done </tmp/floatink-privacy-hit.$$
+fi
+rm -f /tmp/floatink-privacy-hit.$$
 
-# Generated/local artifacts are blocked by checking staged path names below.
-STAGED_PATHS="$(git diff --cached --name-only --diff-filter=ACMR)"
+# Generated/local artifacts are blocked by checking changed path names below.
+STAGED_PATHS="$CHANGED_PATHS"
 if printf '%s\n' "$STAGED_PATHS" | grep -EIn '(^|/)(\.superpowers|app/build|build|\.gradle)(/|$)' >/tmp/floatink-privacy-hit.$$ 2>/dev/null; then
   while IFS= read -r line; do report "generated/local artifact path: $line"; done </tmp/floatink-privacy-hit.$$
 fi
