@@ -1,7 +1,7 @@
 # 项目状态
 
 更新时间：2026-07-31
-当前基线：`v0.3.5`（`versionCode 19`）
+当前基线：`v0.3.6`（`versionCode 20`）
 当前分支：`main`
 
 ## 项目定位
@@ -118,6 +118,12 @@
 - 退出按钮清除默认最小尺寸，并跟随悬浮栏按钮尺寸和内边距缩放。
 - `versionCode` 升至 19，`versionName` 为 `0.3.5`。
 - 自动化测试和 Debug 构建通过；正式 Release APK 由打 `v0.3.5` 标签后的 GitHub Actions 生成。
+
+## v0.3.6 发布修正版
+
+- 修复悬浮球引用未进入远端提交的 Lucide 画笔资源，改用仓库内跟踪的 Tabler 画笔 VectorDrawable。
+- 保持悬浮球和绘图工具栏使用同一套可发布的矢量资源。
+- `versionCode` 升至 20，`versionName` 为 `0.3.6`。
 
 ## 当前未完成的产品工作
 
