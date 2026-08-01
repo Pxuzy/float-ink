@@ -704,6 +704,20 @@ class MainActivity : ComponentActivity() {
                 text = "检查更新"
                 isAllCaps = false
                 minHeight = 44.dp
+                minWidth = 0
+                setPadding(10.dp, 0, 12.dp, 0)
+                gravity = Gravity.CENTER
+                setTextColor(FloatInkTheme.textPrimary)
+                textSize = 13f
+                contentDescription = "检查软件更新"
+                setCompoundDrawablesRelativeWithIntrinsicBounds(
+                    ContextCompat.getDrawable(this@MainActivity, R.drawable.ic_lucide_refresh_cw),
+                    null,
+                    null,
+                    null
+                )
+                compoundDrawablePadding = 6.dp
+                background = updateButtonBackground()
                 setOnClickListener { checkForUpdate() }
             }, LinearLayout.LayoutParams(112.dp, 44.dp))
         })
@@ -1106,6 +1120,11 @@ class MainActivity : ComponentActivity() {
         setColor(FloatInkTheme.surfaceRaised)
         cornerRadius = FloatInkTheme.PANEL_RADIUS_DP * resources.displayMetrics.density
         setStroke(1.dp, FloatInkTheme.border)
+    }
+    private fun updateButtonBackground() = GradientDrawable().apply {
+        setColor(FloatInkTheme.surfaceActive)
+        cornerRadius = 8.dpf
+        setStroke(1.dp, FloatInkTheme.borderStrong)
     }
     private fun roundedBackground(color: Int, radius: Float) = GradientDrawable().apply { setColor(color); cornerRadius = radius.dp }
 
