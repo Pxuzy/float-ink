@@ -70,6 +70,18 @@ if printf '%s\n' "$STAGED_PATHS" | grep -EIn '(^|/)(\.superpowers|app/build|buil
 fi
 rm -f /tmp/floatink-privacy-hit.$$
 
+check_added "large artifact (>10 MB); use Git LFS or exclude from tracking" '^Binary files .* differ|^Files .* differ'
+
+if [[ "$MODE" == "staged" ]]; then
+  STAGED_LIST="$(git diff --cached --name-only --diff-filter=ACMR)"
+else
+  STAGED_LIST="$(git diff "$2" "$3" --name-only --diff-filter=ACMR)"
+fi
+if printf '%s\\n' "$STAGED_LIST" | grep -EIn '(^|/)(artifacts/|current-.*\.png|floating-icon.*\.png|floatink-open.*\.png|\.psd|\.ai|\.aep|\.zip|\.mp4)(/|$)' >/tmp/floatink-privacy-hit.$$ 2>/dev/null; then
+  while IFS= read -r line; do report "local design/material asset (not intended for the repo): $line"; done </tmp/floatink-privacy-hit.$$
+fi
+rm -f /tmp/floatink-privacy-hit.$$
+
 if (( failures > 0 )); then
   cat >&2 <<'EOF'
 Privacy gate failed. Remove the finding from the staged diff, replace it with a
