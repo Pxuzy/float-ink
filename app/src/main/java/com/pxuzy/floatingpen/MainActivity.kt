@@ -979,6 +979,15 @@ class MainActivity : ComponentActivity() {
                     status?.text = "当前已是最新版本：${BuildConfig.VERSION_NAME}"
                     Toast.makeText(this, "当前已是最新版本", Toast.LENGTH_SHORT).show()
                 } else {
+                    if (!updateManager.currentInstallUsesOfficialSigning()) {
+                        status?.text = "当前安装包签名不兼容，无法直接覆盖更新"
+                        AlertDialog.Builder(this)
+                            .setTitle("无法直接更新")
+                            .setMessage("当前安装的版本不是 FloatInk 正式签名包。Android 不允许不同签名覆盖安装，请先备份数据并卸载当前版本，再安装新版本。")
+                            .setPositiveButton("知道了", null)
+                            .show()
+                        return@onSuccess
+                    }
                     status?.text = "发现新版本：${update.version}"
                     AlertDialog.Builder(this)
                         .setTitle("发现浮墨新版本")
