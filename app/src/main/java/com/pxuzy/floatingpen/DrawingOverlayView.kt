@@ -80,6 +80,9 @@ class DrawingOverlayView(
     private var sessionDirty = false
     private var activePointerId = MotionEvent.INVALID_POINTER_ID
     private var activeToolType = MotionEvent.TOOL_TYPE_UNKNOWN
+    private var draggingGoldenGuide = false
+    private var goldenGuideVisible = false
+    private var goldenGuideFraction = 0.5f
     private var currentToolId = toolId
     private var configuredToolIds = normalizeToolbarToolIds(toolbarToolIds)
     private var currentColor = normalizeLegacyColor(initialColor)
@@ -144,6 +147,13 @@ class DrawingOverlayView(
                 val x = event.x; val y = event.y
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
+                        if (goldenGuideVisible && isGoldenGuideHit(y)) {
+                            draggingGoldenGuide = true
+                            activePointerId = event.getPointerId(0)
+                            updateGoldenGuide(y)
+                            invalidate()
+                            return true
+                        }
                         if (!drawingSession.currentLayer.visible) {
                             drawingSession.setLayerVisible(drawingSession.currentLayer.id, true)
                             sessionDirty = true
@@ -157,6 +167,12 @@ class DrawingOverlayView(
                         invalidate(); return true
                     }
                     MotionEvent.ACTION_MOVE -> {
+                        if (draggingGoldenGuide) {
+                            val pointerIndex = event.findPointerIndex(activePointerId)
+                            if (pointerIndex >= 0) updateGoldenGuide(event.getY(pointerIndex))
+                            invalidate()
+                            return true
+                        }
                         if (!isDrawing) return true
                         val pointerIndex = event.findPointerIndex(activePointerId)
                         if (pointerIndex < 0) return true
@@ -208,6 +224,12 @@ class DrawingOverlayView(
                         return true
                     }
                     MotionEvent.ACTION_UP -> {
+                        if (draggingGoldenGuide) {
+                            draggingGoldenGuide = false
+                            activePointerId = MotionEvent.INVALID_POINTER_ID
+                            invalidate()
+                            return true
+                        }
                         if (currentToolId == "pen" && isDrawing) {
                             val stroke = elements.lastOrNull() as? CoreDrawingElement.Stroke
                             if (stroke?.points?.size == 1) stroke.points.add(Pair(x, y))
@@ -230,6 +252,12 @@ class DrawingOverlayView(
                         invalidate(); return true
                     }
                     MotionEvent.ACTION_CANCEL -> {
+                        if (draggingGoldenGuide) {
+                            draggingGoldenGuide = false
+                            activePointerId = MotionEvent.INVALID_POINTER_ID
+                            invalidate()
+                            return true
+                        }
                         if (currentToolId == "pen" && isDrawing && elements.lastOrNull() is CoreDrawingElement.Stroke) {
                             elements.removeAt(elements.lastIndex)
                         }
@@ -267,6 +295,7 @@ class DrawingOverlayView(
                     }
                     if (pe != null) drawElement(canvas, pe)
                 }
+                drawGoldenGuide(canvas)
                 // drawElement() reuses drawPaint for historical elements. Restore
                 // the active tool style so a redraw cannot affect the next stroke.
                 val currentStyle = toolStyles[currentToolId]
@@ -539,6 +568,56 @@ class DrawingOverlayView(
         canvasView.invalidate()
     }
 
+    private fun toggleGoldenGuide() {
+        finishTextInputMode()
+        discardActiveGesture()
+        goldenGuideVisible = !goldenGuideVisible
+        canvasView.invalidate()
+    }
+
+    private fun isGoldenGuideHit(y: Float): Boolean {
+        if (height <= 0) return false
+        val guideY = height * goldenGuideFraction
+        return abs(y - guideY) <= max(18.dp.toFloat(), 12.dpf)
+    }
+
+    private fun updateGoldenGuide(y: Float) {
+        val rawFraction = (y / height.coerceAtLeast(1)).coerceIn(0f, 1f)
+        goldenGuideFraction = when {
+            abs(rawFraction - GOLDEN_GUIDE_TOP) <= GOLDEN_GUIDE_SNAP_DISTANCE -> GOLDEN_GUIDE_TOP
+            abs(rawFraction - GOLDEN_GUIDE_BOTTOM) <= GOLDEN_GUIDE_SNAP_DISTANCE -> GOLDEN_GUIDE_BOTTOM
+            else -> rawFraction
+        }
+    }
+
+    private fun drawGoldenGuide(canvas: Canvas) {
+        if (!goldenGuideVisible || height <= 0 || width <= 0) return
+        val y = height * goldenGuideFraction
+        val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = GOLDEN_GUIDE_COLOR
+            style = Paint.Style.STROKE
+            strokeWidth = if (draggingGoldenGuide) 2.dpf else 1.dpf
+            pathEffect = DashPathEffect(floatArrayOf(10.dpf, 7.dpf), 0f)
+        }
+        canvas.drawLine(0f, y, width.toFloat(), y, linePaint)
+        if (draggingGoldenGuide) {
+            val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                textSize = 12.dpf
+                textAlign = Paint.Align.CENTER
+                typeface = Typeface.DEFAULT_BOLD
+            }
+            val label = "${(goldenGuideFraction * 100f).roundToInt()}%"
+            val labelWidth = labelPaint.measureText(label) + 16.dpf
+            val labelHeight = 24.dpf
+            val left = ((width - labelWidth) / 2f).coerceAtLeast(8.dpf)
+            val top = (y - labelHeight - 8.dpf).coerceAtLeast(8.dpf)
+            val labelBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GOLDEN_GUIDE_LABEL_COLOR }
+            canvas.drawRoundRect(left, top, left + labelWidth, top + labelHeight, 6.dpf, 6.dpf, labelBackground)
+            canvas.drawText(label, left + labelWidth / 2f, top + 16.dpf, labelPaint)
+        }
+    }
+
     private fun discardActiveGesture() {
         if (currentToolId == "pen" && isDrawing && elements.lastOrNull() is CoreDrawingElement.Stroke) {
             elements.removeAt(elements.lastIndex)
@@ -739,6 +818,24 @@ class DrawingOverlayView(
                 setTextColor(Color.WHITE)
                 gravity = Gravity.CENTER
             }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, 32.dp))
+            addView(FloatInkIconView(context, "guide").apply {
+                tag = "golden-guide"
+                contentDescription = if (goldenGuideVisible) "隐藏水平黄金线" else "显示水平黄金线"
+                layoutParams = LinearLayout.LayoutParams(actionButtonSize(), actionButtonSize())
+                setIconColor(Color.WHITE)
+                background = GradientDrawable().apply {
+                    setColor(if (goldenGuideVisible) FloatInkTheme.overlaySelected else Color.TRANSPARENT)
+                    cornerRadius = 8.dpf
+                }
+                setOnClickListener {
+                    toggleGoldenGuide()
+                    contentDescription = if (goldenGuideVisible) "隐藏水平黄金线" else "显示水平黄金线"
+                    background = GradientDrawable().apply {
+                        setColor(if (goldenGuideVisible) FloatInkTheme.overlaySelected else Color.TRANSPARENT)
+                        cornerRadius = 8.dpf
+                    }
+                }
+            })
             if (overflowToolIds.isEmpty()) {
                 addView(TextView(context).apply {
                     text = "暂无更多工具"
@@ -1300,6 +1397,11 @@ class DrawingOverlayView(
                 }
                 "rect" -> canvas.drawRoundRect(cx - r, cy - r * 0.75f, cx + r, cy + r * 0.75f, r * 0.16f, r * 0.16f, paint)
                 "circle" -> canvas.drawCircle(cx, cy, r, paint)
+                "guide" -> {
+                    canvas.drawLine(cx - r, cy, cx + r, cy, paint)
+                    canvas.drawCircle(cx - r * 0.45f, cy, r * 0.18f, paint)
+                    canvas.drawCircle(cx + r * 0.45f, cy, r * 0.18f, paint)
+                }
                 "more" -> {
                     val oldStyle = paint.style
                     paint.style = Paint.Style.FILL
@@ -1371,6 +1473,11 @@ class DrawingOverlayView(
         private const val COLOR_PANEL_COMPACT_WIDTH_DP = 220
 
         private const val RESTORE_CLEAR_TIMEOUT_MS = 6_000L
+        private const val GOLDEN_GUIDE_TOP = 0.382f
+        private const val GOLDEN_GUIDE_BOTTOM = 0.618f
+        private const val GOLDEN_GUIDE_SNAP_DISTANCE = 0.018f
+        private const val GOLDEN_GUIDE_COLOR = 0xFFD6A84F.toInt()
+        private const val GOLDEN_GUIDE_LABEL_COLOR = 0xDD25211A.toInt()
 
         val PALETTE_COLORS = PenSettings.DEFAULT_PALETTE
 

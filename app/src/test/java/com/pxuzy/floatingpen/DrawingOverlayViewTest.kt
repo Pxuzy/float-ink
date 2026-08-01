@@ -264,6 +264,30 @@ class DrawingOverlayViewTest {
     }
 
     @Test
+    fun `golden guide toggles independently without changing the drawing layer`() {
+        val session = DrawingSession()
+        val view = DrawingOverlayView(context, "pen", 0, drawingSession = session) {}
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
+
+        toolbar.findByTag("more-tools").performClick()
+        val guide = view.findByTag("golden-guide")
+        assertEquals("显示水平黄金线", guide.contentDescription)
+        guide.performClick()
+        assertEquals("隐藏水平黄金线", guide.contentDescription)
+
+        val canvas = view.getChildAt(0)
+        canvas.layout(0, 0, 400, 800)
+        assertEquals(800, canvas.height)
+        val visibleField = view.javaClass.getDeclaredField("goldenGuideVisible").apply { isAccessible = true }
+        assertTrue(visibleField.getBoolean(view))
+        assertTrue(session.currentLayer.elements.isEmpty())
+
+        guide.performClick()
+        assertEquals("显示水平黄金线", guide.contentDescription)
+        assertTrue(session.currentLayer.elements.isEmpty())
+    }
+
+    @Test
     fun `more tools panel opens and closes without rebuilding toolbar`() {
         val view = DrawingOverlayView(context, "pen", 0) {}
         val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
