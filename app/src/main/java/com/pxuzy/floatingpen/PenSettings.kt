@@ -32,7 +32,7 @@ object PenSettings {
     const val DEFAULT_TOOL = "pen"
     const val DEFAULT_COLOR = 0
     val DEFAULT_COLOR_ARGB: Int = DrawingElement.colorValues[DEFAULT_COLOR]
-    const val DEFAULT_WIDTH_DP = 3f
+    const val DEFAULT_WIDTH_DP = 4f
     const val MIN_WIDTH_DP = 2
     const val MAX_WIDTH_DP = 24
     const val DEFAULT_BUBBLE_OPACITY = 0.66f
@@ -40,7 +40,7 @@ object PenSettings {
     const val DEFAULT_AUTO_HIDE_DELAY_MS = 1500L
     const val MIN_AUTO_HIDE_DELAY_MS = 500L
     const val MAX_AUTO_HIDE_DELAY_MS = 5000L
-    const val DEFAULT_ARROW_SCALE = 2f
+    const val DEFAULT_ARROW_SCALE = 3f
     const val MIN_ARROW_SCALE = 1f
     const val MAX_ARROW_SCALE = 4f
 
@@ -183,8 +183,7 @@ object PenSettings {
         val autoHide = prefs.getBoolean(KEY_AUTO_HIDE, DEFAULT_AUTO_HIDE)
         val delay = prefs.getLong(KEY_AUTO_HIDE_DELAY, DEFAULT_AUTO_HIDE_DELAY_MS)
             .coerceIn(MIN_AUTO_HIDE_DELAY_MS, MAX_AUTO_HIDE_DELAY_MS)
-        val arrowScale = prefs.getFloat(KEY_TOOL_ARROW_SCALE, DEFAULT_ARROW_SCALE)
-            .coerceIn(MIN_ARROW_SCALE, MAX_ARROW_SCALE)
+        val arrowScale = DEFAULT_ARROW_SCALE
         val layout = loadToolbarLayout(context)
         val bubbleSize = prefs.getInt(KEY_BUBBLE_SIZE_DP, DEFAULT_BUBBLE_SIZE_DP)
             .coerceIn(MIN_BUBBLE_SIZE_DP, MAX_BUBBLE_SIZE_DP)
@@ -304,8 +303,7 @@ object PenSettings {
 
     fun saveArrowScale(context: Context, scale: Float) {
         migrateLegacyStyleIfNeeded(context)
-        prefs(context)
-            .edit().putFloat(KEY_TOOL_ARROW_SCALE, scale.coerceIn(MIN_ARROW_SCALE, MAX_ARROW_SCALE)).apply()
+        prefs(context).edit().putFloat(KEY_TOOL_ARROW_SCALE, DEFAULT_ARROW_SCALE).apply()
     }
 
     fun saveBubbleSize(context: Context, sizeDp: Int) {

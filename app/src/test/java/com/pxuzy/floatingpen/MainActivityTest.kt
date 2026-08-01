@@ -49,9 +49,8 @@ class MainActivityTest {
         assertTrue(root.findByTagOrNull("setting-arrow-scale") == null)
 
         root.findByTag("setting-tool:arrow").performClick()
-        assertNotNull(root.findByTag("setting-arrow-scale"))
-        assertNotNull(root.findByTag("setting-arrow-scale-label"))
-        assertNotNull(root.findByTag("setting-arrow-preview"))
+        assertNotNull(root.findByTag("arrow-scale-fixed"))
+        assertEquals("箭头大小固定：3×", (root.findByTag("arrow-scale-fixed") as TextView).text.toString())
 
         root.findByTag("nav-settings").performClick()
         assertNotNull(root.findByTag("setting-bubble-opacity"))
@@ -106,7 +105,7 @@ class MainActivityTest {
     }
 
     @Test
-    fun `switching tools reloads each independent style and arrow controls`() {
+    fun `switching tools reloads each independent style and fixed arrow size`() {
         PenSettings.saveToolStyle(context, "pen", DrawingElement.colorValues[0], 4f)
         PenSettings.saveToolStyle(context, "arrow", DrawingElement.colorValues[3], 15f)
         val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
@@ -115,11 +114,11 @@ class MainActivityTest {
 
         root.findByTag("setting-tool:arrow").performClick()
         assertEquals("15 dp", (root.findByTag("tool-width-label") as TextView).text.toString())
-        assertNotNull(root.findByTag("setting-arrow-scale"))
+        assertEquals("箭头大小固定：3×", (root.findByTag("arrow-scale-fixed") as TextView).text.toString())
 
         root.findByTag("setting-tool:pen").performClick()
         assertEquals("4 dp", (root.findByTag("tool-width-label") as TextView).text.toString())
-        assertTrue(root.findByTagOrNull("setting-arrow-scale") == null)
+        assertTrue(root.findByTagOrNull("arrow-scale-fixed") == null)
     }
 
     @Test
@@ -142,16 +141,16 @@ class MainActivityTest {
     }
 
     @Test
-    fun `arrow scale slider persists tenths and updates label`() {
+    fun `arrow size is fixed at three and global width defaults to four`() {
         val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
         val root = activity.findViewById<ViewGroup>(android.R.id.content)
         root.findByTag("nav-pen").performClick()
-
         root.findByTag("setting-tool:arrow").performClick()
-        (root.findByTag("setting-arrow-scale") as SeekBar).setProgress(170, true)
 
-        assertEquals(2.7f, PenSettings.load(activity).arrowScale)
-        assertEquals("2.7×", (root.findByTag("setting-arrow-scale-label") as TextView).text.toString())
+        assertEquals(3f, PenSettings.load(activity).arrowScale)
+        assertEquals("箭头大小固定：3×", (root.findByTag("arrow-scale-fixed") as TextView).text.toString())
+        assertEquals("4 dp", (root.findByTag("global-width-label") as TextView).text.toString())
+        assertTrue(root.findByTagOrNull("setting-arrow-scale") == null)
     }
 
     @Test
@@ -175,12 +174,8 @@ class MainActivityTest {
         assertEquals("24 dp", (root.findByTag("tool-width-label") as TextView).text.toString())
 
         root.findByTag("setting-tool:arrow").performClick()
-        val arrow = root.findByTag("setting-arrow-scale") as SeekBar
-        assertEquals(300, arrow.max)
-        arrow.setProgress(0, true)
-        assertEquals("1.0×", (root.findByTag("setting-arrow-scale-label") as TextView).text.toString())
-        arrow.setProgress(arrow.max, true)
-        assertEquals("4.0×", (root.findByTag("setting-arrow-scale-label") as TextView).text.toString())
+        assertEquals("箭头大小固定：3×", (root.findByTag("arrow-scale-fixed") as TextView).text.toString())
+        assertTrue(root.findByTagOrNull("setting-arrow-scale") == null)
 
         root.findByTag("nav-settings").performClick()
         val opacity = root.findByTag("setting-bubble-opacity") as SeekBar
@@ -199,22 +194,16 @@ class MainActivityTest {
     }
 
     @Test
-    fun `arrow scale label accepts precise custom value`() {
+    fun `arrow size remains fixed and cannot be edited from the pen page`() {
         val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
         val root = activity.findViewById<ViewGroup>(android.R.id.content)
         root.findByTag("nav-pen").performClick()
-
         root.findByTag("setting-tool:arrow").performClick()
-        root.findByTag("setting-arrow-scale-label").performClick()
-        val dialog = ShadowAlertDialog.getLatestAlertDialog()
-        val input = dialog.findViewById<EditText>(android.R.id.edit)
-        input.setText("2.35")
-        dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick()
-        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
 
-        assertEquals(2.35f, PenSettings.load(activity).arrowScale)
-        assertEquals("2.35×", (root.findByTag("setting-arrow-scale-label") as TextView).text.toString())
-        assertEquals(135, (root.findByTag("setting-arrow-scale") as SeekBar).progress)
+        assertEquals(3f, PenSettings.load(activity).arrowScale)
+        assertEquals("箭头大小固定：3×", (root.findByTag("arrow-scale-fixed") as TextView).text.toString())
+        assertTrue(root.findByTagOrNull("setting-arrow-scale-label") == null)
+        assertTrue(root.findByTagOrNull("setting-arrow-scale") == null)
     }
 
     @Test

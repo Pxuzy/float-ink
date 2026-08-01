@@ -15,12 +15,12 @@ class PenSettingsTest {
     private val context: Application = ApplicationProvider.getApplicationContext()
 
     @Test
-    fun `global width defaults to 3dp when no width is saved`() {
+    fun `global width defaults to 4dp when no width is saved`() {
         context.getSharedPreferences(PenSettings.PREF_NAME, Application.MODE_PRIVATE)
             .edit().clear().commit()
 
-        assertEquals(3f, PenSettings.load(context).globalWidthDp)
-        assertEquals(3f, PenSettings.load(context).styleFor("pen").widthDp)
+        assertEquals(4f, PenSettings.load(context).globalWidthDp)
+        assertEquals(4f, PenSettings.load(context).styleFor("pen").widthDp)
     }
 
     @Before
@@ -48,7 +48,7 @@ class PenSettingsTest {
             assertEquals(0xFF123456.toInt(), migrated.styleFor(tool).color)
             assertEquals(11f, migrated.styleFor(tool).widthDp)
         }
-        assertEquals(2.35f, migrated.arrowScale)
+        assertEquals(3f, migrated.arrowScale)
         assertEquals(0xFF123456.toInt(), reloaded.styleFor("pen").color)
     }
 
@@ -85,7 +85,7 @@ class PenSettingsTest {
     }
 
     @Test
-    fun `apply global style updates every tool without changing arrow scale`() {
+    fun `apply global style updates every tool with fixed arrow scale`() {
         PenSettings.saveArrowScale(context, 3.25f)
         PenSettings.saveGlobalStyle(context, 0xFF778899.toInt(), 13f)
 
@@ -96,7 +96,7 @@ class PenSettingsTest {
             assertEquals(0xFF778899.toInt(), values.styleFor(tool).color)
             assertEquals(13f, values.styleFor(tool).widthDp)
         }
-        assertEquals(3.25f, values.arrowScale)
+        assertEquals(3f, values.arrowScale)
     }
 
     @Test
@@ -115,17 +115,17 @@ class PenSettingsTest {
         assertEquals(0.35f, values.bubbleOpacity)
         assertFalse(values.autoHide)
         assertEquals(5000L, values.autoHideDelayMs)
-        assertEquals(4f, values.arrowScale)
+        assertEquals(3f, values.arrowScale)
     }
 
     @Test
-    fun `arrow scale defaults to two and preserves precise custom values`() {
+    fun `arrow scale is fixed at three`() {
         context.getSharedPreferences(PenSettings.PREF_NAME, Application.MODE_PRIVATE).edit().clear().commit()
-        assertEquals(2f, PenSettings.load(context).arrowScale)
+        assertEquals(3f, PenSettings.load(context).arrowScale)
 
         PenSettings.saveArrowScale(context, 2.35f)
 
-        assertEquals(2.35f, PenSettings.load(context).arrowScale)
+        assertEquals(3f, PenSettings.load(context).arrowScale)
     }
 
     @Test

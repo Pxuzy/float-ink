@@ -81,8 +81,10 @@ class DrawingOverlayView(
     private var activePointerId = MotionEvent.INVALID_POINTER_ID
     private var activeToolType = MotionEvent.TOOL_TYPE_UNKNOWN
     private var draggingGoldenGuide = false
+    private var draggingVerticalGoldenGuide = false
     private var goldenGuideVisible = false
     private var goldenGuideFraction = 0.5f
+    private var verticalGoldenGuideFraction = 0.5f
     private var currentToolId = toolId
     private var configuredToolIds = normalizeToolbarToolIds(toolbarToolIds)
     private var currentColor = normalizeLegacyColor(initialColor)
@@ -147,10 +149,13 @@ class DrawingOverlayView(
                 val x = event.x; val y = event.y
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
-                        if (goldenGuideVisible && isGoldenGuideHit(y)) {
-                            draggingGoldenGuide = true
+                        if (goldenGuideVisible && isGoldenGuideHit(x, y)) {
+                            val horizontalDistance = abs(y - height * goldenGuideFraction)
+                            val verticalDistance = abs(x - width * verticalGoldenGuideFraction)
+                            draggingVerticalGoldenGuide = verticalDistance < horizontalDistance
+                            draggingGoldenGuide = !draggingVerticalGoldenGuide
                             activePointerId = event.getPointerId(0)
-                            updateGoldenGuide(y)
+                            updateGoldenGuide(x, y)
                             invalidate()
                             return true
                         }
@@ -167,9 +172,9 @@ class DrawingOverlayView(
                         invalidate(); return true
                     }
                     MotionEvent.ACTION_MOVE -> {
-                        if (draggingGoldenGuide) {
+                        if (draggingGoldenGuide || draggingVerticalGoldenGuide) {
                             val pointerIndex = event.findPointerIndex(activePointerId)
-                            if (pointerIndex >= 0) updateGoldenGuide(event.getY(pointerIndex))
+                            if (pointerIndex >= 0) updateGoldenGuide(event.getX(pointerIndex), event.getY(pointerIndex))
                             invalidate()
                             return true
                         }
@@ -224,8 +229,9 @@ class DrawingOverlayView(
                         return true
                     }
                     MotionEvent.ACTION_UP -> {
-                        if (draggingGoldenGuide) {
+                        if (draggingGoldenGuide || draggingVerticalGoldenGuide) {
                             draggingGoldenGuide = false
+                            draggingVerticalGoldenGuide = false
                             activePointerId = MotionEvent.INVALID_POINTER_ID
                             invalidate()
                             return true
@@ -252,8 +258,9 @@ class DrawingOverlayView(
                         invalidate(); return true
                     }
                     MotionEvent.ACTION_CANCEL -> {
-                        if (draggingGoldenGuide) {
+                        if (draggingGoldenGuide || draggingVerticalGoldenGuide) {
                             draggingGoldenGuide = false
+                            draggingVerticalGoldenGuide = false
                             activePointerId = MotionEvent.INVALID_POINTER_ID
                             invalidate()
                             return true
@@ -575,43 +582,54 @@ class DrawingOverlayView(
         canvasView.invalidate()
     }
 
-    private fun isGoldenGuideHit(y: Float): Boolean {
-        if (height <= 0) return false
-        val guideY = height * goldenGuideFraction
-        return abs(y - guideY) <= max(18.dp.toFloat(), 12.dpf)
+    private fun isGoldenGuideHit(x: Float, y: Float): Boolean {
+        if (height <= 0 || width <= 0) return false
+        val horizontalHit = abs(y - height * goldenGuideFraction) <= max(18.dp.toFloat(), 12.dpf)
+        val verticalHit = abs(x - width * verticalGoldenGuideFraction) <= max(18.dp.toFloat(), 12.dpf)
+        return horizontalHit || verticalHit
     }
 
-    private fun updateGoldenGuide(y: Float) {
-        val rawFraction = (y / height.coerceAtLeast(1)).coerceIn(0f, 1f)
-        goldenGuideFraction = when {
-            abs(rawFraction - GOLDEN_GUIDE_TOP) <= GOLDEN_GUIDE_SNAP_DISTANCE -> GOLDEN_GUIDE_TOP
-            abs(rawFraction - GOLDEN_GUIDE_BOTTOM) <= GOLDEN_GUIDE_SNAP_DISTANCE -> GOLDEN_GUIDE_BOTTOM
-            else -> rawFraction
+    private fun updateGoldenGuide(x: Float, y: Float) {
+        if (draggingVerticalGoldenGuide) {
+            verticalGoldenGuideFraction = snapGoldenGuide((x / width.coerceAtLeast(1)).coerceIn(0f, 1f))
+        } else {
+            goldenGuideFraction = snapGoldenGuide((y / height.coerceAtLeast(1)).coerceIn(0f, 1f))
         }
+    }
+
+    private fun snapGoldenGuide(rawFraction: Float): Float = when {
+        abs(rawFraction - GOLDEN_GUIDE_TOP) <= GOLDEN_GUIDE_SNAP_DISTANCE -> GOLDEN_GUIDE_TOP
+        abs(rawFraction - GOLDEN_GUIDE_BOTTOM) <= GOLDEN_GUIDE_SNAP_DISTANCE -> GOLDEN_GUIDE_BOTTOM
+        else -> rawFraction
     }
 
     private fun drawGoldenGuide(canvas: Canvas) {
         if (!goldenGuideVisible || height <= 0 || width <= 0) return
         val y = height * goldenGuideFraction
+        val x = width * verticalGoldenGuideFraction
         val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = GOLDEN_GUIDE_COLOR
             style = Paint.Style.STROKE
-            strokeWidth = if (draggingGoldenGuide) 2.dpf else 1.dpf
+            strokeWidth = if (draggingGoldenGuide || draggingVerticalGoldenGuide) 2.dpf else 1.dpf
             pathEffect = DashPathEffect(floatArrayOf(10.dpf, 7.dpf), 0f)
         }
         canvas.drawLine(0f, y, width.toFloat(), y, linePaint)
-        if (draggingGoldenGuide) {
+        canvas.drawLine(x, 0f, x, height.toFloat(), linePaint)
+        if (draggingGoldenGuide || draggingVerticalGoldenGuide) {
+            val fraction = if (draggingVerticalGoldenGuide) verticalGoldenGuideFraction else goldenGuideFraction
             val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.WHITE
                 textSize = 12.dpf
                 textAlign = Paint.Align.CENTER
                 typeface = Typeface.DEFAULT_BOLD
             }
-            val label = "${(goldenGuideFraction * 100f).roundToInt()}%"
+            val label = "${(fraction * 100f).roundToInt()}%"
             val labelWidth = labelPaint.measureText(label) + 16.dpf
             val labelHeight = 24.dpf
-            val left = ((width - labelWidth) / 2f).coerceAtLeast(8.dpf)
-            val top = (y - labelHeight - 8.dpf).coerceAtLeast(8.dpf)
+            val labelAnchorX = if (draggingVerticalGoldenGuide) x else width / 2f
+            val labelAnchorY = if (draggingVerticalGoldenGuide) height / 2f else y
+            val left = (labelAnchorX - labelWidth / 2f).coerceIn(8.dpf, (width - labelWidth - 8.dpf).coerceAtLeast(8.dpf))
+            val top = (labelAnchorY - labelHeight - 8.dpf).coerceAtLeast(8.dpf)
             val labelBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GOLDEN_GUIDE_LABEL_COLOR }
             canvas.drawRoundRect(left, top, left + labelWidth, top + labelHeight, 6.dpf, 6.dpf, labelBackground)
             canvas.drawText(label, left + labelWidth / 2f, top + 16.dpf, labelPaint)
@@ -820,7 +838,7 @@ class DrawingOverlayView(
             }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, 32.dp))
             addView(FloatInkIconView(context, "guide").apply {
                 tag = "golden-guide"
-                contentDescription = if (goldenGuideVisible) "隐藏水平黄金线" else "显示水平黄金线"
+                contentDescription = if (goldenGuideVisible) "隐藏黄金分割线" else "显示黄金分割线"
                 layoutParams = LinearLayout.LayoutParams(actionButtonSize(), actionButtonSize())
                 setIconColor(Color.WHITE)
                 background = GradientDrawable().apply {
@@ -829,7 +847,7 @@ class DrawingOverlayView(
                 }
                 setOnClickListener {
                     toggleGoldenGuide()
-                    contentDescription = if (goldenGuideVisible) "隐藏水平黄金线" else "显示水平黄金线"
+                    contentDescription = if (goldenGuideVisible) "隐藏黄金分割线" else "显示黄金分割线"
                     background = GradientDrawable().apply {
                         setColor(if (goldenGuideVisible) FloatInkTheme.overlaySelected else Color.TRANSPARENT)
                         cornerRadius = 8.dpf
