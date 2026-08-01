@@ -28,6 +28,29 @@ if ! "$ROOT_DIR/scripts/check-android-resources.sh" "${RESOURCE_ARGS[@]}"; then
   failed=1
 fi
 
+check_manifest_permissions() {
+  local manifest permissions permission manifest_revision
+  if [[ "$MODE" == "range" ]]; then
+    manifest_revision="${3:-${2:-}}"
+    manifest="$(git show "$manifest_revision:app/src/main/AndroidManifest.xml" 2>/dev/null || true)"
+  else
+    manifest="$(<app/src/main/AndroidManifest.xml)"
+  fi
+  [[ -n "$manifest" ]] || { echo 'BLOCKED: app/src/main/AndroidManifest.xml is missing.' >&2; return 1; }
+
+  # This is the intentionally small product boundary for FloatInk. Any new
+  # permission must be explicitly reviewed and added here.
+  permissions='SYSTEM_ALERT_WINDOW POST_NOTIFICATIONS FOREGROUND_SERVICE FOREGROUND_SERVICE_SPECIAL_USE INTERNET REQUEST_INSTALL_PACKAGES'
+  while IFS= read -r permission; do
+    [[ -z "$permission" ]] && continue
+    if [[ " $permissions " != *" $permission "* ]]; then
+      printf 'BLOCKED: manifest permission %s is not on the FloatInk allowlist.\n' "$permission" >&2
+      return 1
+    fi
+  done < <(printf '%s\n' "$manifest" | sed -nE 's/.*android:name="android\.permission\.([A-Z0-9_]+)".*/\1/p' | sort -u)
+  printf 'Manifest permission gate passed.\n'
+}
+
 extract_version() {
   local revision="$1" path="$2" pattern="$3"
   git show "$revision:$path" 2>/dev/null | sed -nE "s/$pattern/\\1/p" | head -n1
@@ -51,7 +74,18 @@ check_tag_version() {
 }
 
 if [[ "$MODE" == "range" && $# -eq 4 ]]; then
+  if ! check_manifest_permissions "$2" "$3" "$3"; then
+    failed=1
+  fi
   if ! check_tag_version "$2" "$3" "$4"; then
+    failed=1
+  fi
+else
+  if [[ "$MODE" == "range" ]]; then
+    if ! check_manifest_permissions "$2" "$3"; then
+      failed=1
+    fi
+  elif ! check_manifest_permissions; then
     failed=1
   fi
 fi

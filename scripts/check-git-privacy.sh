@@ -49,7 +49,14 @@ check_added "GitHub/API token pattern" 'ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0
 check_added "hard-coded credential assignment" '(api[_-]?key|access[_-]?token|client[_-]?secret|password)[[:space:]]*[=:][[:space:]]*["'"'][^"'"']{8,}["'"']'
 check_added "absolute local home path" '/home/[A-Za-z0-9._-]+|/Users/[A-Za-z0-9._-]+'
 check_added "IPv4 address; use a placeholder or environment value" '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b'
-check_added "personal email; use a GitHub noreply address or placeholder" '\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'
+check_added_email() {
+  local label="personal email; use a GitHub noreply address or placeholder"
+  if printf '%s\n' "$ADDED" | grep -EIn '\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b' | grep -Ev '@users\.noreply\.github\.com\b' >/tmp/floatink-privacy-hit.$$ 2>/dev/null; then
+    while IFS= read -r line; do report "$label: $line"; done </tmp/floatink-privacy-hit.$$
+  fi
+  rm -f /tmp/floatink-privacy-hit.$$
+}
+check_added_email
 # Local secret/config files are checked as paths, not as arbitrary added text.
 # This avoids false positives for safe documentation and ignore-rule lines such
 # as `local.properties` or `*.jks`.
@@ -77,7 +84,7 @@ if [[ "$MODE" == "staged" ]]; then
 else
   STAGED_LIST="$(git diff "$2" "$3" --name-only --diff-filter=ACMR)"
 fi
-if printf '%s\\n' "$STAGED_LIST" | grep -EIn '(^|/)(artifacts/|current-.*\.png|floating-icon.*\.png|floatink-open.*\.png|\.psd|\.ai|\.aep|\.zip|\.mp4)(/|$)' >/tmp/floatink-privacy-hit.$$ 2>/dev/null; then
+if printf '%s\n' "$STAGED_LIST" | grep -EIn '(^|/)(artifacts/|current-.*\.png|floating-icon.*\.png|floatink-open.*\.png|\.psd|\.ai|\.aep|\.zip|\.mp4)(/|$)' >/tmp/floatink-privacy-hit.$$ 2>/dev/null; then
   while IFS= read -r line; do report "local design/material asset (not intended for the repo): $line"; done </tmp/floatink-privacy-hit.$$
 fi
 rm -f /tmp/floatink-privacy-hit.$$

@@ -2,6 +2,7 @@
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 failed=0
+clean_revisions=()
 
 while read -r LOCAL_REF LOCAL_OID REMOTE_REF REMOTE_OID; do
   [[ -z "${LOCAL_REF:-}" ]] && continue
@@ -20,7 +21,17 @@ while read -r LOCAL_REF LOCAL_OID REMOTE_REF REMOTE_OID; do
   fi
   if ! "$ROOT_DIR/scripts/check-project-gate.sh" range "$OLD" "$LOCAL_OID" "$LOCAL_REF"; then
     failed=1
+  else
+    clean_revisions+=("$LOCAL_OID")
   fi
 done
+
+if (( failed == 0 )); then
+  for revision in "${clean_revisions[@]}"; do
+    if ! "$ROOT_DIR/scripts/check-clean-build.sh" "$revision"; then
+      failed=1
+    fi
+  done
+fi
 
 exit "$failed"
