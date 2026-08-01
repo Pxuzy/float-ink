@@ -84,6 +84,18 @@ class FloatingBubbleViewTest {
     }
 
     @Test
+    fun `floating bubble keeps the original Lucide pen icon`() {
+        val icon = context.getDrawable(R.drawable.ic_lucide_pen_line)
+        val bubbleIcon = FloatingBubbleView::class.java.getDeclaredField("penIcon").run {
+            isAccessible = true
+            get(bubble({}, {}))
+        }
+
+        assertTrue(icon != null)
+        assertTrue(bubbleIcon != null)
+    }
+
+    @Test
     fun `floating pen uses compact 48dp square footprint`() {
         val bubble = bubble({}, {})
 

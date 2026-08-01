@@ -75,7 +75,7 @@ class FloatingBubbleView(context: Context, private val onTap: () -> Unit, privat
         color = Color.argb(220, 10, 13, 17); style = Paint.Style.FILL
     }
     private val bubbleBounds = RectF()
-    private val penIcon = context.getDrawable(R.drawable.ic_tabler_pen)
+    private val penIcon = context.getDrawable(R.drawable.ic_lucide_pen_line)
 
     init {
         contentDescription = "悬浮画笔"
