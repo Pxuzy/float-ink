@@ -1,7 +1,7 @@
 # 项目状态
 
 更新时间：2026-08-01
-当前基线：`v0.3.8`（`versionCode 22`）
+当前基线：`v0.3.9`（`versionCode 23`）
 当前分支：`main`
 
 ## 项目定位
@@ -173,9 +173,14 @@
 - `pre-push` 在快速门禁通过后，从待推送提交导出干净检出，执行 `testDebugUnitTest :app:assembleDebug`，避免本机未跟踪文件掩盖 CI 构建问题。
 - 新增 `scripts/check-clean-build.sh` 作为干净检出构建入口；版本门禁集成测试同步包含最小 Manifest。
 
-## v0.3.8 更新按钮美化与发布修复
+## v0.3.9 更新按钮美化与签名修复
 
 - 设置页“检查更新”按钮改为透明黑色主题的紧凑描边按钮。
 - 增加刷新图标、明确的无障碍描述和按钮样式测试。
 - 保留检查中禁用、发现版本、下载更新和失败提示等原有更新行为。
 - Release workflow 显式定位 Android Build Tools 中的 `apksigner` 和 `aapt`，避免 GitHub runner 未将工具加入 PATH 导致发布失败。
+
+## 发布签名门禁
+
+- Release 构建缺少签名环境时直接失败，不再允许生成可发布但未签名的 APK。
+- GitHub Release 使用固定的 FloatInk 发布证书 SHA-256 校验，防止新旧版本无法覆盖安装。
