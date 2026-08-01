@@ -38,4 +38,18 @@ class AppUpdateManagerTest {
         assertFalse(AppUpdateManager.isNewer("0.1.9", "0.2.0"))
         assertTrue(AppUpdateManager.isNewer("v1.0.0", "0.9.9"))
     }
+
+    @Test
+    fun `parses current latest release update asset`() {
+        val json = """
+            {"tag_name":"v0.3.11","html_url":"https://github.com/Pxuzy/float-ink/releases/tag/v0.3.11",
+             "assets":[{"name":"float-ink-0.3.11.apk","browser_download_url":"https://github.com/Pxuzy/float-ink/releases/download/v0.3.11/float-ink-0.3.11.apk"}]}
+        """.trimIndent()
+
+        val update = AppUpdateManager.parseLatestRelease(json)
+
+        assertNotNull(update)
+        assertEquals("0.3.11", update!!.version)
+        assertTrue(AppUpdateManager.isNewer(update.version, "0.3.10"))
+    }
 }

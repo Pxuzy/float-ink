@@ -7,8 +7,11 @@ import android.net.Uri
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
+import android.content.pm.PackageManager
+import android.content.pm.Signature
 import androidx.core.content.FileProvider
 import java.io.File
+import java.security.MessageDigest
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -63,6 +66,7 @@ class AppUpdateManager(private val context: Context) {
             val path = it.getString(it.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI))
             val file = Uri.parse(path).path?.let(::File) ?: return false
             if (!file.exists()) return false
+            if (!isValidUpdateApk(file)) return false
             val contentUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
             context.startActivity(Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(contentUri, APK_MIME)
@@ -72,14 +76,39 @@ class AppUpdateManager(private val context: Context) {
         }
     }
 
+    /** Update hook: reject wrong package, downgrade, unsigned, or differently-signed APKs. */
+    fun isValidUpdateApk(file: File): Boolean {
+        if (!file.isFile) return false
+        val packageInfo = context.packageManager.getPackageArchiveInfo(
+            file.absolutePath,
+            PackageManager.GET_SIGNING_CERTIFICATES,
+        ) ?: return false
+        if (packageInfo.packageName != context.packageName) return false
+        if (packageInfo.longVersionCode <= context.currentVersionCode()) return false
+        val signingInfo = packageInfo.signingInfo ?: return false
+        val signers = if (signingInfo.hasMultipleSigners()) {
+            signingInfo.apkContentsSigners
+        } else {
+            signingInfo.signingCertificateHistory
+        }
+        return signers.any { certificate -> certificate.sha256() == RELEASE_CERT_SHA256 }
+    }
+
     companion object {
         private const val RELEASES_API = "https://api.github.com/repos/Pxuzy/float-ink/releases/latest"
         private const val APK_MIME = "application/vnd.android.package-archive"
         private const val PREFS = "app_update"
         private const val KEY_DOWNLOAD_ID = "download_id"
+        private const val RELEASE_CERT_SHA256 = "dedc79e5a562d940fcd4ef520783e9a7752d1d4e593c5cdd829728c3633ce035"
 
         fun savedDownloadId(context: Context): Long =
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(KEY_DOWNLOAD_ID, -1L)
+
+        private fun Context.currentVersionCode(): Long =
+            packageManager.getPackageInfo(packageName, 0).longVersionCode
+
+        private fun Signature.sha256(): String =
+            MessageDigest.getInstance("SHA-256").digest(toByteArray()).joinToString("") { "%02x".format(it) }
 
         fun parseLatestRelease(json: String): UpdateInfo? {
             val tag = json.stringValue("tag_name") ?: return null
