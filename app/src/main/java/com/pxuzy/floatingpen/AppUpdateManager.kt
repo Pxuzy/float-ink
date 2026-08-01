@@ -94,12 +94,28 @@ class AppUpdateManager(private val context: Context) {
         return signers.any { certificate -> certificate.sha256() == RELEASE_CERT_SHA256 }
     }
 
+    /** Returns whether the installed app can be replaced by an official Release APK. */
+    fun currentInstallUsesOfficialSigning(): Boolean {
+        val packageInfo = context.packageManager.getPackageInfo(
+            context.packageName,
+            PackageManager.GET_SIGNING_CERTIFICATES,
+        )
+        val signingInfo = packageInfo.signingInfo ?: return false
+        val signers = if (signingInfo.hasMultipleSigners()) {
+            signingInfo.apkContentsSigners
+        } else {
+            signingInfo.signingCertificateHistory
+        }
+        return signers.any { certificate -> certificate.sha256() == RELEASE_CERT_SHA256 }
+    }
+
     companion object {
         private const val RELEASES_API = "https://api.github.com/repos/Pxuzy/float-ink/releases/latest"
         private const val APK_MIME = "application/vnd.android.package-archive"
         private const val PREFS = "app_update"
         private const val KEY_DOWNLOAD_ID = "download_id"
-        private const val RELEASE_CERT_SHA256 = "dedc79e5a562d940fcd4ef520783e9a7752d1d4e593c5cdd829728c3633ce035"
+        internal const val officialReleaseCertificateSha256 = "dedc79e5a562d940fcd4ef520783e9a7752d1d4e593c5cdd829728c3633ce035"
+        private const val RELEASE_CERT_SHA256 = officialReleaseCertificateSha256
 
         fun savedDownloadId(context: Context): Long =
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(KEY_DOWNLOAD_ID, -1L)

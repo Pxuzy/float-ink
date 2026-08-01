@@ -52,4 +52,12 @@ class AppUpdateManagerTest {
         assertEquals("0.3.11", update!!.version)
         assertTrue(AppUpdateManager.isNewer(update.version, "0.3.10"))
     }
+
+    @Test
+    fun `official update certificate remains stable across releases`() {
+        assertEquals(
+            "dedc79e5a562d940fcd4ef520783e9a7752d1d4e593c5cdd829728c3633ce035",
+            AppUpdateManager.officialReleaseCertificateSha256,
+        )
+    }
 }
