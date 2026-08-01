@@ -98,7 +98,7 @@ bash scripts/install-git-hooks.sh
 
 - `pre-commit` 检查暂存内容；
 - `pre-push` 检查即将提交的范围；
-- `pre-push` 通过单一的 `check-project-gate.sh` 融合隐私、Android 资源和版本标签检查，防止源码引用了只存在于本机、但未进入 Git 的 `R.drawable` 等资源；
+- `pre-push` 通过单一的 `check-project-gate.sh` 融合隐私、Android 资源、Manifest 权限白名单和版本标签检查，防止源码引用了只存在于本机、但未进入 Git 的 `R.drawable` 等资源；随后从待推送提交的干净 Git 检出运行单元测试和 Debug 构建；
 - 检查失败时必须移除敏感内容或改为环境变量/占位符，不能用 `--no-verify` 绕过正常发布流程。
 
 也可以使用项目脚本：

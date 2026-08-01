@@ -166,3 +166,9 @@
 ## 当前下一步
 
 优先做真机验收；在没有设备时，只处理文档、测试、构建、静态检查和不依赖设备的代码问题，不伪造设备结果。
+
+## 2026-08-01 Git 钩子门禁补充
+
+- `check-project-gate.sh` 增加 Manifest 权限白名单；新增权限会阻断推送，需显式评审后加入白名单。
+- `pre-push` 在快速门禁通过后，从待推送提交导出干净检出，执行 `testDebugUnitTest :app:assembleDebug`，避免本机未跟踪文件掩盖 CI 构建问题。
+- 新增 `scripts/check-clean-build.sh` 作为干净检出构建入口；版本门禁集成测试同步包含最小 Manifest。
