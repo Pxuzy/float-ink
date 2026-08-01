@@ -9,6 +9,9 @@ on:
 permissions:
   contents: write
 
+env:
+  FLOATINK_RELEASE_CERT_SHA256: dedc79e5a562d940fcd4ef520783e9a7752d1d4e593c5cdd829728c3633ce035
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -49,6 +52,8 @@ jobs:
           printf '%s\n' '=== SHA-256 ===' && sha256sum "$APK"
           printf '%s\n' '=== unzip integrity ===' && unzip -t "$APK"
           printf '%s\n' '=== apksigner verify ===' && "$APKSIGNER" verify --verbose "$APK"
+          ACTUAL_CERT="$($APKSIGNER verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')"
+          test "$ACTUAL_CERT" = "$FLOATINK_RELEASE_CERT_SHA256"
 
       - name: Verify APK metadata
         run: |
@@ -61,8 +66,7 @@ jobs:
           printf '%s\n' '=== aapt metadata ==='
           "$AAPT" dump badging "$APK" | grep -E 'package:|versionCode|versionName|application-label'
           printf '%s\n' '=== signature cert SHA-256 ==='
-          unzip -p "$APK" META-INF/*.RSA META-INF/*.DSA 2>/dev/null | "$KEYTOOL" -printcert 2>/dev/null || \
-            printf 'could not extract cert from %s\n' "$APK"
+          printf '%s\n' "$FLOATINK_RELEASE_CERT_SHA256"
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2

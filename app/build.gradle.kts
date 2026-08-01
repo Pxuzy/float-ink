@@ -17,8 +17,8 @@ android {
         applicationId = "com.pxuzy.floatingpen"
         minSdk = 29
         targetSdk = 35
-        versionCode = 22
-        versionName = "0.3.8"
+        versionCode = 23
+        versionName = "0.3.9"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -46,6 +46,18 @@ android {
         unitTests.isIncludeAndroidResources = true
     }
 }
+
+tasks.configureEach {
+    if (name == "assembleRelease") {
+        doFirst {
+            check(hasReleaseSigning) {
+                "Release APK signing is required. Set ANDROID_KEYSTORE_FILE, " +
+                    "ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, and ANDROID_KEY_PASSWORD."
+            }
+        }
+    }
+}
+
 dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.activity:activity-ktx:1.10.0")
