@@ -5,6 +5,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.SeekBar
 import android.widget.CheckBox
+import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -61,6 +62,10 @@ class MainActivityTest {
         assertNotNull(root.findByTag("settings-live-copy"))
         assertNotNull(root.findByTag("toolbar-layout-section"))
         assertNotNull(root.findByTag("toolbar-tool:pen"))
+        val updateButton = root.findByTag("settings-check-update") as Button
+        assertEquals("检查更新", updateButton.text.toString())
+        assertEquals("检查软件更新", updateButton.contentDescription.toString())
+        assertNotNull(updateButton.compoundDrawablesRelative[0])
     }
 
     @Test
