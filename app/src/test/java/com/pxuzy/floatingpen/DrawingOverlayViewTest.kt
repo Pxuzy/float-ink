@@ -271,9 +271,9 @@ class DrawingOverlayViewTest {
 
         toolbar.findByTag("more-tools").performClick()
         val guide = view.findByTag("golden-guide")
-        assertEquals("显示水平黄金线", guide.contentDescription)
+        assertEquals("显示黄金分割线", guide.contentDescription)
         guide.performClick()
-        assertEquals("隐藏水平黄金线", guide.contentDescription)
+        assertEquals("隐藏黄金分割线", guide.contentDescription)
 
         val canvas = view.getChildAt(0)
         canvas.layout(0, 0, 400, 800)
@@ -283,7 +283,7 @@ class DrawingOverlayViewTest {
         assertTrue(session.currentLayer.elements.isEmpty())
 
         guide.performClick()
-        assertEquals("显示水平黄金线", guide.contentDescription)
+        assertEquals("显示黄金分割线", guide.contentDescription)
         assertTrue(session.currentLayer.elements.isEmpty())
     }
 

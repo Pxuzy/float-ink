@@ -286,7 +286,15 @@ class MainActivity : ComponentActivity() {
                 setTag(R.id.tag_preview_width_dp, selectedWidthDp)
             }
             addView(strokePreview, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 72.dp).apply { topMargin = 4.dp })
-            if (selectedTool == "arrow") addArrowSettings(this)
+            if (selectedTool == "arrow") {
+                addView(TextView(this@MainActivity).apply {
+                    tag = "arrow-scale-fixed"
+                    text = "箭头大小固定：3×"
+                    textSize = 13f
+                    setTextColor(FloatInkTheme.textSecondary)
+                    setPadding(0, 8.dp, 0, 8.dp)
+                })
+            }
             updateToolButtons()
         }
     }
