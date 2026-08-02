@@ -20,7 +20,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import com.pxuzy.floatingpen.core.DrawingElement as CoreDrawingElement
 import com.pxuzy.floatingpen.core.DrawingSession
-import com.pxuzy.floatingpen.core.FibonacciPoint
 
 @RunWith(RobolectricTestRunner::class)
 class DrawingOverlayViewTest {
@@ -293,22 +292,33 @@ class DrawingOverlayViewTest {
         val view = DrawingOverlayView(context, "pen", 0) {}
         val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
         toolbar.findByTag("more-tools").performClick()
-        view.findByTag("fibonacci-retracement").performClick()
+        val fibonacciEntry = view.findByTag("fibonacci-retracement") as LinearLayout
+        assertEquals("斐波那契回撤", fibonacciEntry.contentDescription)
+        assertTrue((0 until fibonacciEntry.childCount).any { fibonacciEntry.getChildAt(it) is FloatInkIconView })
+        assertTrue((0 until fibonacciEntry.childCount).any { (fibonacciEntry.getChildAt(it) as? TextView)?.text == "斐波那契回撤" })
+        fibonacciEntry.performClick()
 
-        drawGesture(view.getChildAt(0), 20f, 100f, 80f, 500f)
+        val canvas = view.getChildAt(0)
+        canvas.layout(0, 0, 400, 800)
+        drawGesture(canvas, 20f, 100f, 80f, 500f)
 
         assertTrue(view.elementsForTest().isEmpty())
         assertEquals("fibonacci", view.currentToolForTest())
-        val start = view.javaClass.getDeclaredField("fibonacciStart").run {
-            isAccessible = true
-            get(view)
-        }
-        val end = view.javaClass.getDeclaredField("fibonacciEnd").run {
-            isAccessible = true
-            get(view)
-        }
-        assertEquals(FibonacciPoint(20f, 100f), start)
-        assertEquals(FibonacciPoint(80f, 500f), end)
+        val state = view.fibonacciRenderStateForTest()!!
+        assertTrue(state.selected)
+        assertTrue(state.handlesVisible)
+        assertEquals(20f, state.start.x, 0.01f)
+        assertEquals(100f, state.start.y, 0.01f)
+        assertEquals(80f, state.end.x, 0.01f)
+        assertEquals(500f, state.end.y, 0.01f)
+
+        drawGesture(canvas, 80f, 500f, 140f, 420f)
+        val adjusted = view.fibonacciRenderStateForTest()!!
+        assertEquals(20f, adjusted.start.x, 0.01f)
+        assertEquals(100f, adjusted.start.y, 0.01f)
+        assertEquals(140f, adjusted.end.x, 0.01f)
+        assertEquals(420f, adjusted.end.y, 0.01f)
+        assertTrue(view.elementsForTest().isEmpty())
     }
     @Test
     fun `more tools panel opens and closes without rebuilding toolbar`() {
