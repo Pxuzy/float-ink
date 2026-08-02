@@ -23,8 +23,7 @@ import android.widget.TextView
 import com.pxuzy.floatingpen.core.DrawingElement as CoreDrawingElement
 import com.pxuzy.floatingpen.core.ArrowGeometry
 import com.pxuzy.floatingpen.core.DrawingSession
-import com.pxuzy.floatingpen.core.FibonacciPoint
-import com.pxuzy.floatingpen.core.FibonacciRetracement
+
 import kotlin.math.*
 
 class DrawingOverlayView(
@@ -87,10 +86,8 @@ class DrawingOverlayView(
     private var goldenGuideVisible = false
     private var goldenGuideFraction = 0.5f
     private var verticalGoldenGuideFraction = 0.5f
-    private var fibonacciStart: FibonacciPoint? = null
-    private var fibonacciEnd: FibonacciPoint? = null
-    private var fibonacciDrawing = false
-    private var draggingFibonacciEndpoint: Boolean? = null
+    private val fibonacciController = FibonacciOverlayController(1f, 1f, 48.dpf)
+    private val fibonacciRenderer = FibonacciGuideRenderer(density)
     private var currentToolId = toolId
     private var configuredToolIds = normalizeToolbarToolIds(toolbarToolIds)
     private var currentColor = normalizeLegacyColor(initialColor)
@@ -119,6 +116,7 @@ class DrawingOverlayView(
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
+        fibonacciController.resize(w.toFloat(), h.toFloat())
         colorPanel?.let(::positionPopupAboveToolbar)
         moreToolsPanel?.let(::positionPopupAboveToolbar)
         canvasPanel?.let(::positionPopupAboveToolbar)
@@ -151,29 +149,17 @@ class DrawingOverlayView(
         setBackgroundColor(Color.argb(10, 0, 0, 0))
 
         canvasView = object : View(context) {
+            override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+                super.onSizeChanged(w, h, oldw, oldh)
+                fibonacciController.resize(w.toFloat(), h.toFloat())
+            }
+
             override fun onTouchEvent(event: MotionEvent): Boolean {
                 val x = event.x; val y = event.y
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
                         if (currentToolId == "fibonacci") {
-                            val point = FibonacciPoint(x, y)
-                            when {
-                                isFibonacciEndpointHit(x, y, true) -> {
-                                    draggingFibonacciEndpoint = true
-                                    fibonacciDrawing = true
-                                }
-                                isFibonacciEndpointHit(x, y, false) -> {
-                                    draggingFibonacciEndpoint = false
-                                    fibonacciDrawing = true
-                                }
-                                fibonacciStart == null || fibonacciEnd == null -> {
-                                    fibonacciStart = point
-                                    fibonacciEnd = point
-                                    fibonacciDrawing = true
-                                    draggingFibonacciEndpoint = true
-                                }
-                                else -> return true
-                            }
+                            fibonacciController.begin(x, y)
                             activePointerId = event.getPointerId(0)
                             invalidate()
                             return true
@@ -201,11 +187,10 @@ class DrawingOverlayView(
                         invalidate(); return true
                     }
                     MotionEvent.ACTION_MOVE -> {
-                        if (currentToolId == "fibonacci" && fibonacciDrawing) {
+                        if (currentToolId == "fibonacci") {
                             val pointerIndex = event.findPointerIndex(activePointerId)
                             if (pointerIndex >= 0) {
-                                val point = FibonacciPoint(event.getX(pointerIndex), event.getY(pointerIndex))
-                                if (draggingFibonacciEndpoint == true) fibonacciEnd = point else fibonacciStart = point
+                                fibonacciController.move(event.getX(pointerIndex), event.getY(pointerIndex))
                             }
                             invalidate()
                             return true
@@ -267,9 +252,8 @@ class DrawingOverlayView(
                         return true
                     }
                     MotionEvent.ACTION_UP -> {
-                        if (currentToolId == "fibonacci" && fibonacciDrawing) {
-                            fibonacciDrawing = false
-                            draggingFibonacciEndpoint = null
+                        if (currentToolId == "fibonacci") {
+                            fibonacciController.end()
                             activePointerId = MotionEvent.INVALID_POINTER_ID
                             invalidate()
                             return true
@@ -303,9 +287,8 @@ class DrawingOverlayView(
                         invalidate(); return true
                     }
                     MotionEvent.ACTION_CANCEL -> {
-                        if (currentToolId == "fibonacci" && fibonacciDrawing) {
-                            fibonacciDrawing = false
-                            draggingFibonacciEndpoint = null
+                        if (currentToolId == "fibonacci") {
+                            fibonacciController.cancel()
                             activePointerId = MotionEvent.INVALID_POINTER_ID
                             invalidate()
                             return true
@@ -355,7 +338,7 @@ class DrawingOverlayView(
                     if (pe != null) drawElement(canvas, pe)
                 }
                 drawGoldenGuide(canvas)
-                drawFibonacciGuide(canvas)
+                fibonacciController.renderState()?.let { fibonacciRenderer.draw(canvas, it) }
                 // drawElement() reuses drawPaint for historical elements. Restore
                 // the active tool style so a redraw cannot affect the next stroke.
                 val currentStyle = toolStyles[currentToolId]
@@ -628,39 +611,14 @@ class DrawingOverlayView(
         canvasView.invalidate()
     }
 
-    private fun isFibonacciEndpointHit(x: Float, y: Float, end: Boolean): Boolean {
-        val point = (if (end) fibonacciEnd else fibonacciStart) ?: return false
-        return hypot(point.x - x, point.y - y) <= max(24.dp.toFloat(), 16.dpf)
-    }
-
-    private fun drawFibonacciGuide(canvas: Canvas) {
-        val start = fibonacciStart ?: return
-        val end = fibonacciEnd ?: return
-        if (start.x == end.x && start.y == end.y && !fibonacciDrawing) return
-        val levels = FibonacciRetracement.levels(start, end)
-        val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE
-            pathEffect = DashPathEffect(floatArrayOf(12.dpf, 8.dpf), 0f)
-        }
-        val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            textSize = 12.dpf
-            typeface = Typeface.DEFAULT_BOLD
-        }
-        levels.forEach { level ->
-            linePaint.color = if (level.emphasized) FIBONACCI_PRIMARY_COLOR else FIBONACCI_SECONDARY_COLOR
-            linePaint.strokeWidth = if (level.emphasized) 2.dpf else 1.dpf
-            canvas.drawLine(0f, level.y, width.toFloat(), level.y, linePaint)
-            labelPaint.color = if (level.emphasized) Color.WHITE else FIBONACCI_LABEL_COLOR
-            canvas.drawText(level.label, 12.dpf, (level.y - 6.dpf).coerceAtLeast(16.dpf), labelPaint)
-        }
-        if (fibonacciDrawing) {
-            val endpointPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.WHITE
-                style = Paint.Style.FILL
-            }
-            canvas.drawCircle(start.x, start.y, 5.dpf, endpointPaint)
-            canvas.drawCircle(end.x, end.y, 5.dpf, endpointPaint)
-        }
+    private fun selectAuxiliaryTool(toolId: String) {
+        if (toolId == currentToolId) return
+        discardActiveGesture()
+        currentToolId = toolId
+        onSelectionChanged(currentToolId, currentColor)
+        refreshColorControl()
+        refreshToolIndicators()
+        canvasView.invalidate()
     }
 
     private fun toggleGoldenGuide() {
@@ -924,19 +882,26 @@ class DrawingOverlayView(
                 setTextColor(Color.WHITE)
                 gravity = Gravity.CENTER
             }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, 32.dp))
-            addView(FloatInkIconView(context, "fibonacci").apply {
+            addView(LinearLayout(context).apply {
                 tag = "fibonacci-retracement"
                 contentDescription = "斐波那契回撤"
-                layoutParams = LinearLayout.LayoutParams(actionButtonSize(), actionButtonSize())
-                setIconColor(Color.WHITE)
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(6.dp, 2.dp, 6.dp, 2.dp)
+                addView(FloatInkIconView(context, "fibonacci").apply {
+                    setIconColor(Color.WHITE)
+                }, LinearLayout.LayoutParams(actionButtonSize(), actionButtonSize()))
+                addView(TextView(context).apply {
+                    text = "斐波那契回撤"
+                    textSize = 13f
+                    setTextColor(Color.WHITE)
+                }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, actionButtonSize()))
                 setOnClickListener {
-                    discardActiveGesture()
-                    currentToolId = "fibonacci"
+                    selectAuxiliaryTool("fibonacci")
                     moreToolsPanel?.let(toolbarPopupHost::removeView)
                     moreToolsPanel = null
-                    canvasView.invalidate()
                 }
-            })
+            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, actionButtonSize()))
             addView(FloatInkIconView(context, "guide").apply {
                 tag = "golden-guide"
                 contentDescription = if (goldenGuideVisible) "隐藏黄金分割线" else "显示黄金分割线"
@@ -1516,12 +1481,6 @@ class DrawingOverlayView(
                 }
                 "rect" -> canvas.drawRoundRect(cx - r, cy - r * 0.75f, cx + r, cy + r * 0.75f, r * 0.16f, r * 0.16f, paint)
                 "circle" -> canvas.drawCircle(cx, cy, r, paint)
-                "fibonacci" -> {
-                    canvas.drawLine(cx - r, cy + r, cx + r, cy - r, paint)
-                    canvas.drawLine(cx + r, cy - r, cx + r * 0.25f, cy - r, paint)
-                    canvas.drawLine(cx + r, cy - r, cx + r, cy - r * 0.25f, paint)
-                    canvas.drawLine(cx - r, cy + r * 0.25f, cx - r, cy + r, paint)
-                }
                 "guide" -> {
                     canvas.drawLine(cx - r, cy, cx + r, cy, paint)
                     canvas.drawCircle(cx - r * 0.45f, cy, r * 0.18f, paint)
@@ -1588,6 +1547,8 @@ class DrawingOverlayView(
 
     }
 
+    internal fun fibonacciRenderStateForTest(): FibonacciRenderState? = fibonacciController.renderState()
+
     override fun onTouchEvent(event: MotionEvent?): Boolean = true
 
     private val Float.dpf: Float get() = this * density
@@ -1603,10 +1564,6 @@ class DrawingOverlayView(
         private const val GOLDEN_GUIDE_SNAP_DISTANCE = 0.018f
         private const val GOLDEN_GUIDE_COLOR = 0xFFD6A84F.toInt()
         private const val GOLDEN_GUIDE_LABEL_COLOR = 0xDD25211A.toInt()
-        private const val FIBONACCI_PRIMARY_COLOR = 0xFFE0A84B.toInt()
-        private const val FIBONACCI_SECONDARY_COLOR = 0x889E7A3A.toInt()
-        private const val FIBONACCI_LABEL_COLOR = 0xFFB99A62.toInt()
-
         val PALETTE_COLORS = PenSettings.DEFAULT_PALETTE
 
         fun resolveArrowHeadLengthDp(strokeWidthDp: Float, arrowScale: Float): Float =

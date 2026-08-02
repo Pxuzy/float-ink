@@ -37,6 +37,14 @@ class FloatInkIconView(
         val r = min(width, height) * 0.24f
         path.rewind()
         when (icon) {
+            "fibonacci" -> {
+                canvas.drawLine(cx - r, cy + r * .8f, cx + r, cy - r * .8f, paint)
+                canvas.drawCircle(cx - r, cy + r * .8f, r * .16f, paint)
+                canvas.drawCircle(cx + r, cy - r * .8f, r * .16f, paint)
+                canvas.drawLine(cx - r * .7f, cy - r * .34f, cx + r * .7f, cy - r * .34f, paint)
+                canvas.drawLine(cx - r * .7f, cy + r * .1f, cx + r * .7f, cy + r * .1f, paint)
+                canvas.drawLine(cx - r * .7f, cy + r * .5f, cx + r * .7f, cy + r * .5f, paint)
+            }
             "canvas" -> {
                 canvas.drawRoundRect(cx - r, cy - r * .72f, cx + r, cy + r * .62f, r * .1f, r * .1f, paint)
                 canvas.drawLine(cx - r * .55f, cy + r * .72f, cx - r * .78f, cy + r, paint)
