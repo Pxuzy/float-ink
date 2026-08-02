@@ -38,6 +38,39 @@ class FibonacciOverlayControllerTest {
     }
 
     @Test
+    fun `dragging move handle translates both endpoints without changing range`() {
+        val controller = FibonacciOverlayController(400f, 800f, 48f)
+        controller.begin(40f, 80f)
+        controller.move(240f, 680f)
+        controller.end()
+
+        controller.begin(140f, 380f)
+        controller.move(180f, 460f)
+        controller.end()
+
+        val state = controller.renderState()!!
+        assertPointEquals(FibonacciPoint(80f, 160f), state.start)
+        assertPointEquals(FibonacciPoint(280f, 760f), state.end)
+        assertPointEquals(FibonacciPoint(180f, 460f), state.moveHandle)
+    }
+
+    @Test
+    fun `moving near viewport edge preserves range instead of stretching it`() {
+        val controller = FibonacciOverlayController(400f, 800f, 48f)
+        controller.begin(40f, 80f)
+        controller.move(240f, 680f)
+        controller.end()
+
+        controller.begin(140f, 380f)
+        controller.move(300f, 780f)
+        controller.end()
+
+        val state = controller.renderState()!!
+        assertEquals(600f, state.end.y - state.start.y, 0.01f)
+        assertEquals(800f, state.end.y, 0.01f)
+    }
+
+    @Test
     fun `resize preserves relative endpoint positions`() {
         val controller = FibonacciOverlayController(400f, 800f, 48f)
         controller.begin(100f, 200f)

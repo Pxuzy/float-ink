@@ -46,5 +46,6 @@ class FibonacciGuideRenderer(private val density: Float) {
         canvas.drawLine(state.start.x, state.start.y, state.end.x, state.end.y, connector)
         canvas.drawCircle(state.start.x, state.start.y, 6f * density, handle)
         canvas.drawCircle(state.end.x, state.end.y, 6f * density, handle)
+        canvas.drawCircle(state.moveHandle.x, state.moveHandle.y, 8f * density, handle)
     }
 }
