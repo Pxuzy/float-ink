@@ -877,7 +877,7 @@ class DrawingOverlayView(
             }
             val overflowToolIds = configuredToolIds.drop(4)
             addView(TextView(context).apply {
-                text = "更多形状"
+                text = "辅助工具"
                 textSize = 13f
                 setTextColor(Color.WHITE)
                 gravity = Gravity.CENTER
@@ -920,6 +920,12 @@ class DrawingOverlayView(
                     }
                 }
             })
+            addView(TextView(context).apply {
+                text = "更多形状"
+                textSize = 13f
+                setTextColor(Color.WHITE)
+                gravity = Gravity.CENTER
+            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, 32.dp))
             if (overflowToolIds.isEmpty()) {
                 addView(TextView(context).apply {
                     text = "暂无更多工具"

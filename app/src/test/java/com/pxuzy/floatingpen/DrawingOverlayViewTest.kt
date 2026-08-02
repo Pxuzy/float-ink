@@ -321,6 +321,20 @@ class DrawingOverlayViewTest {
         assertTrue(view.elementsForTest().isEmpty())
     }
     @Test
+    fun `more tools separates auxiliary guides from drawing shapes`() {
+        val view = DrawingOverlayView(context, "pen", 0) {}
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
+
+        toolbar.findByTag("more-tools").performClick()
+        val panel = view.findByTag("more-tools-panel") as LinearLayout
+
+        assertEquals("辅助工具", (panel.getChildAt(0) as TextView).text)
+        assertEquals("fibonacci-retracement", panel.getChildAt(1).tag)
+        assertEquals("golden-guide", panel.getChildAt(2).tag)
+        assertEquals("更多形状", (panel.getChildAt(3) as TextView).text)
+    }
+
+    @Test
     fun `more tools panel opens and closes without rebuilding toolbar`() {
         val view = DrawingOverlayView(context, "pen", 0) {}
         val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
