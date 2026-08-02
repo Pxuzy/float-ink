@@ -1,4 +1,4 @@
-# 浮墨 · FloatInk
+# 浮墨
 
 > 面向讲课、演示与远程指导的 Android 悬浮屏幕讲解笔。
 
@@ -6,7 +6,7 @@
 [![Kotlin](https://img.shields.io/badge/Kotlin-Native-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/)
 [![Release](https://img.shields.io/github/v/release/Pxuzy/float-ink?display_name=tag&sort=semver)](https://github.com/Pxuzy/float-ink/releases)
 
-FloatInk 在获得系统悬浮窗权限后，以一个可拖动的悬浮球运行在其他应用之上。点击悬浮球即可打开透明画板，用手指或手写笔在课件、PDF、网页、视频会议或任意应用上临时标注；退出画板后立刻回到原来的应用。
+浮墨（FloatInk）在获得系统悬浮窗权限后，以一个可拖动的悬浮球运行在其他应用之上。点击悬浮球即可打开透明画板，用手指或手写笔在课件、PDF、网页、视频会议或任意应用上临时标注；退出画板后立刻回到原来的应用。
 
 - **当前版本：** `0.3.20`（`versionCode 34`）
 - **支持设备：** Android 10（API 29）及以上的手机和平板
