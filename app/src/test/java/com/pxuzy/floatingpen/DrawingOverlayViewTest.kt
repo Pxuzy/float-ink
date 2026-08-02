@@ -20,6 +20,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import com.pxuzy.floatingpen.core.DrawingElement as CoreDrawingElement
 import com.pxuzy.floatingpen.core.DrawingSession
+import com.pxuzy.floatingpen.core.FibonacciPoint
 
 @RunWith(RobolectricTestRunner::class)
 class DrawingOverlayViewTest {
@@ -287,6 +288,28 @@ class DrawingOverlayViewTest {
         assertTrue(session.currentLayer.elements.isEmpty())
     }
 
+    @Test
+    fun `fibonacci tool draws independent levels from two points`() {
+        val view = DrawingOverlayView(context, "pen", 0) {}
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
+        toolbar.findByTag("more-tools").performClick()
+        view.findByTag("fibonacci-retracement").performClick()
+
+        drawGesture(view.getChildAt(0), 20f, 100f, 80f, 500f)
+
+        assertTrue(view.elementsForTest().isEmpty())
+        assertEquals("fibonacci", view.currentToolForTest())
+        val start = view.javaClass.getDeclaredField("fibonacciStart").run {
+            isAccessible = true
+            get(view)
+        }
+        val end = view.javaClass.getDeclaredField("fibonacciEnd").run {
+            isAccessible = true
+            get(view)
+        }
+        assertEquals(FibonacciPoint(20f, 100f), start)
+        assertEquals(FibonacciPoint(80f, 500f), end)
+    }
     @Test
     fun `more tools panel opens and closes without rebuilding toolbar`() {
         val view = DrawingOverlayView(context, "pen", 0) {}
