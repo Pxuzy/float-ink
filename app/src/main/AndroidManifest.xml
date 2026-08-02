@@ -10,7 +10,7 @@
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher_floatink"
         android:roundIcon="@mipmap/ic_launcher_floatink"
-        android:label="悬浮讲解笔"
+        android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.FloatingPen">
         <activity
