@@ -43,6 +43,14 @@ keystore.properties
 
 # Local visual exploration assets
 /icon-options.png
+/artifacts/
+/current-tabler-icon-sheet.png
+/floating-icon-candidates.png
+/floatink-open-icon-comparison.png
+/app/src/main/res/drawable-nodpi/floatink_brush_original.png
+/app/src/main/res/drawable-nodpi/floatink_undo_original.png
+/app/src/main/res/drawable/ic_lucide_grip_vertical.xml
+/app/src/main/res/drawable/ic_lucide_undo_2.xml
 
 # Internal assistant continuation prompt
 /docs/CONTINUE_PROMPT.md
