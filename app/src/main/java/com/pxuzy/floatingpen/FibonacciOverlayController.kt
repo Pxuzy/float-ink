@@ -16,6 +16,8 @@ class FibonacciOverlayController(
     private var height = viewportHeight.coerceAtLeast(1f)
     private var guide: FibonacciGuide? = null
     private var gesture: Gesture = Gesture.Idle
+    private var moveStart: FibonacciPoint? = null
+    private var guideStartAtMove: FibonacciGuide? = null
 
     fun begin(x: Float, y: Float): Boolean {
         val existing = guide
@@ -26,6 +28,11 @@ class FibonacciOverlayController(
             }
             isHit(existing.end, x, y) -> Gesture.DraggingEnd
             isHit(existing.start, x, y) -> Gesture.DraggingStart
+            isHit(existing.moveHandle(), x, y) -> {
+                moveStart = FibonacciPoint(x, y)
+                guideStartAtMove = existing
+                Gesture.Moving
+            }
             else -> {
                 guide = FibonacciGuide(pointFraction(x, y), pointFraction(x, y))
                 Gesture.Creating
@@ -40,22 +47,15 @@ class FibonacciOverlayController(
         guide = when (gesture) {
             Gesture.Creating, Gesture.DraggingEnd -> activeGuide.copy(end = point)
             Gesture.DraggingStart -> activeGuide.copy(start = point)
+            Gesture.Moving -> moveGuide(x, y)
             Gesture.Idle -> return false
         }
         return true
     }
 
-    fun end(): Boolean {
-        if (gesture == Gesture.Idle) return false
-        gesture = Gesture.Idle
-        return true
-    }
+    fun end(): Boolean = finishGesture()
 
-    fun cancel(): Boolean {
-        if (gesture == Gesture.Idle) return false
-        gesture = Gesture.Idle
-        return true
-    }
+    fun cancel(): Boolean = finishGesture()
 
     fun resize(viewportWidth: Float, viewportHeight: Float) {
         width = viewportWidth.coerceAtLeast(1f)
@@ -67,10 +67,19 @@ class FibonacciOverlayController(
         return FibonacciRenderState(
             start = activeGuide.start.resolve(width, height),
             end = activeGuide.end.resolve(width, height),
+            moveHandle = activeGuide.moveHandle().resolve(width, height),
             selected = true,
             handlesVisible = true,
             creating = gesture == Gesture.Creating,
         )
+    }
+
+    private fun finishGesture(): Boolean {
+        if (gesture == Gesture.Idle) return false
+        gesture = Gesture.Idle
+        moveStart = null
+        guideStartAtMove = null
+        return true
     }
 
     private fun pointFraction(x: Float, y: Float) = FibonacciPointFraction(
@@ -83,18 +92,43 @@ class FibonacciOverlayController(
         return hypot(pixel.x - x, pixel.y - y) <= hitRadiusPx
     }
 
+    private fun moveGuide(x: Float, y: Float): FibonacciGuide {
+        val origin = guideStartAtMove ?: return requireNotNull(guide)
+        val startTouch = moveStart ?: return origin
+        val requestedDx = (x - startTouch.x) / width
+        val requestedDy = (y - startTouch.y) / height
+        val dx = requestedDx.coerceIn(
+            -minOf(origin.start.x, origin.end.x),
+            1f - maxOf(origin.start.x, origin.end.x),
+        )
+        val dy = requestedDy.coerceIn(
+            -minOf(origin.start.y, origin.end.y),
+            1f - maxOf(origin.start.y, origin.end.y),
+        )
+        return FibonacciGuide(
+            start = FibonacciPointFraction(origin.start.x + dx, origin.start.y + dy),
+            end = FibonacciPointFraction(origin.end.x + dx, origin.end.y + dy),
+        )
+    }
+
     private sealed interface Gesture {
         data object Idle : Gesture
         data object Creating : Gesture
         data object DraggingStart : Gesture
         data object DraggingEnd : Gesture
+        data object Moving : Gesture
     }
 }
 
 data class FibonacciGuide(
     val start: FibonacciPointFraction,
     val end: FibonacciPointFraction,
-)
+) {
+    fun moveHandle() = FibonacciPointFraction(
+        x = (start.x + end.x) / 2f,
+        y = (start.y + end.y) / 2f,
+    )
+}
 
 data class FibonacciPointFraction(
     val x: Float,
@@ -106,6 +140,7 @@ data class FibonacciPointFraction(
 data class FibonacciRenderState(
     val start: FibonacciPoint,
     val end: FibonacciPoint,
+    val moveHandle: FibonacciPoint,
     val selected: Boolean,
     val handlesVisible: Boolean,
     val creating: Boolean,

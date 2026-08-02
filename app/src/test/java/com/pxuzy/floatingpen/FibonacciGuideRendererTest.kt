@@ -13,6 +13,7 @@ class FibonacciGuideRendererTest {
         val state = FibonacciRenderState(
             start = FibonacciPoint(40f, 80f),
             end = FibonacciPoint(240f, 680f),
+            moveHandle = FibonacciPoint(140f, 380f),
             selected = true,
             handlesVisible = true,
             creating = false,

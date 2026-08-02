@@ -311,13 +311,24 @@ class DrawingOverlayViewTest {
         assertEquals(100f, state.start.y, 0.01f)
         assertEquals(80f, state.end.x, 0.01f)
         assertEquals(500f, state.end.y, 0.01f)
+        assertEquals(50f, state.moveHandle.x, 0.01f)
+        assertEquals(300f, state.moveHandle.y, 0.01f)
 
-        drawGesture(canvas, 80f, 500f, 140f, 420f)
+        drawGesture(canvas, 50f, 300f, 110f, 420f)
+        val moved = view.fibonacciRenderStateForTest()!!
+        assertEquals(80f, moved.start.x, 0.01f)
+        assertEquals(220f, moved.start.y, 0.01f)
+        assertEquals(140f, moved.end.x, 0.01f)
+        assertEquals(620f, moved.end.y, 0.01f)
+        assertEquals(110f, moved.moveHandle.x, 0.01f)
+        assertEquals(420f, moved.moveHandle.y, 0.01f)
+
+        drawGesture(canvas, 140f, 620f, 200f, 540f)
         val adjusted = view.fibonacciRenderStateForTest()!!
-        assertEquals(20f, adjusted.start.x, 0.01f)
-        assertEquals(100f, adjusted.start.y, 0.01f)
-        assertEquals(140f, adjusted.end.x, 0.01f)
-        assertEquals(420f, adjusted.end.y, 0.01f)
+        assertEquals(80f, adjusted.start.x, 0.01f)
+        assertEquals(220f, adjusted.start.y, 0.01f)
+        assertEquals(200f, adjusted.end.x, 0.01f)
+        assertEquals(540f, adjusted.end.y, 0.01f)
         assertTrue(view.elementsForTest().isEmpty())
     }
     @Test
