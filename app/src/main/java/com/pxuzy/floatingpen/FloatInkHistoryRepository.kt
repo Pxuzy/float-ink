@@ -40,10 +40,8 @@ class FloatInkHistoryRepository(private val context: Context) {
         val source = FloatInkStorage.sessionFile(context, sessionId)
         if (!source.exists()) return false
         val target = File(trash, source.name)
-        source.copyTo(target, overwrite = true)
-        File(source.path + ".bak").takeIf { it.exists() }?.copyTo(File(target.path + ".bak"), overwrite = true)
-        source.delete()
-        File(source.path + ".bak").delete()
+        copySessionArtifacts(source, target, overwrite = true)
+        deleteSessionArtifacts(source)
         return true
     }
 
@@ -51,10 +49,8 @@ class FloatInkHistoryRepository(private val context: Context) {
         val source = File(trash, "$sessionId.floatink")
         if (!source.exists()) return false
         val target = FloatInkStorage.sessionFile(context, sessionId)
-        source.copyTo(target, overwrite = true)
-        File(source.path + ".bak").takeIf { it.exists() }?.copyTo(File(target.path + ".bak"), overwrite = true)
-        source.delete()
-        File(source.path + ".bak").delete()
+        copySessionArtifacts(source, target, overwrite = true)
+        deleteSessionArtifacts(source)
         return true
     }
 
@@ -67,8 +63,7 @@ class FloatInkHistoryRepository(private val context: Context) {
         if (!source.exists()) return null
         val newId = "session-${UUID.randomUUID()}"
         val target = FloatInkStorage.sessionFile(context, newId)
-        source.copyTo(target)
-        File(source.path + ".bak").takeIf { it.exists() }?.copyTo(File(target.path + ".bak"))
+        copySessionArtifacts(source, target)
         val originalName = readIndex().optString(sessionId, sessionId)
         register(newId, "$originalName 副本")
         return list().first { it.sessionId == newId }
@@ -84,15 +79,29 @@ class FloatInkHistoryRepository(private val context: Context) {
         return list().first { it.sessionId == newId }
     }
 
-    private fun listFiles(directory: File): List<FloatInkHistoryEntry> =
-        directory.listFiles()
+    private fun listFiles(directory: File): List<FloatInkHistoryEntry> {
+        val index = readIndex()
+        return directory.listFiles()
             ?.filter { it.isFile && it.extension == "floatink" }
             ?.map { file ->
                 val id = file.nameWithoutExtension
-                FloatInkHistoryEntry(id, readIndex().optString(id, id), file, file.lastModified(), file.length())
+                FloatInkHistoryEntry(id, index.optString(id, id), file, file.lastModified(), file.length())
             }
             ?.sortedByDescending { it.modifiedAt }
             ?: emptyList()
+    }
+
+    private fun copySessionArtifacts(source: File, target: File, overwrite: Boolean = false) {
+        source.copyTo(target, overwrite = overwrite)
+        File(source.path + ".bak")
+            .takeIf(File::exists)
+            ?.copyTo(File(target.path + ".bak"), overwrite = overwrite)
+    }
+
+    private fun deleteSessionArtifacts(file: File) {
+        file.delete()
+        File(file.path + ".bak").delete()
+    }
 
     private fun readIndex(): JSONObject = runCatching {
         if (indexFile.exists()) JSONObject(indexFile.readText(Charsets.UTF_8)) else JSONObject()
