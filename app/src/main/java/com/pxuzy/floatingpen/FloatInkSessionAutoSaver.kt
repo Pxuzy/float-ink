@@ -29,11 +29,6 @@ class FloatInkSessionAutoSaver(
         executor.execute { save(session, sessionId) }
     }
 
-    fun saveNow() {
-        dirty = true
-        saveNowIfDirty()
-    }
-
     fun close(): Boolean {
         handler.removeCallbacksAndMessages(null)
         saveNowIfDirty()
