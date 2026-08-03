@@ -81,6 +81,12 @@ class DrawingOverlayView(
         colorLabel = ::colorLabel,
         onClick = ::toggleColorPanel,
     )
+    private val toolbarActionButtonBuilder = ToolbarActionButtonBuilder(
+        context = context,
+        density = density,
+        compactLayout = { compactLayout },
+        toolbarButtonSizeDp = ::currentToolbarButtonSizeDp,
+    )
     private val sampleDistanceSquared = (1.5f * density) * (1.5f * density)
     private var elements: MutableList<DrawingElement> = drawingSession.currentLayer.elements
     private var sx = 0f; private var sy = 0f; private var cx = 0f; private var cy = 0f
@@ -699,32 +705,12 @@ class DrawingOverlayView(
         }
     }
 
-    private fun createActionBtn(icon: String, action: () -> Unit): View {
-        return ToolIconView(context, icon).apply {
-            contentDescription = when (icon) {
-                "undo" -> "撤销"
-                "clear" -> "清空"
-                "more" -> "更多工具"
-                "canvas" -> "选择画板和图层"
-                else -> "退出"
-            }
-            val horizontalPadding = (toolbarButtonSizeDp * if (compactLayout) 0.08f else 0.12f).dp.toInt()
-            val verticalPadding = (toolbarButtonSizeDp * if (compactLayout) 0.06f else 0.08f).dp.toInt()
-            setMinimumWidth(0)
-            setMinimumHeight(0)
-            minimumWidth = 0
-            minimumHeight = 0
-            setPadding(horizontalPadding, verticalPadding, horizontalPadding, verticalPadding)
-            setOnClickListener { action() }
-            background = GradientDrawable().apply {
-                setColor(Color.TRANSPARENT)
-                cornerRadius = 6.dpf
-            }
-                layoutParams = LinearLayout.LayoutParams(actionButtonSize(), actionButtonSize()).apply { marginStart = 2.dp }
-        }
-    }
+    private fun createActionBtn(icon: String, action: () -> Unit): View =
+        toolbarActionButtonBuilder.build(icon, action)
 
     private fun actionButtonSize(): Int = toolbarButtonSizeDp.dp
+
+    private fun currentToolbarButtonSizeDp(): Int = toolbarButtonSizeDp
 
     private fun positionPopupAboveToolbar(popup: View) {
         val toolbar = toolbarPopupHost.findViewWithTag<View>("monochrome-toolbar") ?: return
