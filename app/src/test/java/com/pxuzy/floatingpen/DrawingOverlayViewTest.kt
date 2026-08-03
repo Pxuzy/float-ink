@@ -26,6 +26,17 @@ class DrawingOverlayViewTest {
     private val context: Application = ApplicationProvider.getApplicationContext()
 
     @Test
+    fun `completed gesture notifies session persistence without waiting for a redraw`() {
+        var changes = 0
+        val view = DrawingOverlayView(context, "line", 0, onSessionChanged = { changes++ }) {}
+
+        drawGesture(view.getChildAt(0), 10f, 10f, 40f, 40f)
+
+        assertEquals(1, changes)
+        assertEquals(1, view.elementsForTest().size)
+    }
+
+    @Test
     fun `drawing session survives overlay recreation while keeping elements`() {
         val session = DrawingSession()
         val first = DrawingOverlayView(context, "pen", 0, drawingSession = session) {}

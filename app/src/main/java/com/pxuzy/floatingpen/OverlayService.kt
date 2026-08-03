@@ -99,8 +99,12 @@ class OverlayService : Service() {
         removeBubble()
         getSharedPreferences(PREF_NAME, MODE_PRIVATE)
             .edit().putBoolean(PREF_KEY_SERVICE_RUNNING, false).apply()
-        sessionAutoSaver.close()
-        drawingSession.clear()
+        val saved = sessionAutoSaver.close()
+        if (saved) {
+            drawingSession.clear()
+        } else {
+            android.util.Log.e("OverlayService", "自动保存未完成，保留临时会话避免丢失笔迹")
+        }
         super.onDestroy()
     }
 
@@ -206,8 +210,12 @@ class OverlayService : Service() {
         // Clear running state so MainActivity shows correct UI
         getSharedPreferences(PREF_NAME, MODE_PRIVATE)
             .edit().putBoolean(PREF_KEY_SERVICE_RUNNING, false).apply()
-        sessionAutoSaver.close()
-        drawingSession.clear()
+        val saved = sessionAutoSaver.close()
+        if (saved) {
+            drawingSession.clear()
+        } else {
+            android.util.Log.e("OverlayService", "自动保存未完成，保留临时会话避免丢失笔迹")
+        }
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }

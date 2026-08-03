@@ -42,5 +42,6 @@ class FloatInkSessionAutoSaverTest {
         allowSaveToFinish.countDown()
         assertTrue(closeReturned.await(2, TimeUnit.SECONDS))
         closeThread.join(2_000)
+        assertFalse(closeThread.isAlive)
     }
 }

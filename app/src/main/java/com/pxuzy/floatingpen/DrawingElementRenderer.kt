@@ -46,6 +46,37 @@ class DrawingElementRenderer(
         }
     }
 
+    fun drawPreview(
+        canvas: Canvas,
+        toolId: String,
+        startX: Float,
+        startY: Float,
+        endX: Float,
+        endY: Float,
+        color: Int,
+        strokeWidth: Float,
+        arrowHeadLengthDp: Float,
+    ) {
+        paint.color = color
+        paint.strokeWidth = strokeWidth
+        when (toolId) {
+            "line" -> canvas.drawLine(startX, startY, endX, endY, paint)
+            "arrow" -> drawArrow(canvas, startX, startY, endX, endY, arrowHeadLengthDp * density)
+            "rect" -> canvas.drawRect(
+                minOf(startX, endX),
+                minOf(startY, endY),
+                maxOf(startX, endX),
+                maxOf(startY, endY),
+                paint,
+            )
+            "circle" -> canvas.drawCircle(
+                startX,
+                startY,
+                maxOf(kotlin.math.abs(endX - startX), kotlin.math.abs(endY - startY)),
+                paint,
+            )
+        }
+    }
     private fun drawStroke(canvas: Canvas, stroke: DrawingElement.Stroke) {
         if (stroke.points.size < 2) return
         strokePath.rewind()
@@ -56,25 +87,31 @@ class DrawingElementRenderer(
         canvas.drawPath(strokePath, paint)
     }
 
-    private fun drawArrow(canvas: Canvas, arrow: DrawingElement.Arrow) {
-        val headLength = arrow.headLengthDp * density
-        val base = ArrowGeometry.headBasePoint(
-            arrow.start.first,
-            arrow.start.second,
-            arrow.end.first,
-            arrow.end.second,
-            headLength,
-        )
-        canvas.drawLine(arrow.start.first, arrow.start.second, base.first, base.second, paint)
-        val angle = atan2(
-            (arrow.end.second - arrow.start.second).toDouble(),
-            (arrow.end.first - arrow.start.first).toDouble(),
-        )
+    private fun drawArrow(canvas: Canvas, arrow: DrawingElement.Arrow) = drawArrow(
+        canvas,
+        arrow.start.first,
+        arrow.start.second,
+        arrow.end.first,
+        arrow.end.second,
+        arrow.headLengthDp * density,
+    )
+
+    private fun drawArrow(
+        canvas: Canvas,
+        startX: Float,
+        startY: Float,
+        endX: Float,
+        endY: Float,
+        headLength: Float,
+    ) {
+        val base = ArrowGeometry.headBasePoint(startX, startY, endX, endY, headLength)
+        canvas.drawLine(startX, startY, base.first, base.second, paint)
+        val angle = atan2((endY - startY).toDouble(), (endX - startX).toDouble())
         val halfWidth = headLength * 0.45f
         val perpendicularX = (-sin(angle) * halfWidth).toFloat()
         val perpendicularY = (cos(angle) * halfWidth).toFloat()
         arrowHeadPath.rewind()
-        arrowHeadPath.moveTo(arrow.end.first, arrow.end.second)
+        arrowHeadPath.moveTo(endX, endY)
         arrowHeadPath.lineTo(base.first + perpendicularX, base.second + perpendicularY)
         arrowHeadPath.lineTo(base.first - perpendicularX, base.second - perpendicularY)
         arrowHeadPath.close()
