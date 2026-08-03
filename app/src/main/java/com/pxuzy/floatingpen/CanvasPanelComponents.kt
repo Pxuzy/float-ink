@@ -7,6 +7,8 @@ import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.pxuzy.floatingpen.core.DrawingBoard
+import com.pxuzy.floatingpen.core.DrawingLayer
 
 /** Builds shared board/layer panel controls without owning session state. */
 class CanvasPanelComponents(
@@ -53,5 +55,80 @@ class CanvasPanelComponents(
         setColor(if (selected) Color.argb(40, 255, 255, 255) else Color.TRANSPARENT)
         cornerRadius = 8.dpf
         if (selected) setStroke(1.dpf.toInt(), Color.argb(92, 255, 255, 255))
+    }
+
+    fun boardRow(
+        board: DrawingBoard,
+        selected: Boolean,
+        onOverflow: () -> Unit,
+        onSelected: () -> Unit,
+    ): View = LinearLayout(context).apply {
+        tag = if (selected) "board-selected:${board.id}" else "board:${board.id}"
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(6.dp, 0, 2.dp, 0)
+        background = rowBackground(selected)
+        addView(FloatInkIconView(context, "canvas").apply {
+            layoutParams = LinearLayout.LayoutParams(28.dp, 28.dp).apply { marginEnd = 8.dp }
+        })
+        addView(TextView(context).apply {
+            text = board.name
+            textSize = 13f
+            setTextColor(if (selected) Color.WHITE else Color.parseColor("#D2D8E0"))
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, 40.dp, 1f)
+        })
+        addView(overflowButton("canvas-menu-board:${board.id}", onOverflow))
+        setOnClickListener { onSelected() }
+    }
+
+    fun layerRow(
+        layer: DrawingLayer,
+        selected: Boolean,
+        markerColor: Int,
+        onVisibilityChanged: () -> Unit,
+        onOverflow: () -> Unit,
+        onSelected: () -> Unit,
+        onLongClick: () -> Boolean,
+    ): View = LinearLayout(context).apply {
+        tag = "layer:${layer.id}"
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(6.dp, 0, 2.dp, 0)
+        addView(View(context).apply {
+            tag = "layer-color:${layer.id}"
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(markerColor)
+                setStroke(1.dpf.toInt(), Color.argb(150, 255, 255, 255))
+            }
+        }, LinearLayout.LayoutParams(18.dp, 18.dp).apply { marginEnd = 8.dp })
+        background = rowBackground(selected)
+        addView(FloatInkIconView(context, "layer").apply {
+            layoutParams = LinearLayout.LayoutParams(28.dp, 28.dp).apply { marginEnd = 6.dp }
+        })
+        addView(TextView(context).apply {
+            text = layer.name
+            textSize = 13f
+            setTextColor(
+                when {
+                    selected -> Color.WHITE
+                    layer.visible -> Color.parseColor("#D2D8E0")
+                    else -> Color.parseColor("#718096")
+                },
+            )
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, 40.dp, 1f)
+        })
+        addView(FloatInkIconView(context, if (layer.visible) "eye" else "eye-off").apply {
+            tag = "layer-visibility:${layer.id}"
+            contentDescription = if (layer.visible) "图层可见" else "图层隐藏"
+            layoutParams = LinearLayout.LayoutParams(36.dp, 40.dp)
+            setIconColor(Color.parseColor("#B7C0CC"))
+            setOnClickListener { onVisibilityChanged() }
+        })
+        addView(overflowButton("canvas-menu-layer:${layer.id}", onOverflow))
+        setOnClickListener { onSelected() }
+        setOnLongClickListener { onLongClick() }
     }
 }
