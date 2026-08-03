@@ -30,7 +30,6 @@ class FloatingBubbleView(context: Context, private val onTap: () -> Unit, privat
         private const val STATUS_SAFE = 48
         private const val TAP_THRESHOLD = 8
         private const val LONG_PRESS_MS = 400L
-        private const val HIDE_DELAY_MS = 1500L
     }
 
     private var isHidden = false
@@ -40,7 +39,6 @@ class FloatingBubbleView(context: Context, private val onTap: () -> Unit, privat
 
     private var winX = 0f; private var winY = 0f
     private var touchDownRawX = 0f; private var touchDownRawY = 0f
-    private var touchDownTime = 0L
 
     private val density = resources.displayMetrics.density
     private var bubbleSizeDp = PenSettings.DEFAULT_BUBBLE_SIZE_DP
@@ -63,10 +61,6 @@ class FloatingBubbleView(context: Context, private val onTap: () -> Unit, privat
     }
     private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.argb(96, 255, 255, 255); strokeWidth = 1.2f * density; style = Paint.Style.STROKE
-    }
-    private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE; strokeWidth = 2.0f * density; style = Paint.Style.STROKE
-        strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
     }
     private val accentPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = accentColor; style = Paint.Style.FILL
@@ -225,7 +219,6 @@ class FloatingBubbleView(context: Context, private val onTap: () -> Unit, privat
                 winX = lp.x.toFloat()
                 winY = lp.y.toFloat()
                 touchDownRawX = event.rawX; touchDownRawY = event.rawY
-                touchDownTime = System.currentTimeMillis()
                 isDragging = false; isLongPressed = false
                 isPressed = true
 
