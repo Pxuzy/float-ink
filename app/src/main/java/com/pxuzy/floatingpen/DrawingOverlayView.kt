@@ -964,33 +964,20 @@ class DrawingOverlayView(
             orientation = LinearLayout.VERTICAL
         }
         drawingSession.boards.forEach { board ->
-            val boardRow = LinearLayout(context).apply {
-                tag = if (board.id == drawingSession.currentBoard.id) "board-selected:${board.id}" else "board:${board.id}"
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(6.dp, 0, 2.dp, 0)
-                background = canvasPanelComponents.rowBackground(board.id == drawingSession.currentBoard.id)
-                addView(FloatInkIconView(context, "canvas").apply {
-                    layoutParams = LinearLayout.LayoutParams(28.dp, 28.dp).apply { marginEnd = 8.dp }
-                })
-                addView(TextView(context).apply {
-                    text = board.name
-                    textSize = 13f
-                    setTextColor(if (board.id == drawingSession.currentBoard.id) Color.WHITE else Color.parseColor("#D2D8E0"))
-                    gravity = Gravity.CENTER_VERTICAL
-                    layoutParams = LinearLayout.LayoutParams(0, 40.dp, 1f)
-                })
-                addView(canvasPanelComponents.overflowButton("canvas-menu-board:${board.id}") {
+            val boardRow = canvasPanelComponents.boardRow(
+                board = board,
+                selected = board.id == drawingSession.currentBoard.id,
+                onOverflow = {
                     showCanvasTargetMenu(false, board.id)
-                })
-                setOnClickListener {
+                },
+                onSelected = {
                     discardActiveGesture(); drawingSession.selectBoard(board.id)
                     dismissRestoreClearBar(discardSnapshot = false)
                     elements = drawingSession.currentLayer.elements
                     onSessionChanged()
                     toolbarPopupHost.removeView(panel); canvasPanel = null; canvasView.invalidate()
-                }
-            }
+                },
+            )
             boardListContent.addView(boardRow)
         }
         val layerSection = LinearLayout(context).apply {
@@ -1007,66 +994,33 @@ class DrawingOverlayView(
             orientation = LinearLayout.VERTICAL
         }
         drawingSession.currentBoard.layers.forEach { layer ->
-            val layerRow = LinearLayout(context).apply {
-                tag = "layer:${layer.id}"
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(6.dp, 0, 2.dp, 0)
-                val markerColor = layer.elements.lastOrNull()?.drawColor ?: currentColor
-                addView(View(context).apply {
-                    tag = "layer-color:${layer.id}"
-                    background = GradientDrawable().apply {
-                        shape = GradientDrawable.OVAL
-                        setColor(markerColor)
-                        setStroke(1.dpf.toInt(), Color.argb(150, 255, 255, 255))
-                    }
-                }, LinearLayout.LayoutParams(18.dp, 18.dp).apply { marginEnd = 8.dp })
-                background = canvasPanelComponents.rowBackground(layer.id == drawingSession.currentLayer.id)
-                addView(FloatInkIconView(context, "layer").apply {
-                    layoutParams = LinearLayout.LayoutParams(28.dp, 28.dp).apply { marginEnd = 6.dp }
-                })
-                addView(TextView(context).apply {
-                    text = layer.name
-                    textSize = 13f
-                    setTextColor(
-                        when {
-                            layer.id == drawingSession.currentLayer.id -> Color.WHITE
-                            layer.visible -> Color.parseColor("#D2D8E0")
-                            else -> Color.parseColor("#718096")
-                        },
-                    )
-                    gravity = Gravity.CENTER_VERTICAL
-                    layoutParams = LinearLayout.LayoutParams(0, 40.dp, 1f)
-                })
-                addView(FloatInkIconView(context, if (layer.visible) "eye" else "eye-off").apply {
-                    tag = "layer-visibility:${layer.id}"
-                    contentDescription = if (layer.visible) "图层可见" else "图层隐藏"
-                    layoutParams = LinearLayout.LayoutParams(36.dp, 40.dp)
-                    setIconColor(Color.parseColor("#B7C0CC"))
-                    setOnClickListener {
-                        drawingSession.setLayerVisible(layer.id, !layer.visible)
-                        onSessionChanged()
-                        rebuildCanvasPanel(); canvasView.invalidate()
-                    }
-                })
-                addView(canvasPanelComponents.overflowButton("canvas-menu-layer:${layer.id}") {
+            val layerRow = canvasPanelComponents.layerRow(
+                layer = layer,
+                selected = layer.id == drawingSession.currentLayer.id,
+                markerColor = layer.elements.lastOrNull()?.drawColor ?: currentColor,
+                onVisibilityChanged = {
+                    drawingSession.setLayerVisible(layer.id, !layer.visible)
+                    onSessionChanged()
+                    rebuildCanvasPanel(); canvasView.invalidate()
+                },
+                onOverflow = {
                     showCanvasTargetMenu(true, layer.id)
-                })
-                setOnClickListener {
+                },
+                onSelected = {
                     discardActiveGesture(); drawingSession.selectLayer(layer.id)
                     dismissRestoreClearBar(discardSnapshot = false)
                     elements = drawingSession.currentLayer.elements
                     onSessionChanged()
                     rebuildCanvasPanel(); canvasView.invalidate()
-                }
-                setOnLongClickListener {
+                },
+                onLongClick = {
                     drawingSession.moveLayer(layer.id, 0)
                     onSessionChanged()
                     rebuildCanvasPanel()
                     canvasView.invalidate()
                     true
-                }
-            }
+                },
+            )
             layerListContent.addView(layerRow)
         }
         val maxPanelHeight = ((resources.configuration.screenHeightDp.takeIf { it > 0 } ?: 640) * 0.55f).toInt().dp
