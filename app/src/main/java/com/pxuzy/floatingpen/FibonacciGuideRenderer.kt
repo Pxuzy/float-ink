@@ -11,17 +11,27 @@ class FibonacciGuideRenderer(private val density: Float) {
     private val primaryColor = 0xFFE0A84B.toInt()
     private val secondaryColor = 0xCCB99A62.toInt()
     private val handleColor = Color.WHITE
+    private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        pathEffect = DashPathEffect(floatArrayOf(10f * density, 6f * density), 0f)
+    }
+    private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textSize = 12f * density
+        typeface = android.graphics.Typeface.DEFAULT_BOLD
+    }
+    private val connectorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = primaryColor
+        style = Paint.Style.STROKE
+        strokeWidth = density
+        strokeCap = Paint.Cap.ROUND
+    }
+    private val handlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = handleColor
+        style = Paint.Style.FILL
+    }
 
     fun draw(canvas: Canvas, state: FibonacciRenderState) {
-        val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE
-            strokeCap = Paint.Cap.ROUND
-            pathEffect = DashPathEffect(floatArrayOf(10f * density, 6f * density), 0f)
-        }
-        val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            textSize = 12f * density
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
-        }
         FibonacciRetracement.levels(state.start, state.end).forEach { level ->
             linePaint.color = if (level.emphasized) primaryColor else secondaryColor
             linePaint.strokeWidth = if (level.emphasized) 2f * density else density
@@ -33,19 +43,9 @@ class FibonacciGuideRenderer(private val density: Float) {
     }
 
     private fun drawHandles(canvas: Canvas, state: FibonacciRenderState) {
-        val connector = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = primaryColor
-            style = Paint.Style.STROKE
-            strokeWidth = density
-            strokeCap = Paint.Cap.ROUND
-        }
-        val handle = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = handleColor
-            style = Paint.Style.FILL
-        }
-        canvas.drawLine(state.start.x, state.start.y, state.end.x, state.end.y, connector)
-        canvas.drawCircle(state.start.x, state.start.y, 6f * density, handle)
-        canvas.drawCircle(state.end.x, state.end.y, 6f * density, handle)
-        canvas.drawCircle(state.moveHandle.x, state.moveHandle.y, 8f * density, handle)
+        canvas.drawLine(state.start.x, state.start.y, state.end.x, state.end.y, connectorPaint)
+        canvas.drawCircle(state.start.x, state.start.y, 6f * density, handlePaint)
+        canvas.drawCircle(state.end.x, state.end.y, 6f * density, handlePaint)
+        canvas.drawCircle(state.moveHandle.x, state.moveHandle.y, 8f * density, handlePaint)
     }
 }
