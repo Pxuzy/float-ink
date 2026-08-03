@@ -62,7 +62,10 @@ check_tag_version() {
 
   tag="${local_ref#refs/tags/v}"
   version_name="$(extract_version "$new" app/build.gradle.kts '^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"([^"]+)"')"
-  readme_version="$(extract_version "$new" README.md '^- 当前版本：`([^`]+)`.*$')"
+  readme_version="$(extract_version "$new" README.md '^-[[:space:]]+\*\*当前版本：\*\*[[:space:]]*`([^`]+)`.*$')"
+  if [[ -z "$readme_version" ]]; then
+    readme_version="$(extract_version "$new" README.md '^-[[:space:]]+当前版本：[[:space:]]*`([^`]+)`.*$')"
+  fi
   version_code="$(extract_version "$new" app/build.gradle.kts '^[[:space:]]*versionCode[[:space:]]*=[[:space:]]*([0-9]+)')"
   old_version_code="$(extract_version "$old" app/build.gradle.kts '^[[:space:]]*versionCode[[:space:]]*=[[:space:]]*([0-9]+)')"
 
