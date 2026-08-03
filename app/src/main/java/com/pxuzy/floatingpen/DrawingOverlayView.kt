@@ -680,9 +680,9 @@ class DrawingOverlayView(
         if (childCount < 2) return
         val restoreColorPanel = colorPanel != null
         val restoreMorePanel = moreToolsPanel != null
-        colorPanel?.let { toolbarPopupHost.removeView(it); colorPanel = null }
-        moreToolsPanel?.let { toolbarPopupHost.removeView(it); moreToolsPanel = null }
-        canvasPanel?.let { toolbarPopupHost.removeView(it); canvasPanel = null }
+        closeColorPanel()
+        closeMoreToolsPanel()
+        closeCanvasPanel()
         toolbarPopupHost.findViewWithTag<View>("monochrome-toolbar")?.let(toolbarPopupHost::removeView)
         toolbarPopupHost.addView(buildToolbar())
         when {
@@ -813,18 +813,31 @@ class DrawingOverlayView(
         popup.layoutParams = params
     }
 
+    private fun closePanel(panel: View?, clear: (View?) -> Unit) {
+        panel?.let(toolbarPopupHost::removeView)
+        clear(null)
+    }
+
+    private fun closeColorPanel() {
+        closePanel(colorPanel) { colorPanel = it }
+    }
+
+    private fun closeMoreToolsPanel() {
+        closePanel(moreToolsPanel) { moreToolsPanel = it }
+    }
+
+    private fun closeCanvasPanel() {
+        closePanel(canvasPanel) { canvasPanel = it }
+    }
+
     private fun toggleMoreTools() {
         finishTextInputMode()
         moreToolsPanel?.let {
-            toolbarPopupHost.removeView(it)
-            moreToolsPanel = null
+            closeMoreToolsPanel()
             return
         }
-        colorPanel?.let {
-            toolbarPopupHost.removeView(it)
-            colorPanel = null
-        }
-        canvasPanel?.let { toolbarPopupHost.removeView(it); canvasPanel = null }
+        closeColorPanel()
+        closeCanvasPanel()
         val panel = LinearLayout(context).apply {
             tag = "more-tools-panel"
             orientation = LinearLayout.VERTICAL
@@ -918,9 +931,12 @@ class DrawingOverlayView(
 
     private fun toggleCanvasPanel() {
         finishTextInputMode()
-        canvasPanel?.let { toolbarPopupHost.removeView(it); canvasPanel = null; return }
-        colorPanel?.let { toolbarPopupHost.removeView(it); colorPanel = null }
-        moreToolsPanel?.let { toolbarPopupHost.removeView(it); moreToolsPanel = null }
+        canvasPanel?.let {
+            closeCanvasPanel()
+            return
+        }
+        closeColorPanel()
+        closeMoreToolsPanel()
         val availablePanelWidth = (((windowWidthDp.takeIf { it > 0 } ?: 360) * density).toInt() - 16.dp).coerceAtLeast(1)
         val panelWidth = minOf(360.dp, availablePanelWidth)
         val panel = LinearLayout(context).apply {
@@ -1277,11 +1293,9 @@ class DrawingOverlayView(
             colorPanel = null
             return
         }
-        moreToolsPanel?.let {
-            toolbarPopupHost.removeView(it)
-            moreToolsPanel = null
-        }
-        canvasPanel?.let { toolbarPopupHost.removeView(it); canvasPanel = null }
+        closeColorPanel()
+        closeMoreToolsPanel()
+        closeCanvasPanel()
         val panel = buildColorPanel()
         colorPanel = panel
         toolbarPopupHost.addView(panel)
