@@ -8,7 +8,7 @@
 
 浮墨（FloatInk）在获得系统悬浮窗权限后，以一个可拖动的悬浮球运行在其他应用之上。点击悬浮球即可打开透明画板，用手指或手写笔在课件、PDF、网页、视频会议或任意应用上临时标注；退出画板后立刻回到原来的应用。
 
-- **当前版本：** `0.3.20`（`versionCode 34`）
+- **当前版本：** `0.3.21`（`versionCode 35`）
 - **支持设备：** Android 10（API 29）及以上的手机和平板
 - **正式下载：** [GitHub Releases](https://github.com/Pxuzy/float-ink/releases/latest)
 - **应用包名：** `com.pxuzy.floatingpen`
