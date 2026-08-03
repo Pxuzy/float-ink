@@ -12,7 +12,13 @@ while read -r LOCAL_REF LOCAL_OID REMOTE_REF REMOTE_OID; do
   if [[ "$REMOTE_OID" == "0000000000000000000000000000000000000000" ]]; then
     if [[ "$LOCAL_REF" == refs/tags/v* ]]; then
       TAG_COMMIT="$(git rev-parse "$LOCAL_OID^{}")"
-      OLD="$(git rev-parse "$TAG_COMMIT^")"
+      TAG_NAME="${LOCAL_REF#refs/tags/}"
+      PREVIOUS_TAG="$(git tag --merged "$TAG_COMMIT" --list 'v*' --sort=-version:refname | grep -Fxv "$TAG_NAME" | head -n1 || true)"
+      if [[ -n "$PREVIOUS_TAG" ]]; then
+        OLD="$(git rev-parse "$PREVIOUS_TAG^{}")"
+      else
+        OLD="$(git hash-object -t tree /dev/null)"
+      fi
     else
       OLD="$(git hash-object -t tree /dev/null)"
     fi
