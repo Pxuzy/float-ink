@@ -39,7 +39,7 @@ bootstrap() {
 make_commit() {
   local repo="$1" msg="$2" vname="$3" vcode="$4" rver="$5"
   printf 'versionName = "%s"\nversionCode = %s\n' "$vname" "$vcode" > "$repo/app/build.gradle.kts"
-  printf -- '- 当前版本：`%s`（`versionCode %s`）\n' "$rver" "$vcode" > "$repo/README.md"
+  printf -- '- **当前版本：** `%s`（`versionCode %s`）\n' "$rver" "$vcode" > "$repo/README.md"
   git -C "$repo" add app/build.gradle.kts README.md
   git -C "$repo" commit --allow-empty --quiet -m "commit $msg"
 }
