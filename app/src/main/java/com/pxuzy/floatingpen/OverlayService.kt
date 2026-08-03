@@ -19,7 +19,6 @@ class OverlayService : Service() {
     private lateinit var windowManager: WindowManager
     private var bubbleView: FloatingBubbleView? = null
     private var drawingView: DrawingOverlayView? = null
-    private var menuView: SelectionMenuView? = null
     private val drawingSession = DrawingSession()
     private val sessionAutoSaver = FloatInkSessionAutoSaver(
         session = drawingSession,
@@ -30,21 +29,6 @@ class OverlayService : Service() {
     )
     private var foregroundReady = false
 
-    private var pendingTool = "pen"
-    private var pendingColor = PenSettings.DEFAULT_COLOR_ARGB
-    private var pendingWidthDp = PenSettings.DEFAULT_WIDTH_DP
-    private var pendingArrowScale = PenSettings.DEFAULT_ARROW_SCALE
-    private var lastTool = "pen"     // for long-press quick open
-    private var lastColor = PenSettings.DEFAULT_COLOR_ARGB
-    private var menuLock = false     // debounce: prevent rapid double-tap
-
-    // Menu is always non-focusable; drawing temporarily becomes focusable for text input.
-    private val fullscreenOverlayParams get() = LayoutParams(
-        LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT,
-        LayoutParams.TYPE_APPLICATION_OVERLAY,
-        LayoutParams.FLAG_NOT_FOCUSABLE or LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-        PixelFormat.TRANSLUCENT
-    )
     private val drawingOverlayParams = LayoutParams(
         LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT,
         LayoutParams.TYPE_APPLICATION_OVERLAY,
@@ -112,7 +96,6 @@ class OverlayService : Service() {
     override fun onDestroy() {
         isProcessRunning = false
         hideDrawing()
-        hideMenu()
         removeBubble()
         getSharedPreferences(PREF_NAME, MODE_PRIVATE)
             .edit().putBoolean(PREF_KEY_SERVICE_RUNNING, false).apply()
@@ -129,14 +112,8 @@ class OverlayService : Service() {
     private fun showBubble() {
         if (bubbleView != null) return
         val view = FloatingBubbleView(this,
-            onTap = {
-                loadDefaultPenSettings()
-                showDrawing()
-            },
-            onLongPress = {
-                loadDefaultPenSettings()
-                showDrawing()
-            }
+            onTap = ::showDrawing,
+            onLongPress = ::showDrawing,
         )
         if (safeAddView(view, bubbleOverlayParams)) {
             bubbleView = view
@@ -147,51 +124,17 @@ class OverlayService : Service() {
 
     private fun removeBubble() { safeRemoveView(bubbleView); bubbleView = null }
 
-    private fun loadDefaultPenSettings() {
-        val settings = PenSettings.load(this)
-        pendingTool = settings.tool
-        pendingColor = settings.color
-        pendingWidthDp = settings.widthDp
-        pendingArrowScale = settings.arrowScale
-        lastTool = settings.tool
-        lastColor = settings.color
-    }
-    private fun showMenu() {
-        if (menuLock) return
-        menuLock = true
-        hideMenu()
-        val view = SelectionMenuView(this,
-            onStartDrawing = { tool, color ->
-                pendingTool = tool; pendingColor = color; lastTool = tool; lastColor = color
-                hideMenu(); showDrawing()
-            },
-            onDismiss = { hideMenu() }
-        )
-        if (!safeAddView(view, fullscreenOverlayParams)) {
-            menuLock = false  // allow retry
-        } else {
-            menuView = view
-        }
-    }
-    private fun hideMenu() { safeRemoveView(menuView); menuView = null; menuLock = false }
-
     private fun showDrawing() {
         hideDrawing()
         bubbleView?.let { bubble ->
             if (bubble.isAttachedToWindow) safeRemoveView(bubble)
         }
         val settings = PenSettings.load(this)
-        pendingTool = settings.tool
-        pendingColor = settings.color
-        pendingWidthDp = settings.widthDp
-        pendingArrowScale = settings.arrowScale
-        lastTool = settings.tool
-        lastColor = settings.color
         val view = DrawingOverlayView(
             context = this,
-            toolId = pendingTool,
+            toolId = settings.tool,
             styles = settings.toolStyles,
-            arrowScale = pendingArrowScale,
+            arrowScale = settings.arrowScale,
             toolbarToolIds = settings.visibleToolbarToolIds(),
             onExit = { hideDrawing() },
             drawingSession = drawingSession,
@@ -199,10 +142,6 @@ class OverlayService : Service() {
             onTextInputModeChanged = ::setDrawingTextInputMode,
             toolbarButtonSizeDp = settings.toolbarButtonSizeDp,
             onSelectionChanged = { tool, color ->
-                pendingTool = tool
-                pendingColor = color
-                lastTool = tool
-                lastColor = color
                 PenSettings.saveTool(this, tool)
                 PenSettings.saveToolStyle(this, tool, color, settings.styleFor(tool).widthDp)
             }
@@ -263,7 +202,7 @@ class OverlayService : Service() {
     }
 
     private fun stop() {
-        hideDrawing(); hideMenu(); removeBubble()
+        hideDrawing(); removeBubble()
         // Clear running state so MainActivity shows correct UI
         getSharedPreferences(PREF_NAME, MODE_PRIVATE)
             .edit().putBoolean(PREF_KEY_SERVICE_RUNNING, false).apply()

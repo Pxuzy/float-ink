@@ -6,7 +6,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -32,7 +31,7 @@ class OverlayServiceTest {
     }
 
     @Test
-    fun `tapping bubble opens default drawing directly without menu`() {
+    fun `tapping bubble opens a drawing overlay`() {
         val controller = Robolectric.buildService(OverlayService::class.java).create()
         val service = controller.get()
         service.onStartCommand(
@@ -48,7 +47,6 @@ class OverlayServiceTest {
         bubble.dispatchTouchEvent(MotionEvent.obtain(0, 10, MotionEvent.ACTION_UP, 10f, 10f, 0))
 
         assertNotNull(service.privateField("drawingView"))
-        assertNull(service.privateField("menuView"))
         controller.destroy()
     }
 
