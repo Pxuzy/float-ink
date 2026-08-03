@@ -142,6 +142,20 @@ class DrawingOverlayView(
     }
     private val strokePath = Path()
     private val arrowHeadPath = Path()
+    private val goldenGuidePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = GOLDEN_GUIDE_COLOR
+        style = Paint.Style.STROKE
+        pathEffect = DashPathEffect(floatArrayOf(10.dpf, 7.dpf), 0f)
+    }
+    private val goldenGuideLabelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textSize = 12.dpf
+        textAlign = Paint.Align.CENTER
+        typeface = Typeface.DEFAULT_BOLD
+    }
+    private val goldenGuideLabelBackgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = GOLDEN_GUIDE_LABEL_COLOR
+    }
     private val restoreClearTimeout = Handler(Looper.getMainLooper())
 
     init {
@@ -653,32 +667,20 @@ class DrawingOverlayView(
         if (!goldenGuideVisible || height <= 0 || width <= 0) return
         val y = height * goldenGuideFraction
         val x = width * verticalGoldenGuideFraction
-        val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = GOLDEN_GUIDE_COLOR
-            style = Paint.Style.STROKE
-            strokeWidth = if (draggingGoldenGuide || draggingVerticalGoldenGuide) 2.dpf else 1.dpf
-            pathEffect = DashPathEffect(floatArrayOf(10.dpf, 7.dpf), 0f)
-        }
-        canvas.drawLine(0f, y, width.toFloat(), y, linePaint)
-        canvas.drawLine(x, 0f, x, height.toFloat(), linePaint)
+        goldenGuidePaint.strokeWidth = if (draggingGoldenGuide || draggingVerticalGoldenGuide) 2.dpf else 1.dpf
+        canvas.drawLine(0f, y, width.toFloat(), y, goldenGuidePaint)
+        canvas.drawLine(x, 0f, x, height.toFloat(), goldenGuidePaint)
         if (draggingGoldenGuide || draggingVerticalGoldenGuide) {
             val fraction = if (draggingVerticalGoldenGuide) verticalGoldenGuideFraction else goldenGuideFraction
-            val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.WHITE
-                textSize = 12.dpf
-                textAlign = Paint.Align.CENTER
-                typeface = Typeface.DEFAULT_BOLD
-            }
             val label = "${(fraction * 100f).roundToInt()}%"
-            val labelWidth = labelPaint.measureText(label) + 16.dpf
+            val labelWidth = goldenGuideLabelPaint.measureText(label) + 16.dpf
             val labelHeight = 24.dpf
             val labelAnchorX = if (draggingVerticalGoldenGuide) x else width / 2f
             val labelAnchorY = if (draggingVerticalGoldenGuide) height / 2f else y
             val left = (labelAnchorX - labelWidth / 2f).coerceIn(8.dpf, (width - labelWidth - 8.dpf).coerceAtLeast(8.dpf))
             val top = (labelAnchorY - labelHeight - 8.dpf).coerceAtLeast(8.dpf)
-            val labelBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GOLDEN_GUIDE_LABEL_COLOR }
-            canvas.drawRoundRect(left, top, left + labelWidth, top + labelHeight, 6.dpf, 6.dpf, labelBackground)
-            canvas.drawText(label, left + labelWidth / 2f, top + 16.dpf, labelPaint)
+            canvas.drawRoundRect(left, top, left + labelWidth, top + labelHeight, 6.dpf, 6.dpf, goldenGuideLabelBackgroundPaint)
+            canvas.drawText(label, left + labelWidth / 2f, top + 16.dpf, goldenGuideLabelPaint)
         }
     }
 
