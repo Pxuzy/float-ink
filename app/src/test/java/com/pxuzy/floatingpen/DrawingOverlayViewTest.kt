@@ -488,6 +488,19 @@ class DrawingOverlayViewTest {
     }
 
     @Test
+    fun `selecting a built-in color does not add it to recent colors`() {
+        val view = DrawingOverlayView(context, "pen", 0) {}
+        val before = PenSettings.load(context).recentColors
+        val builtIn = PenSettings.DEFAULT_PALETTE[1]
+
+        (view.findByTag("monochrome-toolbar") as LinearLayout).findByTag("color").performClick()
+        view.findByTag("palette-color:1").performClick()
+
+        assertEquals(before, PenSettings.load(context).recentColors)
+        assertEquals(builtIn, view.currentColorForTest())
+    }
+
+    @Test
     fun `overlay color panel exposes selection only`() {
         val view = DrawingOverlayView(context, "pen", 0) {}
         view.applyWindowConfiguration(Configuration(context.resources.configuration).apply { screenWidthDp = 320 })
