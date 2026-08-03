@@ -1019,37 +1019,17 @@ class DrawingOverlayView(
 
     private fun showRestoreClearBar() {
         dismissRestoreClearBar(discardSnapshot = false)
-        val bar = LinearLayout(context).apply {
-            tag = "restore-clear-bar"
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(12.dp, 0, 8.dp, 0)
-            background = GradientDrawable().apply {
-                setColor(Color.argb(242, 29, 38, 48))
-                cornerRadius = FloatInkTheme.PANEL_RADIUS_DP.dpf
-                setStroke(1.dpf.toInt(), Color.argb(120, 140, 180, 220))
-            }
-            addView(TextView(context).apply {
-                text = "已清空当前图层"
-                textSize = 13f
-                setTextColor(Color.WHITE)
-            }, LinearLayout.LayoutParams(0, 48.dp, 1f))
-            addView(TextView(context).apply {
-                tag = "restore-clear-action"
-                text = "恢复"
-                textSize = 13f
-                gravity = Gravity.CENTER
-                contentDescription = "恢复已清空的当前图层"
-                setTextColor(Color.parseColor("#9FD2FF"))
-                setOnClickListener {
-                    if (drawingSession.restoreClearedCurrentLayer()) {
-                        onSessionChanged()
-                        canvasView.invalidate()
-                    }
-                    dismissRestoreClearBar(discardSnapshot = false)
+        val bar = RestoreClearBarBuilder(
+            context = context,
+            density = density,
+            onRestore = {
+                if (drawingSession.restoreClearedCurrentLayer()) {
+                    onSessionChanged()
+                    canvasView.invalidate()
                 }
-            }, LinearLayout.LayoutParams(56.dp, 48.dp))
-        }
+                dismissRestoreClearBar(discardSnapshot = false)
+            },
+        ).build()
         restoreClearBar = bar
         toolbarPopupHost.addView(bar, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, 48.dp))
         positionPopupAboveToolbar(bar)
