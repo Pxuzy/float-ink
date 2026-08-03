@@ -44,6 +44,30 @@ class FloatInkHistoryRepositoryTest {
     }
 
     @Test
+    fun `history operations keep session backups with their matching session`() {
+        val repository = FloatInkHistoryRepository(context)
+        val original = FloatInkStorage.sessionFile(context, "session-backed")
+        FloatInkSessionStore.save(original, DrawingSession().apply {
+            addElement(DrawingElement.Line(0f to 0f, 1f to 1f, 1, 2f))
+        }, "session-backed")
+        FloatInkSessionStore.save(original, DrawingSession().apply {
+            addElement(DrawingElement.Rect(2f to 2f, 3f to 3f, 2, 4f))
+        }, "session-backed")
+
+        val copy = requireNotNull(repository.copy("session-backed"))
+        assertTrue(File(copy.file.path + ".bak").exists())
+
+        assertTrue(repository.delete("session-backed"))
+        val trashed = FloatInkStorage.rootDirectory(context).resolve("trash/session-backed.floatink")
+        assertTrue(trashed.exists())
+        assertTrue(File(trashed.path + ".bak").exists())
+
+        assertTrue(repository.restore("session-backed"))
+        assertTrue(original.exists())
+        assertTrue(File(original.path + ".bak").exists())
+    }
+
+    @Test
     fun `repository imports a valid floatink file as a new session`() {
         val source = File(context.cacheDir, "source.floatink")
         FloatInkSessionStore.save(source, DrawingSession(), "import-source")
