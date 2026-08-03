@@ -281,17 +281,9 @@ class DrawingOverlayView(
                             val stroke = elements.lastOrNull() as? CoreDrawingElement.Stroke
                             if (stroke?.points?.size == 1) stroke.points.add(Pair(x, y))
                         } else if (isDrawing) {
-                            val el = when (currentToolId) {
-                                "line" -> CoreDrawingElement.Line(Pair(sx, sy), Pair(x, y), selectedColor, drawPaint.strokeWidth)
-                                "arrow" -> CoreDrawingElement.Arrow(
-                                    Pair(sx, sy), Pair(x, y), selectedColor, drawPaint.strokeWidth,
-                                    resolveArrowHeadLengthDp(drawPaint.strokeWidth / density, arrowScale)
-                                )
-                                "rect" -> CoreDrawingElement.Rect(Pair(sx, sy), Pair(x, y), selectedColor, drawPaint.strokeWidth)
-                                "circle" -> circleElement(sx, sy, x, y, selectedColor, drawPaint.strokeWidth)
-                                else -> null
+                            createShapeElement(x, y)?.let { element ->
+                                if (x != sx || y != sy) elements.add(element)
                             }
-                            if (el != null && (x != sx || y != sy)) elements.add(el)
                         }
                         isDrawing = false
                         onSessionChanged()
@@ -364,6 +356,22 @@ class DrawingOverlayView(
     private val selectedColor: Int
         get() = currentColor
 
+    private fun createShapeElement(endX: Float, endY: Float): CoreDrawingElement? {
+        val width = drawPaint.strokeWidth
+        return when (currentToolId) {
+            "line" -> CoreDrawingElement.Line(sx to sy, endX to endY, selectedColor, width)
+            "arrow" -> CoreDrawingElement.Arrow(
+                sx to sy,
+                endX to endY,
+                selectedColor,
+                width,
+                resolveArrowHeadLengthDp(width / density, arrowScale),
+            )
+            "rect" -> CoreDrawingElement.Rect(sx to sy, endX to endY, selectedColor, width)
+            "circle" -> circleElement(sx, sy, endX, endY, selectedColor, width)
+            else -> null
+        }
+    }
     private fun circleElement(
         centerX: Float,
         centerY: Float,
