@@ -91,6 +91,7 @@ class DrawingOverlayView(
     private var elements: MutableList<DrawingElement> = drawingSession.currentLayer.elements
     private var sx = 0f; private var sy = 0f; private var cx = 0f; private var cy = 0f
     private var isDrawing = false
+    private var erasedInGesture = false
     private var activePointerId = MotionEvent.INVALID_POINTER_ID
     private var activeToolType = MotionEvent.TOOL_TYPE_UNKNOWN
     private var draggingGoldenGuide = false
@@ -205,11 +206,15 @@ class DrawingOverlayView(
                             onSessionChanged()
                         }
                         dismissRestoreClearBar()
+                        if (currentToolId != "eraser") drawingSession.discardRecoverableErase()
                         activePointerId = event.getPointerId(0)
                         activeToolType = event.getToolType(0)
                         sx = x; sy = y; cx = x; cy = y; isDrawing = true
-                        if (currentToolId == "pen") elements.add(
-                            CoreDrawingElement.Stroke(mutableListOf(Pair(x, y)), selectedColor, drawPaint.strokeWidth))
+                        if (currentToolId == "pen") {
+                            elements.add(CoreDrawingElement.Stroke(mutableListOf(Pair(x, y)), selectedColor, drawPaint.strokeWidth))
+                        } else if (currentToolId == "eraser") {
+                            erasedInGesture = eraseAt(x, y)
+                        }
                         invalidate(); return true
                     }
                     MotionEvent.ACTION_MOVE -> {
@@ -231,7 +236,9 @@ class DrawingOverlayView(
                         val pointerIndex = event.findPointerIndex(activePointerId)
                         if (pointerIndex < 0) return true
                         cx = event.getX(pointerIndex); cy = event.getY(pointerIndex)
-                        if (currentToolId == "pen" && elements.isNotEmpty()) {
+                        if (currentToolId == "eraser") {
+                            erasedInGesture = eraseAt(cx, cy) || erasedInGesture
+                        } else if (currentToolId == "pen" && elements.isNotEmpty()) {
                             val e = elements.last()
                             if (e is CoreDrawingElement.Stroke) {
                                 val last = e.points.lastOrNull()
@@ -291,7 +298,9 @@ class DrawingOverlayView(
                             invalidate()
                             return true
                         }
-                        if (currentToolId == "pen" && isDrawing) {
+                        if (currentToolId == "eraser") {
+                            if (erasedInGesture) onSessionChanged()
+                        } else if (currentToolId == "pen" && isDrawing) {
                             val stroke = elements.lastOrNull() as? CoreDrawingElement.Stroke
                             if (stroke?.points?.size == 1) stroke.points.add(Pair(x, y))
                         } else if (isDrawing) {
@@ -300,7 +309,7 @@ class DrawingOverlayView(
                             }
                         }
                         isDrawing = false
-                        onSessionChanged()
+                        if (currentToolId != "eraser") onSessionChanged()
                         activePointerId = MotionEvent.INVALID_POINTER_ID
                         invalidate(); return true
                     }
@@ -338,7 +347,7 @@ class DrawingOverlayView(
                 visibleLayers.forEach { layer ->
                     layer.elements.forEach { elementRenderer.draw(canvas, it) }
                 }
-                if (isDrawing && currentToolId != "pen") {
+                if (isDrawing && currentToolId != "pen" && currentToolId != "eraser") {
                     elementRenderer.drawPreview(
                         canvas = canvas,
                         toolId = currentToolId,
@@ -369,6 +378,13 @@ class DrawingOverlayView(
 
     private val selectedColor: Int
         get() = currentColor
+
+    private fun eraseAt(x: Float, y: Float): Boolean = drawingSession.eraseCurrentLayerAt(
+        x = x,
+        y = y,
+        eraserRadius = CoreDrawingElement.ERASER_RADIUS_DP.dpf,
+        hits = DrawingElementHitTester::hits,
+    )
 
     private fun createShapeElement(endX: Float, endY: Float): CoreDrawingElement? {
         val width = drawPaint.strokeWidth
@@ -462,9 +478,7 @@ class DrawingOverlayView(
             if (isDrawing) {
                 discardActiveGesture()
                 canvasView.invalidate()
-            } else if (elements.isNotEmpty()) {
-                elements.removeAt(elements.lastIndex)
-                drawingSession.discardRecoverableClear()
+            } else if (drawingSession.undo()) {
                 dismissRestoreClearBar()
                 onSessionChanged()
                 canvasView.invalidate()

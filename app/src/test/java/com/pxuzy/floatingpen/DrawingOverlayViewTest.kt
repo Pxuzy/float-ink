@@ -650,6 +650,36 @@ class DrawingOverlayViewTest {
     }
 
     @Test
+    fun `eraser removes only hit elements from the current layer and undo restores them`() {
+        val session = DrawingSession()
+        val kept = CoreDrawingElement.Line(20f to 120f, 80f to 120f, Color.RED, 6f)
+        val erasedFirst = CoreDrawingElement.Line(20f to 20f, 80f to 20f, Color.BLUE, 6f)
+        val erasedSecond = CoreDrawingElement.Circle(140f to 60f, 24f, Color.GREEN, 6f)
+        session.addElement(kept)
+        session.addElement(erasedFirst)
+        session.addElement(erasedSecond)
+        val otherLayer = session.createLayer("其他图层")
+        val otherElement = CoreDrawingElement.Rect(0f to 0f, 30f to 30f, Color.YELLOW, 4f)
+        session.addElement(otherElement)
+        session.selectLayer(session.currentBoard.layers.last().id)
+        val view = DrawingOverlayView(context, "pen", 0, drawingSession = session) {}
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
+        val canvas = view.getChildAt(0)
+
+        toolbar.findByTag("more-tools").performClick()
+        val eraser = view.findByTag("tool:eraser")
+        assertEquals("tabler", eraser.getTag(R.id.tag_icon_family))
+        assertEquals("eraser", eraser.getTag(R.id.tag_icon_name))
+        eraser.performClick()
+        drawGesture(canvas, 15f, 20f, 170f, 60f)
+
+        assertEquals(listOf(kept), session.currentLayer.elements)
+        assertEquals(listOf(otherElement), otherLayer.elements)
+        toolbar.findByTag("undo").performClick()
+        assertEquals(listOf(kept, erasedFirst, erasedSecond), session.currentLayer.elements)
+    }
+
+    @Test
     fun `circle is reachable from more tools and creates a centered radius shape`() {
         val view = DrawingOverlayView(context, "pen", 0) {}
         val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout

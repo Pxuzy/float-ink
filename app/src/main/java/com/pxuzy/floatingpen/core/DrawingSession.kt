@@ -12,6 +12,7 @@ class DrawingSession(
     private var nextBoardNumber = 1
     private var nextLayerNumber = 1
     private var recoverableClear: RecoverableClear? = null
+    private var recoverableErase: RecoverableErase? = null
 
     val boards: MutableList<DrawingBoard> = mutableListOf(
         initialBoard ?: newBoardInternal("画板 1"),
@@ -126,13 +127,45 @@ class DrawingSession(
 
     fun addElement(element: DrawingElement) {
         discardRecoverableClear()
+        discardRecoverableErase()
         currentLayer.elements += element
     }
 
-    fun undo(): DrawingElement? = currentLayer.elements.removeLastOrNull()
+    fun undo(): Boolean {
+        val erased = recoverableErase
+        if (erased != null && erased.boardId == currentBoard.id && erased.layerId == currentLayer.id) {
+            currentLayer.elements.clear()
+            currentLayer.elements += erased.elements
+            recoverableErase = null
+            return true
+        }
+        discardRecoverableErase()
+        return currentLayer.elements.removeLastOrNull() != null
+    }
+
+    fun eraseCurrentLayerAt(
+        x: Float,
+        y: Float,
+        eraserRadius: Float,
+        hits: (DrawingElement, Float, Float, Float) -> Boolean,
+    ): Boolean {
+        val snapshot = if (
+            recoverableErase?.boardId == currentBoard.id && recoverableErase?.layerId == currentLayer.id
+        ) {
+            null
+        } else {
+            currentLayer.elements.toList()
+        }
+        if (currentLayer.elements.none { hits(it, x, y, eraserRadius) }) return false
+        discardRecoverableClear()
+        if (snapshot != null) recoverableErase = RecoverableErase(currentBoard.id, currentLayer.id, snapshot)
+        currentLayer.elements.removeAll { element -> hits(element, x, y, eraserRadius) }
+        return true
+    }
 
     fun clearCurrentLayer() {
         discardRecoverableClear()
+        discardRecoverableErase()
         currentLayer.elements.clear()
     }
 
@@ -143,6 +176,7 @@ class DrawingSession(
             layerId = currentLayer.id,
             elements = currentLayer.elements.toList(),
         )
+        discardRecoverableErase()
         currentLayer.elements.clear()
         return true
     }
@@ -159,8 +193,13 @@ class DrawingSession(
         recoverableClear = null
     }
 
+    fun discardRecoverableErase() {
+        recoverableErase = null
+    }
+
     fun clear() {
         discardRecoverableClear()
+        discardRecoverableErase()
         boards.clear()
         val board = newBoardInternal("画板 1")
         boards += board
@@ -171,6 +210,7 @@ class DrawingSession(
 
     fun replaceFrom(source: DrawingSession) {
         discardRecoverableClear()
+        discardRecoverableErase()
         boards.clear()
         boards += source.boards.map { board ->
             board.copy(
@@ -189,6 +229,12 @@ class DrawingSession(
     }
 
     private data class RecoverableClear(
+        val boardId: String,
+        val layerId: String,
+        val elements: List<DrawingElement>,
+    )
+
+    private data class RecoverableErase(
         val boardId: String,
         val layerId: String,
         val elements: List<DrawingElement>,

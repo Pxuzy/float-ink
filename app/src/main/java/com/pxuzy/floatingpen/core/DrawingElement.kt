@@ -69,9 +69,11 @@ sealed class DrawingElement {
             ToolDef("arrow", "箭头", intArrayOf(0xFFF59E0B.toInt(), 0xFFD97706.toInt())),
             ToolDef("rect", "矩形", intArrayOf(0xFF8B5CF6.toInt(), 0xFF7C3AED.toInt())),
             ToolDef("circle", "圆形", intArrayOf(0xFF06B6D4.toInt(), 0xFF0891B2.toInt())),
+            ToolDef("eraser", "橡皮擦", intArrayOf(0xFF94A3B8.toInt(), 0xFF64748B.toInt())),
         )
         val toolNames: Map<String, String> = tools.associate { it.id to it.label }
         const val ARROW_HEAD_ANGLE_RAD = 0.436332
+        const val ERASER_RADIUS_DP = 18f
     }
 }
 
