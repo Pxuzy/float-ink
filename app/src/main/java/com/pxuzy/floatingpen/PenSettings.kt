@@ -51,7 +51,7 @@ object PenSettings {
     const val MIN_TOOLBAR_BUTTON_SIZE_DP = 20
     const val MAX_TOOLBAR_BUTTON_SIZE_DP = 60
 
-    val TOOL_IDS = listOf("pen", "line", "arrow", "rect", "circle")
+    val TOOL_IDS = listOf("pen", "line", "arrow", "rect", "circle", "eraser")
     /** Built-in colors are immutable; user colors live in a separate persisted list. */
     val DEFAULT_PALETTE = listOf(
         0xFFF44336.toInt(), 0xFF2196F3.toInt(), 0xFF4CAF50.toInt(), 0xFF212121.toInt(),

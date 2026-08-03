@@ -18,6 +18,8 @@ class ToolIconView(context: Context, private val icon: String) : View(context) {
     private val arcBounds = RectF()
     private val tablerUndoIcon = if (icon == "undo") {
         context.getDrawable(R.drawable.ic_tabler_arrow_back_up)
+    } else if (icon == "eraser") {
+        context.getDrawable(R.drawable.ic_tabler_eraser)
     } else {
         null
     }
@@ -27,6 +29,7 @@ class ToolIconView(context: Context, private val icon: String) : View(context) {
             "drag" -> "grip-vertical"
             "pen" -> "pen"
             "undo" -> "arrow-back-up"
+            "eraser" -> "eraser"
             else -> null
         }
         if (tablerName != null) {
@@ -56,6 +59,7 @@ class ToolIconView(context: Context, private val icon: String) : View(context) {
             "canvas" -> drawCanvas(canvas, cx, cy, r)
             "layer" -> drawLayer(canvas, cx, cy, r)
             "undo" -> drawTablerUndoIcon(canvas, tablerUndoIcon, cx, cy)
+            "eraser" -> drawTablerUndoIcon(canvas, tablerUndoIcon, cx, cy)
             "redo" -> drawRedo(canvas, cx, cy, r)
             "clear" -> drawClear(canvas, cx, cy, r)
             "exit" -> {
