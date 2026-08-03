@@ -95,6 +95,7 @@ class DrawingOverlayView(
     private var colorPanel: View? = null
     private var moreToolsPanel: View? = null
     private var canvasPanel: View? = null
+    private val canvasPanelComponents = CanvasPanelComponents(context, density)
 
     private var restoreClearBar: View? = null
     private val toolButtons = mutableMapOf<String, View>()
@@ -953,7 +954,7 @@ class DrawingOverlayView(
             tag = "canvas-board-section"
             orientation = LinearLayout.VERTICAL
         }
-        boardSection.addView(canvasSectionHeader("画板", "canvas-add-board") {
+        boardSection.addView(canvasPanelComponents.sectionHeader("画板", "canvas-add-board") {
             drawingSession.createBoard()
             elements = drawingSession.currentLayer.elements
             onSessionChanged()
@@ -968,7 +969,7 @@ class DrawingOverlayView(
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(6.dp, 0, 2.dp, 0)
-                background = canvasRowBackground(board.id == drawingSession.currentBoard.id)
+                background = canvasPanelComponents.rowBackground(board.id == drawingSession.currentBoard.id)
                 addView(FloatInkIconView(context, "canvas").apply {
                     layoutParams = LinearLayout.LayoutParams(28.dp, 28.dp).apply { marginEnd = 8.dp }
                 })
@@ -979,7 +980,7 @@ class DrawingOverlayView(
                     gravity = Gravity.CENTER_VERTICAL
                     layoutParams = LinearLayout.LayoutParams(0, 40.dp, 1f)
                 })
-                addView(canvasOverflowButton("canvas-menu-board:${board.id}") {
+                addView(canvasPanelComponents.overflowButton("canvas-menu-board:${board.id}") {
                     showCanvasTargetMenu(false, board.id)
                 })
                 setOnClickListener {
@@ -996,7 +997,7 @@ class DrawingOverlayView(
             tag = "canvas-layer-section"
             orientation = LinearLayout.VERTICAL
         }
-        layerSection.addView(canvasSectionHeader("图层 · ${drawingSession.currentBoard.name}", "canvas-add-layer") {
+        layerSection.addView(canvasPanelComponents.sectionHeader("图层 · ${drawingSession.currentBoard.name}", "canvas-add-layer") {
             drawingSession.createLayer()
             elements = drawingSession.currentLayer.elements
             onSessionChanged()
@@ -1020,7 +1021,7 @@ class DrawingOverlayView(
                         setStroke(1.dpf.toInt(), Color.argb(150, 255, 255, 255))
                     }
                 }, LinearLayout.LayoutParams(18.dp, 18.dp).apply { marginEnd = 8.dp })
-                background = canvasRowBackground(layer.id == drawingSession.currentLayer.id)
+                background = canvasPanelComponents.rowBackground(layer.id == drawingSession.currentLayer.id)
                 addView(FloatInkIconView(context, "layer").apply {
                     layoutParams = LinearLayout.LayoutParams(28.dp, 28.dp).apply { marginEnd = 6.dp }
                 })
@@ -1048,7 +1049,7 @@ class DrawingOverlayView(
                         rebuildCanvasPanel(); canvasView.invalidate()
                     }
                 })
-                addView(canvasOverflowButton("canvas-menu-layer:${layer.id}") {
+                addView(canvasPanelComponents.overflowButton("canvas-menu-layer:${layer.id}") {
                     showCanvasTargetMenu(true, layer.id)
                 })
                 setOnClickListener {
@@ -1088,44 +1089,6 @@ class DrawingOverlayView(
         panel.post { positionPopupAboveToolbar(panel) }
     }
 
-    private fun canvasSectionHeader(title: String, addTag: String, onAdd: () -> Unit): View =
-        LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(6.dp, 0, 0, 0)
-            addView(TextView(context).apply {
-                text = title
-                textSize = 12f
-                setTextColor(Color.parseColor("#91A0B2"))
-                gravity = Gravity.CENTER_VERTICAL
-                layoutParams = LinearLayout.LayoutParams(0, 36.dp, 1f)
-            })
-            addView(FloatInkIconView(context, "add").apply {
-                tag = addTag
-                contentDescription = if (addTag == "canvas-add-board") "新建画板" else "新建图层"
-                background = GradientDrawable().apply {
-                    setColor(Color.argb(42, 255, 255, 255))
-                    cornerRadius = 6.dpf
-                }
-                layoutParams = LinearLayout.LayoutParams(36.dp, 32.dp).apply { marginEnd = 2.dp }
-                setOnClickListener { onAdd() }
-            })
-        }
-
-    private fun canvasOverflowButton(buttonTag: String, onClick: () -> Unit): View =
-        FloatInkIconView(context, "more").apply {
-            tag = buttonTag
-            contentDescription = "更多操作"
-            setIconColor(Color.parseColor("#D2D8E0"))
-            layoutParams = LinearLayout.LayoutParams(36.dp, 40.dp)
-            setOnClickListener { onClick() }
-        }
-
-    private fun canvasRowBackground(selected: Boolean): GradientDrawable = GradientDrawable().apply {
-        setColor(if (selected) Color.argb(40, 255, 255, 255) else Color.TRANSPARENT)
-        cornerRadius = 8.dpf
-        if (selected) setStroke(1.dpf.toInt(), Color.argb(92, 255, 255, 255))
-    }
 
     private fun rebuildCanvasPanel() {
         canvasPanel?.let { toolbarPopupHost.removeView(it) }
