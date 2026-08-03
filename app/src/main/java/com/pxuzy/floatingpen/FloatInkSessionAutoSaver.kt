@@ -34,22 +34,23 @@ class FloatInkSessionAutoSaver(
         saveNowIfDirty()
     }
 
-    fun close() {
+    fun close(): Boolean {
         handler.removeCallbacksAndMessages(null)
         saveNowIfDirty()
         executor.shutdown()
-        awaitPendingSaves()
+        return awaitPendingSaves()
     }
 
-    private fun awaitPendingSaves() {
-        var interrupted = false
-        while (true) {
-            try {
-                if (executor.awaitTermination(1, TimeUnit.SECONDS)) break
-            } catch (_: InterruptedException) {
-                interrupted = true
-            }
+    private fun awaitPendingSaves(): Boolean {
+        return try {
+            executor.awaitTermination(CLOSE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+            false
         }
-        if (interrupted) Thread.currentThread().interrupt()
+    }
+
+    private companion object {
+        const val CLOSE_TIMEOUT_SECONDS = 3L
     }
 }

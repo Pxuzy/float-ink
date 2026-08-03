@@ -78,7 +78,6 @@ class DrawingOverlayView(
     private var elements: MutableList<DrawingElement> = drawingSession.currentLayer.elements
     private var sx = 0f; private var sy = 0f; private var cx = 0f; private var cy = 0f
     private var isDrawing = false
-    private var sessionDirty = false
     private var activePointerId = MotionEvent.INVALID_POINTER_ID
     private var activeToolType = MotionEvent.TOOL_TYPE_UNKNOWN
     private var draggingGoldenGuide = false
@@ -189,7 +188,7 @@ class DrawingOverlayView(
                         }
                         if (!drawingSession.currentLayer.visible) {
                             drawingSession.setLayerVisible(drawingSession.currentLayer.id, true)
-                            sessionDirty = true
+                            onSessionChanged()
                         }
                         dismissRestoreClearBar()
                         activePointerId = event.getPointerId(0)
@@ -258,7 +257,7 @@ class DrawingOverlayView(
                                 }
                             }
                             isDrawing = false
-                            sessionDirty = true
+                            onSessionChanged()
                             activePointerId = MotionEvent.INVALID_POINTER_ID
                             invalidate()
                         }
@@ -295,7 +294,7 @@ class DrawingOverlayView(
                             if (el != null && (x != sx || y != sy)) elements.add(el)
                         }
                         isDrawing = false
-                        sessionDirty = true
+                        onSessionChanged()
                         activePointerId = MotionEvent.INVALID_POINTER_ID
                         invalidate(); return true
                     }
@@ -317,7 +316,7 @@ class DrawingOverlayView(
                             elements.removeAt(elements.lastIndex)
                         }
                         isDrawing = false
-                        sessionDirty = true
+                        onSessionChanged()
                         activePointerId = MotionEvent.INVALID_POINTER_ID
                         invalidate(); return true
                     }
@@ -327,10 +326,6 @@ class DrawingOverlayView(
 
             override fun onDraw(canvas: Canvas) {
                 super.onDraw(canvas)
-                if (sessionDirty) {
-                    sessionDirty = false
-                    onSessionChanged()
-                }
                 val visibleLayers = drawingSession.visibleLayersBottomToTop()
                 if (visibleLayers.all { it.elements.isEmpty() } && !isDrawing)
                     canvas.drawText("手指滑动开始画线", width / 2f, height / 2f - 120.dpf, hintPaint)
@@ -338,17 +333,17 @@ class DrawingOverlayView(
                     layer.elements.forEach { elementRenderer.draw(canvas, it) }
                 }
                 if (isDrawing && currentToolId != "pen") {
-                    val pe = when (currentToolId) {
-                        "line" -> CoreDrawingElement.Line(Pair(sx, sy), Pair(cx, cy), selectedColor, drawPaint.strokeWidth)
-                        "arrow" -> CoreDrawingElement.Arrow(
-                            Pair(sx, sy), Pair(cx, cy), selectedColor, drawPaint.strokeWidth,
-                            resolveArrowHeadLengthDp(drawPaint.strokeWidth / density, arrowScale)
-                        )
-                        "rect" -> CoreDrawingElement.Rect(Pair(sx, sy), Pair(cx, cy), selectedColor, drawPaint.strokeWidth)
-                        "circle" -> circleElement(sx, sy, cx, cy, selectedColor, drawPaint.strokeWidth)
-                        else -> null
-                    }
-                    if (pe != null) elementRenderer.draw(canvas, pe)
+                    elementRenderer.drawPreview(
+                        canvas = canvas,
+                        toolId = currentToolId,
+                        startX = sx,
+                        startY = sy,
+                        endX = cx,
+                        endY = cy,
+                        color = selectedColor,
+                        strokeWidth = drawPaint.strokeWidth,
+                        arrowHeadLengthDp = resolveArrowHeadLengthDp(drawPaint.strokeWidth / density, arrowScale),
+                    )
                 }
                 drawGoldenGuide(canvas)
                 fibonacciController.renderState()?.let { fibonacciRenderer.draw(canvas, it) }
