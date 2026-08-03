@@ -140,8 +140,7 @@ class DrawingOverlayView(
     private val hintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.parseColor("#33FFFFFF"); textSize = 14.dpf; textAlign = Paint.Align.CENTER
     }
-    private val strokePath = Path()
-    private val arrowHeadPath = Path()
+    private val elementRenderer = DrawingElementRenderer(density, drawPaint)
     private val goldenGuidePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = GOLDEN_GUIDE_COLOR
         style = Paint.Style.STROKE
@@ -336,7 +335,7 @@ class DrawingOverlayView(
                 if (visibleLayers.all { it.elements.isEmpty() } && !isDrawing)
                     canvas.drawText("手指滑动开始画线", width / 2f, height / 2f - 120.dpf, hintPaint)
                 visibleLayers.forEach { layer ->
-                    layer.elements.forEach { drawElement(canvas, it) }
+                    layer.elements.forEach { elementRenderer.draw(canvas, it) }
                 }
                 if (isDrawing && currentToolId != "pen") {
                     val pe = when (currentToolId) {
@@ -349,11 +348,11 @@ class DrawingOverlayView(
                         "circle" -> circleElement(sx, sy, cx, cy, selectedColor, drawPaint.strokeWidth)
                         else -> null
                     }
-                    if (pe != null) drawElement(canvas, pe)
+                    if (pe != null) elementRenderer.draw(canvas, pe)
                 }
                 drawGoldenGuide(canvas)
                 fibonacciController.renderState()?.let { fibonacciRenderer.draw(canvas, it) }
-                // drawElement() reuses drawPaint for historical elements. Restore
+                // Element rendering reuses drawPaint for historical elements. Restore
                 // the active tool style so a redraw cannot affect the next stroke.
                 val currentStyle = toolStyles[currentToolId]
                 drawPaint.color = currentColor
@@ -383,50 +382,6 @@ class DrawingOverlayView(
         color = color,
         width = width,
     )
-
-    private fun drawElement(canvas: Canvas, el: DrawingElement) {
-        drawPaint.color = el.drawColor; drawPaint.strokeWidth = el.drawWidth
-        when (el) {
-            is CoreDrawingElement.Stroke -> {
-                if (el.points.size >= 2) {
-                    strokePath.rewind()
-                    strokePath.moveTo(el.points[0].first, el.points[0].second)
-                    for (i in 1 until el.points.size) {
-                        strokePath.lineTo(el.points[i].first, el.points[i].second)
-                    }
-                    canvas.drawPath(strokePath, drawPaint)
-                }
-            }
-            is CoreDrawingElement.Line -> canvas.drawLine(el.start.first, el.start.second, el.end.first, el.end.second, drawPaint)
-            is CoreDrawingElement.Arrow -> {
-                val headLength = el.headLengthDp.dpf
-                val base = ArrowGeometry.headBasePoint(
-                    el.start.first, el.start.second, el.end.first, el.end.second, headLength
-                )
-                // Stop the shaft at the triangle base so the round stroke cap cannot blunt the tip.
-                canvas.drawLine(el.start.first, el.start.second, base.first, base.second, drawPaint)
-                val angle = atan2((el.end.second - el.start.second).toDouble(), (el.end.first - el.start.first).toDouble())
-                val halfWidth = headLength * 0.45f
-                val perpendicularX = (-sin(angle) * halfWidth).toFloat()
-                val perpendicularY = (cos(angle) * halfWidth).toFloat()
-                arrowHeadPath.rewind()
-                arrowHeadPath.moveTo(el.end.first, el.end.second)
-                arrowHeadPath.lineTo(base.first + perpendicularX, base.second + perpendicularY)
-                arrowHeadPath.lineTo(base.first - perpendicularX, base.second - perpendicularY)
-                arrowHeadPath.close()
-                val previousStyle = drawPaint.style
-                drawPaint.style = Paint.Style.FILL
-                canvas.drawPath(arrowHeadPath, drawPaint)
-                drawPaint.style = previousStyle
-            }
-            is CoreDrawingElement.Rect -> {
-                val l = minOf(el.start.first, el.end.first); val t = minOf(el.start.second, el.end.second)
-                val r = maxOf(el.start.first, el.end.first); val b = maxOf(el.start.second, el.end.second)
-                canvas.drawRect(l, t, r, b, drawPaint)
-            }
-            is CoreDrawingElement.Circle -> canvas.drawCircle(el.center.first, el.center.second, el.radius, drawPaint)
-        }
-    }
 
     override fun onDetachedFromWindow() {
         dismissRestoreClearBar()
