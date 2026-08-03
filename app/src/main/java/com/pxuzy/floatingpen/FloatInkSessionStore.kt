@@ -48,10 +48,12 @@ object FloatInkSessionCodec {
         require(root.optInt("formatVersion") == FORMAT_VERSION) { "不支持的 FloatInk 文件版本" }
         val boards = root.getJSONArray("boards")
         require(boards.length() > 0) { "FloatInk 文件没有画板" }
-        val firstBoard = decodeBoard(boards.getJSONObject(0))
-        val session = DrawingSession(firstBoard)
+        val decodedBoards = (0 until boards.length()).map { index ->
+            decodeBoard(boards.getJSONObject(index))
+        }
+        val session = DrawingSession(decodedBoards.first())
         session.boards.clear()
-        for (index in 0 until boards.length()) session.boards += decodeBoard(boards.getJSONObject(index))
+        session.boards += decodedBoards
         val activeBoardId = root.optString("activeBoardId", session.boards.first().id)
         session.selectBoard(activeBoardId)
         val activeLayerId = root.optString("activeLayerId", session.currentBoard.activeLayerId)
