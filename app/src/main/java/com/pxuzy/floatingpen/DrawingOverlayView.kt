@@ -839,91 +839,23 @@ class DrawingOverlayView(
         }
         closeColorPanel()
         closeCanvasPanel()
-        val panel = LinearLayout(context).apply {
-            tag = "more-tools-panel"
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(18.dp, 14.dp, 18.dp, 14.dp)
-            background = GradientDrawable().apply {
-                setColor(FloatInkTheme.overlayPanel)
-                cornerRadius = FloatInkTheme.PANEL_RADIUS_DP.dpf
-                setStroke(1.dpf.toInt(), FloatInkTheme.overlayStroke)
-            }
-            val overflowToolIds = configuredToolIds.drop(4)
-            addView(TextView(context).apply {
-                text = "辅助工具"
-                textSize = 13f
-                setTextColor(Color.WHITE)
-                gravity = Gravity.CENTER
-            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, 32.dp))
-            addView(LinearLayout(context).apply {
-                tag = "fibonacci-retracement"
-                contentDescription = "斐波那契回撤"
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(6.dp, 2.dp, 6.dp, 2.dp)
-                addView(FloatInkIconView(context, "fibonacci").apply {
-                    setIconColor(Color.WHITE)
-                }, LinearLayout.LayoutParams(actionButtonSize(), actionButtonSize()))
-                addView(TextView(context).apply {
-                    text = "斐波那契回撤"
-                    textSize = 13f
-                    setTextColor(Color.WHITE)
-                }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, actionButtonSize()))
-                setOnClickListener {
-                    selectAuxiliaryTool("fibonacci")
-                    moreToolsPanel?.let(toolbarPopupHost::removeView)
-                    moreToolsPanel = null
-                }
-            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, actionButtonSize()))
-            addView(FloatInkIconView(context, "guide").apply {
-                tag = "golden-guide"
-                contentDescription = if (goldenGuideVisible) "隐藏黄金分割线" else "显示黄金分割线"
-                layoutParams = LinearLayout.LayoutParams(actionButtonSize(), actionButtonSize())
-                setIconColor(Color.WHITE)
-                background = GradientDrawable().apply {
-                    setColor(if (goldenGuideVisible) FloatInkTheme.overlaySelected else Color.TRANSPARENT)
-                    cornerRadius = 8.dpf
-                }
-                setOnClickListener {
-                    toggleGoldenGuide()
-                    contentDescription = if (goldenGuideVisible) "隐藏黄金分割线" else "显示黄金分割线"
-                    background = GradientDrawable().apply {
-                        setColor(if (goldenGuideVisible) FloatInkTheme.overlaySelected else Color.TRANSPARENT)
-                        cornerRadius = 8.dpf
-                    }
-                }
-            })
-            addView(TextView(context).apply {
-                text = "更多形状"
-                textSize = 13f
-                setTextColor(Color.WHITE)
-                gravity = Gravity.CENTER
-            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, 32.dp))
-            if (overflowToolIds.isEmpty()) {
-                addView(TextView(context).apply {
-                    text = "暂无更多工具"
-                    textSize = 12f
-                    setTextColor(Color.parseColor("#91A0B2"))
-                    gravity = Gravity.CENTER
-                }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, 40.dp))
-            } else {
-                val toolRow = LinearLayout(context).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER
-                }
-                overflowToolIds.forEach { toolId ->
-                    toolRow.addView(createToolIcon(toolId).apply {
-                        setOnClickListener {
-                            selectTool(toolId)
-                            moreToolsPanel?.let(toolbarPopupHost::removeView)
-                            moreToolsPanel = null
-                        }
-                    })
-                }
-                addView(toolRow, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, actionButtonSize()))
-            }
-        }
+        val panel = MoreToolsPanelBuilder(
+            context = context,
+            density = density,
+            actionButtonSize = actionButtonSize(),
+            overflowToolIds = configuredToolIds.drop(4),
+            isGoldenGuideVisible = { goldenGuideVisible },
+            createToolIcon = ::createToolIcon,
+            onFibonacciSelected = {
+                selectAuxiliaryTool("fibonacci")
+                closeMoreToolsPanel()
+            },
+            onGoldenGuideToggled = ::toggleGoldenGuide,
+            onOverflowToolSelected = { toolId ->
+                selectTool(toolId)
+                closeMoreToolsPanel()
+            },
+        ).build()
         moreToolsPanel = panel
         toolbarPopupHost.addView(panel, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT))
         positionPopupAboveToolbar(panel)
