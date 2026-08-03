@@ -74,6 +74,13 @@ class DrawingOverlayView(
     }
 
     private val density = resources.displayMetrics.density
+    private val colorControlBuilder = ColorControlBuilder(
+        context = context,
+        density = density,
+        compactLayout = { compactLayout },
+        colorLabel = ::colorLabel,
+        onClick = ::toggleColorPanel,
+    )
     private val sampleDistanceSquared = (1.5f * density) * (1.5f * density)
     private var elements: MutableList<DrawingElement> = drawingSession.currentLayer.elements
     private var sx = 0f; private var sy = 0f; private var cx = 0f; private var cy = 0f
@@ -521,43 +528,11 @@ class DrawingOverlayView(
         }
     }
 
-    private fun createColorDot(): View {
-        val baseSize = toolbarButtonSizeDp
-        val dotSize = (baseSize * 0.58f).dpf.toInt().coerceAtLeast(10.dp)
-        val size = dotSize
-        val wrapperSize = baseSize.dp
-        val resolvedWidth = (drawPaint.strokeWidth / density).toInt()
-        val wrapper = LinearLayout(context).apply {
-            tag = "color"
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            contentDescription = "当前颜色 ${colorLabel(currentColor)}，线宽 ${resolvedWidth}dp"
-            layoutParams = LinearLayout.LayoutParams(wrapperSize, wrapperSize).apply { marginEnd = 1.dp }
-            setOnClickListener { toggleColorPanel() }
-        }
-        // Colored circle
-        wrapper.addView(View(context).apply {
-            layoutParams = LinearLayout.LayoutParams(size, size).apply { marginEnd = 1.dp }
-            background = GradientDrawable().apply {
-                setColor(currentColor)
-                cornerRadius = (size / 2).toFloat()
-                setStroke(2.dpf.toInt(), Color.parseColor("#55FFFFFF"))
-            }
-        })
-        // Color name text
-        wrapper.addView(TextView(context).apply {
-            text = if (compactLayout) "" else "${colorLabel(currentColor)} · ${resolvedWidth}dp"
-            textSize = if (compactLayout) 10f else 11f
-            setTextColor(Color.parseColor("#AAFFFFFF"))
-            gravity = Gravity.CENTER_VERTICAL
-        })
-        // Separator
-        wrapper.addView(View(context).apply {
-            layoutParams = LinearLayout.LayoutParams(1.dpf.toInt(), (baseSize * 0.65f).dp.toInt().coerceAtLeast(14.dp)).apply { marginStart = 2.dp }
-            setBackgroundColor(Color.parseColor("#33FFFFFF"))
-        })
-        return wrapper
-    }
+    private fun createColorDot(): View = colorControlBuilder.build(
+        color = currentColor,
+        widthDp = (drawPaint.strokeWidth / density).toInt(),
+        toolbarButtonSizeDp = toolbarButtonSizeDp,
+    )
 
     private fun createToolIcon(toolId: String): View {
         val baseSize = toolbarButtonSizeDp
@@ -1186,10 +1161,11 @@ class DrawingOverlayView(
     private fun refreshColorControl() {
         val toolbar = toolbarPopupHost.findViewWithTag<LinearLayout>("monochrome-toolbar") ?: return
         val colorControl = toolbar.findViewWithTag<LinearLayout>("color") ?: return
-        colorControl.getChildAt(0).background = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL; setColor(currentColor); setStroke(2.dpf.toInt(), Color.parseColor("#55FFFFFF"))
-        }
-        (colorControl.getChildAt(1) as? TextView)?.text = if (compactLayout) "" else colorLabel(currentColor)
+        colorControlBuilder.refresh(
+            control = colorControl,
+            color = currentColor,
+            widthDp = (drawPaint.strokeWidth / density).toInt(),
+        )
     }
 
     private fun colorLabel(color: Int): String {
