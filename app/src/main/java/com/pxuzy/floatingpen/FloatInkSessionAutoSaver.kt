@@ -5,6 +5,7 @@ import android.os.Looper
 import java.util.UUID
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 class FloatInkSessionAutoSaver(
     private val session: com.pxuzy.floatingpen.core.DrawingSession,
@@ -37,5 +38,18 @@ class FloatInkSessionAutoSaver(
         handler.removeCallbacksAndMessages(null)
         saveNowIfDirty()
         executor.shutdown()
+        awaitPendingSaves()
+    }
+
+    private fun awaitPendingSaves() {
+        var interrupted = false
+        while (true) {
+            try {
+                if (executor.awaitTermination(1, TimeUnit.SECONDS)) break
+            } catch (_: InterruptedException) {
+                interrupted = true
+            }
+        }
+        if (interrupted) Thread.currentThread().interrupt()
     }
 }
