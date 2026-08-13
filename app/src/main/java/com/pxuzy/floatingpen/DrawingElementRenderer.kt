@@ -79,12 +79,36 @@ class DrawingElementRenderer(
     }
     private fun drawStroke(canvas: Canvas, stroke: DrawingElement.Stroke) {
         if (stroke.points.size < 2) return
+        canvas.drawPath(buildSmoothStrokePath(stroke.points), paint)
+    }
+
+    /**
+     * Builds the stroke path with midpoint quadratic smoothing: instead of
+     * connecting samples with straight lines (visible corners on fast strokes),
+     * each sample becomes a quadTo control point and the curve passes through
+     * the midpoints between consecutive samples. Classic smoothing used by
+     * mainstream drawing apps; endpoints stay exact.
+     */
+    internal fun buildSmoothStrokePath(points: List<Pair<Float, Float>>): Path {
         strokePath.rewind()
-        strokePath.moveTo(stroke.points[0].first, stroke.points[0].second)
-        for (index in 1 until stroke.points.size) {
-            strokePath.lineTo(stroke.points[index].first, stroke.points[index].second)
+        if (points.size < 2) return strokePath
+        strokePath.moveTo(points[0].first, points[0].second)
+        if (points.size == 2) {
+            strokePath.lineTo(points[1].first, points[1].second)
+            return strokePath
         }
-        canvas.drawPath(strokePath, paint)
+        for (index in 1 until points.size - 1) {
+            val current = points[index]
+            val next = points[index + 1]
+            strokePath.quadTo(
+                current.first, current.second,
+                (current.first + next.first) / 2f,
+                (current.second + next.second) / 2f,
+            )
+        }
+        val last = points.last()
+        strokePath.lineTo(last.first, last.second)
+        return strokePath
     }
 
     private fun drawArrow(canvas: Canvas, arrow: DrawingElement.Arrow) = drawArrow(

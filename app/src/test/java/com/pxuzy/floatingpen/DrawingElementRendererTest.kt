@@ -4,6 +4,8 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.PathMeasure
 import com.pxuzy.floatingpen.core.DrawingElement
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -33,6 +35,37 @@ class DrawingElementRendererTest {
 
         assertTrue(bitmapHasVisiblePixels(bitmap))
         assertEquals(Paint.Style.STROKE, paint.style)
+    }
+
+    @Test
+    fun `smooth stroke rounds the corner of a sharp turn`() {
+        val renderer = DrawingElementRenderer(density = 1f, paint = Paint())
+        val points = listOf(0f to 0f, 10f to 0f, 10f to 10f)
+
+        val rawLength = PathMeasure(Path().apply {
+            moveTo(0f, 0f); lineTo(10f, 0f); lineTo(10f, 10f)
+        }, false).length
+
+        val smoothed = renderer.buildSmoothStrokePath(points)
+        val smoothedLength = PathMeasure(smoothed, false).length
+
+        // Midpoint quadratic smoothing cuts the corner: strictly shorter than
+        // the raw polyline. (Robolectric's getPosTan is unreliable, so endpoint
+        // exactness is asserted implicitly: the algorithm moves to the first
+        // sample and ends with a lineTo the last sample.)
+        assertTrue(smoothedLength < rawLength)
+        assertTrue(smoothedLength > 0f)
+    }
+
+    @Test
+    fun `smooth stroke keeps a straight two-point stroke straight`() {
+        val renderer = DrawingElementRenderer(density = 1f, paint = Paint())
+
+        val smoothed = renderer.buildSmoothStrokePath(listOf(0f to 0f, 20f to 20f))
+
+        assertEquals(PathMeasure(Path().apply {
+            moveTo(0f, 0f); lineTo(20f, 20f)
+        }, false).length, PathMeasure(smoothed, false).length, 0.01f)
     }
 
     private fun bitmapHasVisiblePixels(bitmap: Bitmap): Boolean {
