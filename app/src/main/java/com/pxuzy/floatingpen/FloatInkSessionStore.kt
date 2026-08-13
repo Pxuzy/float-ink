@@ -131,10 +131,21 @@ object FloatInkSessionStore {
     fun save(file: File, session: DrawingSession, sessionId: String) {
         file.parentFile?.mkdirs()
         val temp = File(file.path + ".tmp")
-        if (file.exists()) file.copyTo(File(file.path + ".bak"), overwrite = true)
+        if (file.exists()) copyAtomically(file, File(file.path + ".bak"))
         temp.writeText(FloatInkSessionCodec.encode(session, sessionId), Charsets.UTF_8)
         if (file.exists() && !file.delete()) error("无法替换旧 FloatInk 文件")
         require(temp.renameTo(file)) { "无法完成 FloatInk 文件原子替换" }
+    }
+
+    /**
+     * Copies via temp+rename so a process killed mid-copy can never leave a
+     * truncated .bak behind that would be mistaken for a valid backup.
+     */
+    private fun copyAtomically(source: File, target: File) {
+        val temp = File(target.path + ".tmp")
+        source.copyTo(temp, overwrite = true)
+        if (target.exists() && !target.delete()) error("无法替换旧备份文件")
+        require(temp.renameTo(target)) { "无法完成备份文件原子替换" }
     }
 
     fun load(file: File): DecodedFloatInkSession =

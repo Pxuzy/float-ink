@@ -83,6 +83,12 @@ sealed class DrawingElement {
     }
 }
 
+/** Deep-copies an element; strokes duplicate their mutable point/pressure lists. */
+fun DrawingElement.deepCopy(): DrawingElement = when (this) {
+    is DrawingElement.Stroke -> copy(points = points.toMutableList(), pressures = pressures.toMutableList())
+    else -> this
+}
+
 data class ToolDef(val id: String, val label: String, val gradientColors: IntArray) {
     override fun equals(other: Any?): Boolean = other is ToolDef && other.id == id
     override fun hashCode(): Int = id.hashCode()
