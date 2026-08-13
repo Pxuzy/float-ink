@@ -108,6 +108,21 @@ class FloatingBubbleViewTest {
     }
 
     @Test
+    fun `hidden shift leaves only an 8dp sliver inside the window`() {
+        val bubble = bubble({}, {})
+        bubble.measure(0, 0)
+        bubble.layout(0, 0, bubble.measuredWidth, bubble.measuredHeight)
+        val density = context.resources.displayMetrics.density
+
+        val shift = bubble.hiddenShiftPx()
+
+        // The bubble must move most of the way out: only HIDDEN_WIDTH (8dp)
+        // plus the 2dp draw inset stays inside the window.
+        assertEquals((8 + 2) * density, bubble.measuredWidth - shift, 0.5f)
+        assertTrue("shift must move the center past the window edge", shift > bubble.measuredWidth / 2f)
+    }
+
+    @Test
     fun `uninitialized bubble starts on the right side`() {
         context.getSharedPreferences(PenSettings.PREF_NAME, Application.MODE_PRIVATE).edit()
             .remove("bubble_x")

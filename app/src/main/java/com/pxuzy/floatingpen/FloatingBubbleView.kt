@@ -175,8 +175,14 @@ class FloatingBubbleView(context: Context, private val onTap: () -> Unit, privat
 
     // ===== 绘制 =====
 
+    internal fun hiddenShiftPx(): Float = width - (HIDDEN_WIDTH + 2).dpf
+
     override fun onDraw(canvas: Canvas) {
-        val offset = if (isHidden) (bubbleSizeDp / 2 - HIDDEN_WIDTH).dpf else 0f
+        // Hidden = the bubble is drawn mostly off-screen, leaving only an
+        // HIDDEN_WIDTH sliver visible. The bubble is drawn centered at
+        // width/2 with an inset of 2dp, so the shift must cover the half
+        // width minus that inset, leaving HIDDEN_WIDTH inside the window.
+        val offset = if (isHidden) hiddenShiftPx() else 0f
         val shiftX = if (isSnappedLeft) -offset else offset
 
         val cx = width / 2f + shiftX
