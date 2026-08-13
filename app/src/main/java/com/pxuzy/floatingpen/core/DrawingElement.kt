@@ -8,6 +8,12 @@ sealed class DrawingElement {
         val points: MutableList<Pair<Float, Float>>,
         val color: Int,
         val width: Float,
+        /**
+         * Per-sample stylus/finger pressure in [0, 1], parallel to [points].
+         * Empty for legacy sessions or when pressure was unavailable — the
+         * renderer then falls back to the fixed [width].
+         */
+        val pressures: MutableList<Float> = mutableListOf(),
     ) : DrawingElement() {
         override val drawColor: Int get() = color
         override val drawWidth: Float get() = width

@@ -58,6 +58,36 @@ class FloatInkSessionStoreTest {
     }
 
     @Test
+    fun `stroke pressure survives round trip and legacy strokes decode without it`() {
+        val session = DrawingSession()
+        session.addElement(DrawingElement.Stroke(
+            mutableListOf(0f to 0f, 10f to 10f, 20f to 0f),
+            0xFF112233.toInt(),
+            5f,
+            mutableListOf(1f, 0.4f, 0.8f),
+        ))
+        session.addElement(DrawingElement.Stroke(mutableListOf(0f to 0f, 5f to 5f), 0xFF112233.toInt(), 5f))
+
+        val encoded = FloatInkSessionCodec.encode(session, "pressure-round-trip")
+        val restored = FloatInkSessionCodec.decode(encoded)
+        val strokes = restored.session.currentLayer.elements.filterIsInstance<DrawingElement.Stroke>()
+
+        assertEquals(listOf(1f, 0.4f, 0.8f), strokes[0].pressures)
+        assertTrue("legacy stroke without pressures decodes to empty list", strokes[1].pressures.isEmpty())
+        // Legacy JSON (no pressures key) must decode too.
+        val legacyJson = org.json.JSONObject(encoded)
+        val elements = legacyJson.getJSONArray("boards").getJSONObject(0)
+            .getJSONArray("layers").getJSONObject(0).getJSONArray("elements")
+        for (index in 0 until elements.length()) {
+            elements.getJSONObject(index).remove("pressures")
+        }
+        val legacyRestored = FloatInkSessionCodec.decode(legacyJson.toString())
+        val legacyStrokes = legacyRestored.session.currentLayer.elements.filterIsInstance<DrawingElement.Stroke>()
+        assertEquals(2, legacyStrokes.size)
+        assertTrue(legacyStrokes.all { it.pressures.isEmpty() })
+    }
+
+    @Test
     fun `second save keeps one backup of the previous valid session`() {
         val file = File(context.cacheDir, "backup.floatink")
         val first = DrawingSession().apply {

@@ -938,6 +938,30 @@ class DrawingOverlayViewTest {
     }
 
     @Test
+    fun `stylus stroke records per-sample pressure parallel to points`() {
+        val view = DrawingOverlayView(context, "pen", 0) {}
+        val canvas = view.getChildAt(0)
+
+        canvas.dispatchTouchEvent(multiPointerEvent(
+            MotionEvent.ACTION_DOWN,
+            listOf(PointerSpec(0, 10f, 10f, MotionEvent.TOOL_TYPE_STYLUS, pressure = 0.5f)),
+        ))
+        canvas.dispatchTouchEvent(multiPointerEvent(
+            MotionEvent.ACTION_MOVE,
+            listOf(PointerSpec(0, 40f, 40f, MotionEvent.TOOL_TYPE_STYLUS, pressure = 0.9f)),
+        ))
+        canvas.dispatchTouchEvent(multiPointerEvent(
+            MotionEvent.ACTION_UP,
+            listOf(PointerSpec(0, 60f, 60f, MotionEvent.TOOL_TYPE_STYLUS, pressure = 0f)),
+        ))
+
+        val stroke = view.elementsForTest().single() as CoreDrawingElement.Stroke
+        assertEquals(stroke.points.size, stroke.pressures.size)
+        assertEquals(0.5f, stroke.pressures.first(), 0.001f)
+        assertTrue(stroke.pressures.last() >= 0f)
+    }
+
+    @Test
     fun `stylus pointer up finalizes before later finger up`() {
         val view = DrawingOverlayView(context, "pen", 0) {}
         val canvas = view.getChildAt(0)
@@ -1093,14 +1117,20 @@ class DrawingOverlayViewTest {
         down.recycle(); move.recycle(); up.recycle()
     }
 
-    private data class PointerSpec(val id: Int, val x: Float, val y: Float, val toolType: Int)
+    private data class PointerSpec(
+        val id: Int,
+        val x: Float,
+        val y: Float,
+        val toolType: Int,
+        val pressure: Float = 1f,
+    )
 
     private fun multiPointerEvent(action: Int, points: List<PointerSpec>): MotionEvent {
         val properties = points.map { point ->
             MotionEvent.PointerProperties().apply { id = point.id; toolType = point.toolType }
         }.toTypedArray()
         val coordinates = points.map { point ->
-            MotionEvent.PointerCoords().apply { x = point.x; y = point.y }
+            MotionEvent.PointerCoords().apply { x = point.x; y = point.y; pressure = point.pressure }
         }.toTypedArray()
         return MotionEvent.obtain(0, 10, action, points.size, properties, coordinates, 0, 0, 1f, 1f, 0, 0, 0, 0)
     }

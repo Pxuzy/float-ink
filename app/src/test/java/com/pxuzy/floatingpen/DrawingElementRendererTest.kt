@@ -68,6 +68,43 @@ class DrawingElementRendererTest {
         }, false).length, PathMeasure(smoothed, false).length, 0.01f)
     }
 
+    @Test
+    fun `pressure maps width between 30 and 100 percent of base`() {
+        val renderer = DrawingElementRenderer(density = 1f, paint = Paint())
+
+        assertEquals(10f, renderer.pressureWidth(10f, 1f), 0.01f)
+        assertEquals(3f, renderer.pressureWidth(10f, 0f), 0.01f)
+        assertEquals(6.5f, renderer.pressureWidth(10f, 0.5f), 0.01f)
+        // Out-of-range pressures clamp.
+        assertEquals(3f, renderer.pressureWidth(10f, -0.2f), 0.01f)
+        assertEquals(10f, renderer.pressureWidth(10f, 1.4f), 0.01f)
+    }
+
+    @Test
+    fun `pressure stroke renders without leaking paint state`() {
+        val bitmap = Bitmap.createBitmap(200, 200, Bitmap.Config.ARGB_8888)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = 6f
+        }
+        val renderer = DrawingElementRenderer(density = 1f, paint = paint)
+        val stroke = DrawingElement.Stroke(
+            points = mutableListOf(10f to 10f, 100f to 100f, 190f to 10f),
+            color = Color.RED,
+            width = 6f,
+            pressures = mutableListOf(1f, 0.3f, 1f),
+        )
+
+        // Robolectric's native graphics does not write line/path pixels back to
+        // bitmaps, so pixel assertions are unreliable here; rendering
+        // correctness is verified on a real device. The unit-level contract is:
+        // drawing succeeds and the shared paint's width/style are restored.
+        renderer.draw(Canvas(bitmap), stroke)
+
+        assertEquals(6f, paint.strokeWidth, 0.01f)
+        assertEquals(Paint.Style.STROKE, paint.style)
+    }
+
     private fun bitmapHasVisiblePixels(bitmap: Bitmap): Boolean {
         val pixels = IntArray(bitmap.width * bitmap.height)
         bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
