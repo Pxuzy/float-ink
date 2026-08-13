@@ -1,6 +1,8 @@
 package com.pxuzy.floatingpen
 
 import android.app.Application
+import android.content.Context
+import android.app.DownloadManager
 import android.view.View
 import android.view.ViewGroup
 import android.widget.SeekBar
@@ -19,11 +21,43 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.shadows.ShadowAlertDialog
 
 @RunWith(RobolectricTestRunner::class)
 class MainActivityTest {
     private val context: Application = ApplicationProvider.getApplicationContext()
+
+    @Test
+    fun `update download guides to install permission when not granted`() {
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        shadowOf(activity.packageManager).setCanRequestPackageInstalls(false)
+
+        invokeDownloadUpdate(activity, AppUpdateManager.UpdateInfo("1.0.0", "https://example.com/app.apk", "https://example.com"))
+
+        val dialog = ShadowAlertDialog.getLatestAlertDialog()
+        assertNotNull(dialog)
+        assertTrue(shadowOf(dialog).message.toString().contains("安装未知应用"))
+        val downloadManager = activity.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        assertEquals(0, shadowOf(downloadManager).requestCount)
+    }
+
+    @Test
+    fun `update download enqueues when install permission is granted`() {
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        shadowOf(activity.packageManager).setCanRequestPackageInstalls(true)
+
+        invokeDownloadUpdate(activity, AppUpdateManager.UpdateInfo("1.0.0", "https://example.com/app.apk", "https://example.com"))
+
+        val downloadManager = activity.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        assertEquals(1, shadowOf(downloadManager).requestCount)
+    }
+
+    private fun invokeDownloadUpdate(activity: MainActivity, update: AppUpdateManager.UpdateInfo) {
+        MainActivity::class.java.getDeclaredMethod("downloadUpdate", AppUpdateManager.UpdateInfo::class.java).apply {
+            isAccessible = true
+        }.invoke(activity, update)
+    }
 
     @Test
     fun `bottom navigation opens home pen and settings pages`() {

@@ -40,12 +40,11 @@ class MainActivity : ComponentActivity() {
     private val updateManager by lazy { AppUpdateManager(this) }
     private val downloadReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == DownloadManager.ACTION_DOWNLOAD_COMPLETE &&
-                intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L) == AppUpdateManager.savedDownloadId(this@MainActivity)
-            ) {
-                if (!updateManager.installCompletedDownload(AppUpdateManager.savedDownloadId(this@MainActivity))) {
-                    Toast.makeText(this@MainActivity, "更新下载失败，请稍后重试", Toast.LENGTH_LONG).show()
-                }
+            if (intent.action != DownloadManager.ACTION_DOWNLOAD_COMPLETE) return
+            val downloadId = AppUpdateManager.savedDownloadId(this@MainActivity)
+            if (intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L) != downloadId) return
+            if (!updateManager.installCompletedDownload(downloadId)) {
+                Toast.makeText(this@MainActivity, "更新下载失败，请稍后重试", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -981,6 +980,7 @@ class MainActivity : ComponentActivity() {
         status?.text = "正在检查 GitHub Releases…"
         button?.isEnabled = false
         updateManager.check { result ->
+            if (isFinishing || isDestroyed) return@check
             button?.isEnabled = true
             result.onSuccess { update ->
                 if (update == null) {
@@ -1000,16 +1000,55 @@ class MainActivity : ComponentActivity() {
                     AlertDialog.Builder(this)
                         .setTitle("发现浮墨新版本")
                         .setMessage("${BuildConfig.VERSION_NAME} → ${update.version}\n将从 GitHub Releases 下载 APK，随后由系统确认安装。")
-                        .setPositiveButton("下载更新") { _, _ ->
-                            updateManager.downloadAndInstall(update)
-                            status?.text = "正在下载 ${update.version}…"
-                        }
+                        .setPositiveButton("下载更新") { _, _ -> downloadUpdate(update) }
                         .setNegativeButton("取消", null)
                         .show()
                 }
             }.onFailure { error ->
                 status?.text = "检查失败：${error.localizedMessage ?: "网络不可用"}"
                 Toast.makeText(this, "检查更新失败，请确认网络连接", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun downloadUpdate(update: AppUpdateManager.UpdateInfo) {
+        if (!packageManager.canRequestPackageInstalls()) {
+            AlertDialog.Builder(this)
+                .setTitle("需要允许安装应用")
+                .setMessage("系统默认禁止从浏览器或下载器安装应用。请允许本应用的“安装未知应用”权限后再更新。")
+                .setPositiveButton("去设置") { _, _ ->
+                    runCatching {
+                        startActivity(
+                            Intent(
+                                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                Uri.parse("package:$packageName"),
+                            ),
+                        )
+                    }
+                }
+                .setNegativeButton("取消", null)
+                .show()
+            return
+        }
+        updateManager.downloadAndInstall(update)
+        pageContainer.findViewWithTag<TextView>("settings-update-status")?.text = "正在下载 ${update.version}…"
+    }
+
+    /**
+     * Completes an interrupted update install: if the user left the app while the
+     * APK downloaded, the ACTION_DOWNLOAD_COMPLETE receiver may be gone by the
+     * time DownloadManager finishes. Re-trigger the install when the app returns.
+     */
+    private fun resumePendingDownloadInstall() {
+        val downloadId = AppUpdateManager.savedDownloadId(this)
+        if (downloadId < 0) return
+        val manager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        val cursor = manager.query(DownloadManager.Query().setFilterById(downloadId)) ?: return
+        cursor.use {
+            if (!it.moveToFirst()) return
+            val status = it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+            if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                updateManager.installCompletedDownload(downloadId)
             }
         }
     }
@@ -1156,6 +1195,7 @@ class MainActivity : ComponentActivity() {
             selectedArrowScale = it.arrowScale
         }
         if (::pageContainer.isInitialized) showPage(currentPage)
+        resumePendingDownloadInstall()
     }
 
     private fun onActionClick() {
