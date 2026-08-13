@@ -49,7 +49,8 @@ class PenSettingsTest {
             assertEquals(11f, migrated.styleFor(tool).widthDp)
         }
         assertEquals(3f, migrated.arrowScale)
-        assertEquals(0xFF123456.toInt(), reloaded.styleFor("pen").color)
+        assertEquals(0xFFABCDEF.toInt(), reloaded.styleFor("pen").color)
+        assertEquals(7f, reloaded.styleFor("pen").widthDp)
     }
 
     @Test
@@ -68,7 +69,7 @@ class PenSettingsTest {
     }
 
     @Test
-    fun `tool widths persist independently while color stays global`() {
+    fun `tool widths and colors persist independently`() {
         PenSettings.saveGlobalStyle(context, 0xFF101010.toInt(), 4f)
         PenSettings.saveToolStyle(context, "line", 0xFF202020.toInt(), 8f)
         PenSettings.saveToolStyle(context, "arrow", 0xFF303030.toInt(), 99f)
@@ -77,9 +78,9 @@ class PenSettingsTest {
 
         assertEquals(0xFF101010.toInt(), values.globalColor)
         assertEquals(4f, values.globalWidthDp)
-        assertEquals(0xFF101010.toInt(), values.styleFor("line").color)
+        assertEquals(0xFF202020.toInt(), values.styleFor("line").color)
         assertEquals(8f, values.styleFor("line").widthDp)
-        assertEquals(0xFF101010.toInt(), values.styleFor("arrow").color)
+        assertEquals(0xFF303030.toInt(), values.styleFor("arrow").color)
         assertEquals(24f, values.styleFor("arrow").widthDp)
         assertEquals(values.styleFor("pen"), values.styleFor("unknown"))
     }
@@ -144,7 +145,7 @@ class PenSettingsTest {
     }
 
     @Test
-    fun `deleting active custom color replaces every persisted style with safe fallback`() {
+    fun `deleting active custom color replaces only matching tool styles with fallback`() {
         val custom = 0xFF123456.toInt()
         PenSettings.addCustomColor(context, custom)
         PenSettings.addRecentColor(context, custom)
@@ -161,9 +162,11 @@ class PenSettingsTest {
         assertTrue(custom !in values.recentColors)
         assertEquals(listOf(0xFF778899.toInt()), values.recentColors)
         assertEquals(PenSettings.DEFAULT_PALETTE.first(), values.globalColor)
+        // Tools that used the deleted color fall back…
         assertEquals(PenSettings.DEFAULT_PALETTE.first(), values.styleFor("pen").color)
         assertEquals(PenSettings.DEFAULT_PALETTE.first(), values.styleFor("rect").color)
-        assertEquals(PenSettings.DEFAULT_PALETTE.first(), values.styleFor("arrow").color)
+        // …but tools with their own unrelated color keep it.
+        assertEquals(0xFFABCDEF.toInt(), values.styleFor("arrow").color)
     }
 
     @Test

@@ -65,7 +65,12 @@ object FloatInkSessionCodec {
         elements.forEach { element ->
             val json = JSONObject().put("color", element.drawColor).put("width", element.drawWidth)
             when (element) {
-                is DrawingElement.Stroke -> json.put("type", "stroke").put("points", encodePoints(element.points))
+                is DrawingElement.Stroke -> {
+                    json.put("type", "stroke").put("points", encodePoints(element.points))
+                    if (element.pressures.size == element.points.size && element.pressures.isNotEmpty()) {
+                        json.put("pressures", JSONArray().apply { element.pressures.forEach { put(it) } })
+                    }
+                }
                 is DrawingElement.Line -> json.put("type", "line").put("start", encodePoint(element.start)).put("end", encodePoint(element.end))
                 is DrawingElement.Arrow -> json.put("type", "arrow").put("start", encodePoint(element.start)).put("end", encodePoint(element.end)).put("headLengthDp", element.headLengthDp)
                 is DrawingElement.Rect -> json.put("type", "rect").put("start", encodePoint(element.start)).put("end", encodePoint(element.end))
@@ -102,7 +107,7 @@ object FloatInkSessionCodec {
             val color = item.getInt("color")
             val width = item.getDouble("width").toFloat()
             when (item.getString("type")) {
-                "stroke" -> add(DrawingElement.Stroke(decodePoints(item.getJSONArray("points")), color, width))
+                "stroke" -> add(DrawingElement.Stroke(decodePoints(item.getJSONArray("points")), color, width, decodePressures(item.optJSONArray("pressures"))))
                 "line" -> add(DrawingElement.Line(decodePoint(item.getJSONArray("start")), decodePoint(item.getJSONArray("end")), color, width))
                 "arrow" -> add(DrawingElement.Arrow(decodePoint(item.getJSONArray("start")), decodePoint(item.getJSONArray("end")), color, width, item.getDouble("headLengthDp").toFloat()))
                 "rect" -> add(DrawingElement.Rect(decodePoint(item.getJSONArray("start")), decodePoint(item.getJSONArray("end")), color, width))
@@ -116,6 +121,8 @@ object FloatInkSessionCodec {
     private fun encodePoints(points: List<Pair<Float, Float>>) = JSONArray().apply { points.forEach { put(encodePoint(it)) } }
     private fun decodePoint(json: JSONArray) = json.getDouble(0).toFloat() to json.getDouble(1).toFloat()
     private fun decodePoints(json: JSONArray) = MutableList(json.length()) { decodePoint(json.getJSONArray(it)) }
+    private fun decodePressures(json: JSONArray?) =
+        if (json == null) mutableListOf() else MutableList(json.length()) { json.getDouble(it).toFloat() }
 }
 
 object FloatInkSessionStore {
@@ -124,10 +131,21 @@ object FloatInkSessionStore {
     fun save(file: File, session: DrawingSession, sessionId: String) {
         file.parentFile?.mkdirs()
         val temp = File(file.path + ".tmp")
-        if (file.exists()) file.copyTo(File(file.path + ".bak"), overwrite = true)
+        if (file.exists()) copyAtomically(file, File(file.path + ".bak"))
         temp.writeText(FloatInkSessionCodec.encode(session, sessionId), Charsets.UTF_8)
         if (file.exists() && !file.delete()) error("无法替换旧 FloatInk 文件")
         require(temp.renameTo(file)) { "无法完成 FloatInk 文件原子替换" }
+    }
+
+    /**
+     * Copies via temp+rename so a process killed mid-copy can never leave a
+     * truncated .bak behind that would be mistaken for a valid backup.
+     */
+    private fun copyAtomically(source: File, target: File) {
+        val temp = File(target.path + ".tmp")
+        source.copyTo(temp, overwrite = true)
+        if (target.exists() && !target.delete()) error("无法替换旧备份文件")
+        require(temp.renameTo(target)) { "无法完成备份文件原子替换" }
     }
 
     fun load(file: File): DecodedFloatInkSession =

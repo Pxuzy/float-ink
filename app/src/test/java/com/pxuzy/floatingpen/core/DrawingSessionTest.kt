@@ -222,4 +222,31 @@ class DrawingSessionTest {
         assertFalse(session.renameBoard(boardId, "   "))
         assertFalse(session.renameLayer(layerId, "   "))
     }
+
+    @Test
+    fun `deep copy isolates stroke point lists from the live session`() {
+        val session = DrawingSession()
+        val stroke = DrawingElement.Stroke(
+            mutableListOf(0f to 0f, 10f to 10f),
+            1,
+            2f,
+            mutableListOf(1f, 0.5f),
+        )
+        session.addElement(stroke)
+
+        val copy = session.deepCopy()
+
+        // Mutating the copy never leaks into the live session…
+        val copiedStroke = copy.currentLayer.elements.single() as DrawingElement.Stroke
+        copiedStroke.points.add(20f to 20f)
+        copiedStroke.pressures.add(0f)
+        assertEquals(2, stroke.points.size)
+        assertEquals(2, stroke.pressures.size)
+
+        // …and mutating the live session never leaks into the copy.
+        stroke.points.clear()
+        stroke.pressures.clear()
+        assertEquals(3, copiedStroke.points.size)
+        assertEquals(3, copiedStroke.pressures.size)
+    }
 }
