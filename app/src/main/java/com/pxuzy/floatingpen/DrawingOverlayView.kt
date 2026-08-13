@@ -211,7 +211,12 @@ class DrawingOverlayView(
                         activeToolType = event.getToolType(0)
                         sx = x; sy = y; cx = x; cy = y; isDrawing = true
                         if (currentToolId == "pen") {
-                            elements.add(CoreDrawingElement.Stroke(mutableListOf(Pair(x, y)), selectedColor, drawPaint.strokeWidth))
+                            elements.add(CoreDrawingElement.Stroke(
+                                mutableListOf(Pair(x, y)),
+                                selectedColor,
+                                drawPaint.strokeWidth,
+                                mutableListOf(event.getPressure(0)),
+                            ))
                         } else if (currentToolId == "eraser") {
                             erasedInGesture = eraseAt(x, y)
                         }
@@ -246,6 +251,7 @@ class DrawingOverlayView(
                                 val dy = last?.second?.minus(cy) ?: Float.MAX_VALUE
                                 if (dx * dx + dy * dy >= sampleDistanceSquared) {
                                     e.points.add(Pair(cx, cy))
+                                    e.pressures.add(event.getPressure(pointerIndex))
                                 }
                             }
                         }
@@ -254,6 +260,32 @@ class DrawingOverlayView(
                     MotionEvent.ACTION_POINTER_DOWN -> {
                         val newPointerType = event.getToolType(event.actionIndex)
                         if (activeToolType == MotionEvent.TOOL_TYPE_STYLUS && newPointerType == MotionEvent.TOOL_TYPE_FINGER) {
+                            return true
+                        }
+                        if (isDrawing && newPointerType == MotionEvent.TOOL_TYPE_STYLUS) {
+                            // Palm landed first: hand the active gesture over to the
+                            // stylus instead of letting the finger-driven stroke die.
+                            // Typical tablet posture — palm rests, pen lands second.
+                            if (currentToolId == "pen" && elements.lastOrNull() is CoreDrawingElement.Stroke) {
+                                elements.removeAt(elements.lastIndex)
+                            }
+                            val pointerIndex = event.actionIndex
+                            sx = event.getX(pointerIndex); sy = event.getY(pointerIndex)
+                            cx = sx; cy = sy
+                            activePointerId = event.getPointerId(pointerIndex)
+                            activeToolType = newPointerType
+                            isDrawing = true
+                            if (currentToolId == "pen") {
+                                elements.add(CoreDrawingElement.Stroke(
+                                    mutableListOf(Pair(sx, sy)),
+                                    selectedColor,
+                                    drawPaint.strokeWidth,
+                                    mutableListOf(event.getPressure(pointerIndex)),
+                                ))
+                            } else if (currentToolId == "eraser") {
+                                erasedInGesture = eraseAt(sx, sy)
+                            }
+                            invalidate()
                             return true
                         }
                         if (currentToolId == "pen" && isDrawing && elements.lastOrNull() is CoreDrawingElement.Stroke) {
@@ -275,6 +307,14 @@ class DrawingOverlayView(
                                 val stroke = elements.lastOrNull() as? CoreDrawingElement.Stroke
                                 if (stroke?.points?.size == 1) {
                                     stroke.points.add(Pair(activeX, activeY))
+                                    // UP events report zero pressure; hold the last sample.
+                                    stroke.pressures.add(stroke.pressures.lastOrNull() ?: 1f)
+                                }
+                            } else if (isDrawing && currentToolId != "eraser") {
+                                // Shape tools finalize here too; otherwise the shape is
+                                // lost when the pen lifts while the palm still rests.
+                                createShapeElement(activeX, activeY)?.let { element ->
+                                    if (activeX != sx || activeY != sy) elements.add(element)
                                 }
                             }
                             isDrawing = false
@@ -302,7 +342,11 @@ class DrawingOverlayView(
                             if (erasedInGesture) onSessionChanged()
                         } else if (currentToolId == "pen" && isDrawing) {
                             val stroke = elements.lastOrNull() as? CoreDrawingElement.Stroke
-                            if (stroke?.points?.size == 1) stroke.points.add(Pair(x, y))
+                            if (stroke?.points?.size == 1) {
+                                stroke.points.add(Pair(x, y))
+                                // UP events report zero pressure; hold the last sample.
+                                stroke.pressures.add(stroke.pressures.lastOrNull() ?: 1f)
+                            }
                         } else if (isDrawing) {
                             createShapeElement(x, y)?.let { element ->
                                 if (x != sx || y != sy) elements.add(element)

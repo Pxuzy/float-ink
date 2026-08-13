@@ -17,6 +17,11 @@ class DrawingElementRenderer(
     private val strokePath = Path()
     private val arrowHeadPath = Path()
 
+    private companion object {
+        /** Pressure of 0 keeps MIN_PRESSURE_FACTOR of the base width. */
+        const val MIN_PRESSURE_FACTOR = 0.3f
+    }
+
     fun draw(canvas: Canvas, element: DrawingElement) {
         paint.color = element.drawColor
         paint.strokeWidth = element.drawWidth
@@ -79,12 +84,96 @@ class DrawingElementRenderer(
     }
     private fun drawStroke(canvas: Canvas, stroke: DrawingElement.Stroke) {
         if (stroke.points.size < 2) return
-        strokePath.rewind()
-        strokePath.moveTo(stroke.points[0].first, stroke.points[0].second)
-        for (index in 1 until stroke.points.size) {
-            strokePath.lineTo(stroke.points[index].first, stroke.points[index].second)
+        if (stroke.pressures.size != stroke.points.size) {
+            // Legacy or pressure-less stroke: draw with the fixed width.
+            canvas.drawPath(buildSmoothStrokePath(stroke.points), paint)
+            return
         }
+        val baseWidth = paint.strokeWidth
+        val previousStyle = paint.style
+        paint.style = Paint.Style.STROKE
+        try {
+            drawPressureSegments(canvas, stroke)
+        } finally {
+            paint.strokeWidth = baseWidth
+            paint.style = previousStyle
+        }
+    }
+
+    /**
+     * Draws each smoothed segment with a width derived from its control
+     * point's pressure. Segments match the smoothing scheme: for samples
+     * p0..pn, segment i spans mid(i-1)→mid(i) with control point p[i], and the
+     * final segment is a straight line to p[n].
+     */
+    private fun drawPressureSegments(canvas: Canvas, stroke: DrawingElement.Stroke) {
+        val points = stroke.points
+        val pressures = stroke.pressures
+        val baseWidth = stroke.width
+        strokePath.rewind()
+        strokePath.moveTo(points[0].first, points[0].second)
+        if (points.size == 2) {
+            paint.strokeWidth = pressureWidth(baseWidth, pressures[0])
+            strokePath.lineTo(points[1].first, points[1].second)
+            canvas.drawPath(strokePath, paint)
+            return
+        }
+        var prevMidX = points[0].first
+        var prevMidY = points[0].second
+        for (index in 1 until points.size - 1) {
+            val current = points[index]
+            val next = points[index + 1]
+            val midX = (current.first + next.first) / 2f
+            val midY = (current.second + next.second) / 2f
+            strokePath.rewind()
+            strokePath.moveTo(prevMidX, prevMidY)
+            strokePath.quadTo(current.first, current.second, midX, midY)
+            paint.strokeWidth = pressureWidth(baseWidth, pressures[index])
+            canvas.drawPath(strokePath, paint)
+            prevMidX = midX
+            prevMidY = midY
+        }
+        val last = points.last()
+        strokePath.rewind()
+        strokePath.moveTo(prevMidX, prevMidY)
+        strokePath.lineTo(last.first, last.second)
+        paint.strokeWidth = pressureWidth(baseWidth, pressures.last())
         canvas.drawPath(strokePath, paint)
+    }
+
+    /** Maps pressure [0,1] onto a stroke width between MIN_FACTOR and 100% of base. */
+    internal fun pressureWidth(baseWidth: Float, pressure: Float): Float {
+        val normalized = pressure.coerceIn(0f, 1f)
+        return baseWidth * (MIN_PRESSURE_FACTOR + (1f - MIN_PRESSURE_FACTOR) * normalized)
+    }
+
+    /**
+     * Builds the stroke path with midpoint quadratic smoothing: instead of
+     * connecting samples with straight lines (visible corners on fast strokes),
+     * each sample becomes a quadTo control point and the curve passes through
+     * the midpoints between consecutive samples. Classic smoothing used by
+     * mainstream drawing apps; endpoints stay exact.
+     */
+    internal fun buildSmoothStrokePath(points: List<Pair<Float, Float>>): Path {
+        strokePath.rewind()
+        if (points.size < 2) return strokePath
+        strokePath.moveTo(points[0].first, points[0].second)
+        if (points.size == 2) {
+            strokePath.lineTo(points[1].first, points[1].second)
+            return strokePath
+        }
+        for (index in 1 until points.size - 1) {
+            val current = points[index]
+            val next = points[index + 1]
+            strokePath.quadTo(
+                current.first, current.second,
+                (current.first + next.first) / 2f,
+                (current.second + next.second) / 2f,
+            )
+        }
+        val last = points.last()
+        strokePath.lineTo(last.first, last.second)
+        return strokePath
     }
 
     private fun drawArrow(canvas: Canvas, arrow: DrawingElement.Arrow) = drawArrow(

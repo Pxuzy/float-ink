@@ -175,5 +175,12 @@ class SelectionMenuView(
         }
     }
 
-    override fun onTouchEvent(event: MotionEvent): Boolean = true
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        // The root view owns dismissal (setOnClickListener in init). Returning
+        // true without calling through to the parent swallows ACTION_UP and
+        // performClick never fires, so the tap-outside-to-dismiss contract
+        // silently breaks. Trigger the click manually on UP.
+        if (event.actionMasked == MotionEvent.ACTION_UP) performClick()
+        return true
+    }
 }

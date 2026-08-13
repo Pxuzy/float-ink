@@ -8,6 +8,12 @@ sealed class DrawingElement {
         val points: MutableList<Pair<Float, Float>>,
         val color: Int,
         val width: Float,
+        /**
+         * Per-sample stylus/finger pressure in [0, 1], parallel to [points].
+         * Empty for legacy sessions or when pressure was unavailable — the
+         * renderer then falls back to the fixed [width].
+         */
+        val pressures: MutableList<Float> = mutableListOf(),
     ) : DrawingElement() {
         override val drawColor: Int get() = color
         override val drawWidth: Float get() = width
@@ -75,6 +81,12 @@ sealed class DrawingElement {
         const val ARROW_HEAD_ANGLE_RAD = 0.436332
         const val ERASER_RADIUS_DP = 18f
     }
+}
+
+/** Deep-copies an element; strokes duplicate their mutable point/pressure lists. */
+fun DrawingElement.deepCopy(): DrawingElement = when (this) {
+    is DrawingElement.Stroke -> copy(points = points.toMutableList(), pressures = pressures.toMutableList())
+    else -> this
 }
 
 data class ToolDef(val id: String, val label: String, val gradientColors: IntArray) {

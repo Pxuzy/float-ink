@@ -95,8 +95,12 @@ object PenSettings {
             if (prefs.getInt(KEY_GLOBAL_COLOR_ARGB, DEFAULT_COLOR_ARGB) == color) {
                 putInt(KEY_GLOBAL_COLOR_ARGB, fallback)
             }
+            // Only tools actually using the deleted color switch to the
+            // fallback — unrelated per-tool colors must stay untouched.
             TOOL_IDS.forEach { toolId ->
-                putInt(toolColorKey(toolId), fallback)
+                if (prefs.getInt(toolColorKey(toolId), DEFAULT_COLOR_ARGB) == color) {
+                    putInt(toolColorKey(toolId), fallback)
+                }
             }
         }.apply()
         return true
@@ -174,7 +178,7 @@ object PenSettings {
         val globalWidth = clampWidth(prefs.getFloat(KEY_GLOBAL_WIDTH_DP, DEFAULT_WIDTH_DP))
         val styles = TOOL_IDS.associateWith { toolId ->
             ToolStyle(
-                globalColor,
+                prefs.getInt(toolColorKey(toolId), globalColor),
                 clampWidth(prefs.getFloat(toolWidthKey(toolId), globalWidth)),
             )
         }
@@ -242,7 +246,7 @@ object PenSettings {
         val toolId = normalizeTool(tool)
         val prefs = prefs(context)
         prefs.edit()
-            .putInt(toolColorKey(toolId), prefs.getInt(KEY_GLOBAL_COLOR_ARGB, DEFAULT_COLOR_ARGB))
+            .putInt(toolColorKey(toolId), color)
             .putFloat(toolWidthKey(toolId), clampWidth(widthDp))
             .apply()
     }

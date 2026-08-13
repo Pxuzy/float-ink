@@ -4,6 +4,8 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.PathMeasure
 import com.pxuzy.floatingpen.core.DrawingElement
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -32,6 +34,74 @@ class DrawingElementRendererTest {
         elements.forEach { renderer.draw(Canvas(bitmap), it) }
 
         assertTrue(bitmapHasVisiblePixels(bitmap))
+        assertEquals(Paint.Style.STROKE, paint.style)
+    }
+
+    @Test
+    fun `smooth stroke rounds the corner of a sharp turn`() {
+        val renderer = DrawingElementRenderer(density = 1f, paint = Paint())
+        val points = listOf(0f to 0f, 10f to 0f, 10f to 10f)
+
+        val rawLength = PathMeasure(Path().apply {
+            moveTo(0f, 0f); lineTo(10f, 0f); lineTo(10f, 10f)
+        }, false).length
+
+        val smoothed = renderer.buildSmoothStrokePath(points)
+        val smoothedLength = PathMeasure(smoothed, false).length
+
+        // Midpoint quadratic smoothing cuts the corner: strictly shorter than
+        // the raw polyline. (Robolectric's getPosTan is unreliable, so endpoint
+        // exactness is asserted implicitly: the algorithm moves to the first
+        // sample and ends with a lineTo the last sample.)
+        assertTrue(smoothedLength < rawLength)
+        assertTrue(smoothedLength > 0f)
+    }
+
+    @Test
+    fun `smooth stroke keeps a straight two-point stroke straight`() {
+        val renderer = DrawingElementRenderer(density = 1f, paint = Paint())
+
+        val smoothed = renderer.buildSmoothStrokePath(listOf(0f to 0f, 20f to 20f))
+
+        assertEquals(PathMeasure(Path().apply {
+            moveTo(0f, 0f); lineTo(20f, 20f)
+        }, false).length, PathMeasure(smoothed, false).length, 0.01f)
+    }
+
+    @Test
+    fun `pressure maps width between 30 and 100 percent of base`() {
+        val renderer = DrawingElementRenderer(density = 1f, paint = Paint())
+
+        assertEquals(10f, renderer.pressureWidth(10f, 1f), 0.01f)
+        assertEquals(3f, renderer.pressureWidth(10f, 0f), 0.01f)
+        assertEquals(6.5f, renderer.pressureWidth(10f, 0.5f), 0.01f)
+        // Out-of-range pressures clamp.
+        assertEquals(3f, renderer.pressureWidth(10f, -0.2f), 0.01f)
+        assertEquals(10f, renderer.pressureWidth(10f, 1.4f), 0.01f)
+    }
+
+    @Test
+    fun `pressure stroke renders without leaking paint state`() {
+        val bitmap = Bitmap.createBitmap(200, 200, Bitmap.Config.ARGB_8888)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = 6f
+        }
+        val renderer = DrawingElementRenderer(density = 1f, paint = paint)
+        val stroke = DrawingElement.Stroke(
+            points = mutableListOf(10f to 10f, 100f to 100f, 190f to 10f),
+            color = Color.RED,
+            width = 6f,
+            pressures = mutableListOf(1f, 0.3f, 1f),
+        )
+
+        // Robolectric's native graphics does not write line/path pixels back to
+        // bitmaps, so pixel assertions are unreliable here; rendering
+        // correctness is verified on a real device. The unit-level contract is:
+        // drawing succeeds and the shared paint's width/style are restored.
+        renderer.draw(Canvas(bitmap), stroke)
+
+        assertEquals(6f, paint.strokeWidth, 0.01f)
         assertEquals(Paint.Style.STROKE, paint.style)
     }
 

@@ -1,6 +1,7 @@
 package com.pxuzy.floatingpen
 
 import android.app.Application
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
@@ -47,6 +48,39 @@ class SelectionMenuViewTest {
 
         assertEquals(1, dismisses)
     }
+
+    @Test
+    fun `tap on scrim outside panel dismisses menu`() {
+        var dismisses = 0
+        val menu = SelectionMenuView(context, { _, _ -> }, { dismisses++ })
+        menu.measure(View.MeasureSpec.makeMeasureSpec(800, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(1200, View.MeasureSpec.EXACTLY))
+        menu.layout(0, 0, 800, 1200)
+
+        // A corner touch misses the centered panel and lands on the scrim.
+        menu.dispatchTouchEvent(touch(MotionEvent.ACTION_DOWN, 5f, 5f))
+        menu.dispatchTouchEvent(touch(MotionEvent.ACTION_UP, 5f, 5f))
+
+        assertEquals(1, dismisses)
+    }
+
+    @Test
+    fun `tap on panel does not dismiss menu`() {
+        var dismisses = 0
+        val menu = SelectionMenuView(context, { _, _ -> }, { dismisses++ })
+        menu.measure(View.MeasureSpec.makeMeasureSpec(800, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(1200, View.MeasureSpec.EXACTLY))
+        menu.layout(0, 0, 800, 1200)
+
+        // A touch at the center hits the panel, which consumes its own clicks.
+        menu.dispatchTouchEvent(touch(MotionEvent.ACTION_DOWN, 400f, 600f))
+        menu.dispatchTouchEvent(touch(MotionEvent.ACTION_UP, 400f, 600f))
+
+        assertEquals(0, dismisses)
+    }
+
+    private fun touch(action: Int, x: Float, y: Float): MotionEvent =
+        MotionEvent.obtain(0L, 0L, action, x, y, 0)
 
     private fun ViewGroup.findText(text: String): TextView {
         for (index in 0 until childCount) {
