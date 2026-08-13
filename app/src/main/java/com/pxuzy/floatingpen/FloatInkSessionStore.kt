@@ -65,7 +65,12 @@ object FloatInkSessionCodec {
         elements.forEach { element ->
             val json = JSONObject().put("color", element.drawColor).put("width", element.drawWidth)
             when (element) {
-                is DrawingElement.Stroke -> json.put("type", "stroke").put("points", encodePoints(element.points))
+                is DrawingElement.Stroke -> {
+                    json.put("type", "stroke").put("points", encodePoints(element.points))
+                    if (element.pressures.size == element.points.size && element.pressures.isNotEmpty()) {
+                        json.put("pressures", JSONArray().apply { element.pressures.forEach { put(it) } })
+                    }
+                }
                 is DrawingElement.Line -> json.put("type", "line").put("start", encodePoint(element.start)).put("end", encodePoint(element.end))
                 is DrawingElement.Arrow -> json.put("type", "arrow").put("start", encodePoint(element.start)).put("end", encodePoint(element.end)).put("headLengthDp", element.headLengthDp)
                 is DrawingElement.Rect -> json.put("type", "rect").put("start", encodePoint(element.start)).put("end", encodePoint(element.end))
@@ -102,7 +107,7 @@ object FloatInkSessionCodec {
             val color = item.getInt("color")
             val width = item.getDouble("width").toFloat()
             when (item.getString("type")) {
-                "stroke" -> add(DrawingElement.Stroke(decodePoints(item.getJSONArray("points")), color, width))
+                "stroke" -> add(DrawingElement.Stroke(decodePoints(item.getJSONArray("points")), color, width, decodePressures(item.optJSONArray("pressures"))))
                 "line" -> add(DrawingElement.Line(decodePoint(item.getJSONArray("start")), decodePoint(item.getJSONArray("end")), color, width))
                 "arrow" -> add(DrawingElement.Arrow(decodePoint(item.getJSONArray("start")), decodePoint(item.getJSONArray("end")), color, width, item.getDouble("headLengthDp").toFloat()))
                 "rect" -> add(DrawingElement.Rect(decodePoint(item.getJSONArray("start")), decodePoint(item.getJSONArray("end")), color, width))
@@ -116,6 +121,8 @@ object FloatInkSessionCodec {
     private fun encodePoints(points: List<Pair<Float, Float>>) = JSONArray().apply { points.forEach { put(encodePoint(it)) } }
     private fun decodePoint(json: JSONArray) = json.getDouble(0).toFloat() to json.getDouble(1).toFloat()
     private fun decodePoints(json: JSONArray) = MutableList(json.length()) { decodePoint(json.getJSONArray(it)) }
+    private fun decodePressures(json: JSONArray?) =
+        if (json == null) mutableListOf() else MutableList(json.length()) { json.getDouble(it).toFloat() }
 }
 
 object FloatInkSessionStore {
