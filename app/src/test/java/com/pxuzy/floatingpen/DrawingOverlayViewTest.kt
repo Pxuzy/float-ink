@@ -865,6 +865,79 @@ class DrawingOverlayViewTest {
     }
 
     @Test
+    fun `stylus landing after palm rest resumes drawing with the stylus pointer`() {
+        val view = DrawingOverlayView(context, "pen", 0) {}
+        val canvas = view.getChildAt(0)
+
+        // Palm touches first and starts a finger stroke.
+        canvas.dispatchTouchEvent(multiPointerEvent(
+            MotionEvent.ACTION_DOWN,
+            listOf(PointerSpec(0, 30f, 30f, MotionEvent.TOOL_TYPE_FINGER)),
+        ))
+        // Pen lands while the palm is still down.
+        canvas.dispatchTouchEvent(multiPointerEvent(
+            MotionEvent.ACTION_POINTER_DOWN or (1 shl MotionEvent.ACTION_POINTER_INDEX_SHIFT),
+            listOf(
+                PointerSpec(0, 35f, 35f, MotionEvent.TOOL_TYPE_FINGER),
+                PointerSpec(1, 100f, 100f, MotionEvent.TOOL_TYPE_STYLUS),
+            ),
+        ))
+        // Stylus moves; the finger-driven stroke must be gone.
+        canvas.dispatchTouchEvent(multiPointerEvent(
+            MotionEvent.ACTION_MOVE,
+            listOf(
+                PointerSpec(0, 40f, 40f, MotionEvent.TOOL_TYPE_FINGER),
+                PointerSpec(1, 150f, 160f, MotionEvent.TOOL_TYPE_STYLUS),
+            ),
+        ))
+        val stylusUp = multiPointerEvent(
+            MotionEvent.ACTION_POINTER_UP or (1 shl MotionEvent.ACTION_POINTER_INDEX_SHIFT),
+            listOf(
+                PointerSpec(0, 45f, 45f, MotionEvent.TOOL_TYPE_FINGER),
+                PointerSpec(1, 150f, 160f, MotionEvent.TOOL_TYPE_STYLUS),
+            ),
+        )
+        canvas.dispatchTouchEvent(stylusUp)
+
+        val stroke = view.elementsForTest().single() as CoreDrawingElement.Stroke
+        assertEquals(Pair(100f, 100f), stroke.points.first())
+        assertEquals(Pair(150f, 160f), stroke.points.last())
+        stylusUp.recycle()
+    }
+
+    @Test
+    fun `stylus landing after palm rest keeps the shape anchored at the stylus`() {
+        val view = DrawingOverlayView(context, "line", 0) {}
+        val canvas = view.getChildAt(0)
+
+        canvas.dispatchTouchEvent(multiPointerEvent(
+            MotionEvent.ACTION_DOWN,
+            listOf(PointerSpec(0, 30f, 30f, MotionEvent.TOOL_TYPE_FINGER)),
+        ))
+        canvas.dispatchTouchEvent(multiPointerEvent(
+            MotionEvent.ACTION_POINTER_DOWN or (1 shl MotionEvent.ACTION_POINTER_INDEX_SHIFT),
+            listOf(
+                PointerSpec(0, 35f, 35f, MotionEvent.TOOL_TYPE_FINGER),
+                PointerSpec(1, 100f, 100f, MotionEvent.TOOL_TYPE_STYLUS),
+            ),
+        ))
+        val stylusUp = multiPointerEvent(
+            MotionEvent.ACTION_POINTER_UP or (1 shl MotionEvent.ACTION_POINTER_INDEX_SHIFT),
+            listOf(
+                PointerSpec(0, 45f, 45f, MotionEvent.TOOL_TYPE_FINGER),
+                PointerSpec(1, 200f, 200f, MotionEvent.TOOL_TYPE_STYLUS),
+            ),
+        )
+        canvas.dispatchTouchEvent(stylusUp)
+
+        // The line is anchored at the stylus, not at the palm's initial touch.
+        val line = view.elementsForTest().single() as CoreDrawingElement.Line
+        assertEquals(Pair(100f, 100f), line.start)
+        assertEquals(Pair(200f, 200f), line.end)
+        stylusUp.recycle()
+    }
+
+    @Test
     fun `stylus pointer up finalizes before later finger up`() {
         val view = DrawingOverlayView(context, "pen", 0) {}
         val canvas = view.getChildAt(0)
