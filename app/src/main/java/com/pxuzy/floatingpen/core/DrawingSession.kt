@@ -223,6 +223,23 @@ class DrawingSession(
         if (boards.none { it.id == activeBoardId }) activeBoardId = boards.first().id
     }
 
+    /**
+     * Full deep copy: boards, layers and elements are structurally cloned and
+     * strokes duplicate their mutable point/pressure lists. Used to hand an
+     * isolated snapshot to the background auto-saver so UI mutations can never
+     * race the serializer.
+     */
+    fun deepCopy(): DrawingSession {
+        val copy = DrawingSession()
+        copy.replaceFrom(this)
+        copy.boards.forEach { board ->
+            board.layers.forEach { layer ->
+                layer.elements.replaceAll { it.deepCopy() }
+            }
+        }
+        return copy
+    }
+
     private fun newBoardInternal(name: String): DrawingBoard {
         val layer = DrawingLayer(name = "默认图层")
         return DrawingBoard(name = name, layers = mutableListOf(layer), activeLayerId = layer.id)
