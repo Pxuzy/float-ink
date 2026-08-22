@@ -10,6 +10,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.SeekBar
 import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
@@ -707,6 +708,75 @@ class DrawingOverlayViewTest {
 
         assertEquals(DrawingElement.colorValues[1], view.currentColorForTest())
         assertEquals(DrawingElement.colorValues[1], view.elementsForTest().single().drawColor)
+    }
+
+    @Test
+    fun `color panel slider shows the active tool width with a 48dp touch row`() {
+        val view = DrawingOverlayView(
+            context, "pen",
+            mapOf("pen" to ToolStyle(DrawingElement.colorValues[0], 11f)),
+        ) {}
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
+
+        toolbar.findByTag("color").performClick()
+        val seek = view.findByTag("panel-width-seek") as SeekBar
+
+        assertEquals(PenSettings.MAX_WIDTH_DP - PenSettings.MIN_WIDTH_DP, seek.max)
+        assertEquals(9, seek.progress)
+        assertEquals("11 dp", (view.findByTag("panel-width-label") as TextView).text.toString())
+        assertEquals(48.dp, seek.layoutParams.height)
+    }
+
+    @Test
+    fun `panel width slider previews the next stroke and persists only the active tool`() {
+        PenSettings.saveToolStyle(context, "pen", DrawingElement.colorValues[0], 4f)
+        PenSettings.saveToolStyle(context, "line", DrawingElement.colorValues[2], 9f)
+        val view = DrawingOverlayView(context, "pen", PenSettings.load(context).toolStyles) {}
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
+        val canvas = view.getChildAt(0)
+        drawGesture(canvas, 10f, 10f, 30f, 30f)
+
+        toolbar.findByTag("color").performClick()
+        (view.findByTag("panel-width-seek") as SeekBar).setProgress(10, true)
+
+        assertEquals("12 dp", (view.findByTag("panel-width-label") as TextView).text.toString())
+        assertNotNull(view.findByTag("color-panel"))
+        assertEquals(12f, PenSettings.load(context).styleFor("pen").widthDp)
+        assertEquals(9f, PenSettings.load(context).styleFor("line").widthDp)
+
+        drawGesture(canvas, 40f, 40f, 80f, 80f)
+        val strokes = view.elementsForTest()
+        assertEquals(4f * context.resources.displayMetrics.density, strokes[0].drawWidth)
+        assertEquals(12f * context.resources.displayMetrics.density, strokes[1].drawWidth)
+    }
+
+    @Test
+    fun `panel slider reloads the width of the newly selected tool`() {
+        PenSettings.saveToolStyle(context, "pen", DrawingElement.colorValues[0], 4f)
+        PenSettings.saveToolStyle(context, "arrow", DrawingElement.colorValues[3], 15f)
+        val view = DrawingOverlayView(context, "pen", PenSettings.load(context).toolStyles) {}
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
+
+        toolbar.findByTag("color").performClick()
+        assertEquals("4 dp", (view.findByTag("panel-width-label") as TextView).text.toString())
+        toolbar.findByTag("color").performClick()
+
+        toolbar.findByTag("tool:arrow").performClick()
+        toolbar.findByTag("color").performClick()
+        assertEquals("15 dp", (view.findByTag("panel-width-label") as TextView).text.toString())
+        assertEquals(13, (view.findByTag("panel-width-seek") as SeekBar).progress)
+    }
+
+    @Test
+    fun `panel width slider refreshes the toolbar width indicator`() {
+        val view = DrawingOverlayView(context, "pen", 0) {}
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
+
+        toolbar.findByTag("color").performClick()
+        (view.findByTag("panel-width-seek") as SeekBar).setProgress(10, true)
+
+        val control = toolbar.findByTag("color") as LinearLayout
+        assertTrue(control.contentDescription.toString().contains("线宽 12dp"))
     }
 
     @Test

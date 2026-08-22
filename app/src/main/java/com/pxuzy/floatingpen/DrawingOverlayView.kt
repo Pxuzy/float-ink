@@ -1156,6 +1156,8 @@ class DrawingOverlayView(
         density = density,
         currentColor = { currentColor },
         onColorSelected = ::applyColor,
+        currentWidthDp = { drawPaint.strokeWidth / density },
+        onWidthSelected = ::applyWidth,
     ).build()
 
     private fun finishTextInputMode() {
@@ -1182,6 +1184,14 @@ class DrawingOverlayView(
         refreshToolIndicators()
         colorPanel?.let(toolbarPopupHost::removeView)
         colorPanel = null
+    }
+
+    /** Slider-driven width change: preview the next stroke and persist per-tool without closing the panel. */
+    private fun applyWidth(widthDp: Float) {
+        drawPaint.strokeWidth = widthDp.dpf
+        toolStyles[currentToolId] = ToolStyle(currentColor, widthDp)
+        PenSettings.saveToolStyle(context, currentToolId, currentColor, widthDp)
+        refreshColorControl()
     }
 
     private fun refreshColorControl() {

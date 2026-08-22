@@ -147,7 +147,10 @@ class OverlayService : Service() {
             toolbarButtonSizeDp = settings.toolbarButtonSizeDp,
             onSelectionChanged = { tool, color ->
                 PenSettings.saveTool(this, tool)
-                PenSettings.saveToolStyle(this, tool, color, settings.styleFor(tool).widthDp)
+                // Read the width fresh: the overlay slider may have updated this
+                // tool's width after the snapshot above was taken.
+                val widthDp = PenSettings.load(this).styleFor(tool).widthDp
+                PenSettings.saveToolStyle(this, tool, color, widthDp)
             }
         )
         if (safeAddView(view, drawingOverlayParams)) {

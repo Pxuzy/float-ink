@@ -5,6 +5,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.SeekBar
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
@@ -118,6 +119,25 @@ class OverlayServiceTest {
         drawing.findViewWithTag<View>("tool:arrow").performClick()
 
         assertEquals("arrow", PenSettings.load(service).tool)
+        controller.destroy()
+    }
+
+    @Test
+    fun `panel width change survives a later color selection without stale revert`() {
+        val controller = Robolectric.buildService(OverlayService::class.java).create()
+        val service = controller.get()
+        service.onStartCommand(Intent(service, OverlayService::class.java).apply {
+            action = OverlayService.ACTION_SHOW_DRAWING
+        }, 0, 1)
+        val drawing = service.privateField("drawingView") as DrawingOverlayView
+
+        drawing.findViewWithTag<View>("color").performClick()
+        drawing.findViewWithTag<SeekBar>("panel-width-seek").setProgress(10, true)
+        drawing.findViewWithTag<View>("palette-color:1").performClick()
+
+        val values = PenSettings.load(service)
+        assertEquals(12f, values.styleFor("pen").widthDp)
+        assertEquals(DrawingElement.colorValues[1], values.styleFor("pen").color)
         controller.destroy()
     }
 
