@@ -138,14 +138,53 @@ class AppUpdateManager(private val context: Context) {
 
         fun isNewer(remote: String, local: String): Boolean = compareVersions(remote, local) > 0
 
+        /**
+         * Semantic version comparison with pre-release awareness:
+         * "0.4.0" > "0.4.0-beta.2" > "0.4.0-beta.1" > "0.3.22".
+         * Core segments compare numerically; equal cores fall back to pre-release
+         * rules (no pre-release wins; numeric identifiers sort before alphanumeric).
+         */
         private fun compareVersions(left: String, right: String): Int {
-            val a = left.removePrefix("v").split(".").map { it.takeWhile(Char::isDigit).toIntOrNull() ?: 0 }
-            val b = right.removePrefix("v").split(".").map { it.takeWhile(Char::isDigit).toIntOrNull() ?: 0 }
-            for (i in 0 until maxOf(a.size, b.size)) {
-                val result = (a.getOrNull(i) ?: 0).compareTo(b.getOrNull(i) ?: 0)
-                if (result != 0) return result
+            data class Parsed(val core: List<Int>, val pre: List<String>)
+            fun parse(version: String): Parsed {
+                val withoutV = version.removePrefix("v")
+                val dash = withoutV.indexOf('-')
+                val coreText = if (dash >= 0) withoutV.substring(0, dash) else withoutV
+                val preText = if (dash >= 0) withoutV.substring(dash + 1) else ""
+                val core = coreText.split(".").mapNotNull { it.toIntOrNull() }
+                val pre = if (preText.isEmpty()) emptyList() else preText.split(".")
+                return Parsed(core, pre)
             }
-            return 0
+            fun compareCores(a: List<Int>, b: List<Int>): Int {
+                for (i in 0 until maxOf(a.size, b.size)) {
+                    val result = (a.getOrNull(i) ?: 0).compareTo(b.getOrNull(i) ?: 0)
+                    if (result != 0) return result
+                }
+                return 0
+            }
+            fun comparePre(a: List<String>, b: List<String>): Int {
+                if (a.isEmpty() && b.isEmpty()) return 0
+                if (a.isEmpty()) return 1 // 正式版 > 预发布
+                if (b.isEmpty()) return -1
+                for (i in 0 until maxOf(a.size, b.size)) {
+                    val x = a.getOrNull(i) ?: return 1
+                    val y = b.getOrNull(i) ?: return -1
+                    val xNum = x.toIntOrNull()
+                    val yNum = y.toIntOrNull()
+                    val result = when {
+                        xNum != null && yNum != null -> xNum.compareTo(yNum)
+                        xNum != null -> -1 // 数字段 < 字母段
+                        yNum != null -> 1
+                        else -> x.compareTo(y)
+                    }
+                    if (result != 0) return result
+                }
+                return 0
+            }
+            val a = parse(left)
+            val b = parse(right)
+            val coreComparison = compareCores(a.core, b.core)
+            return if (coreComparison != 0) coreComparison else comparePre(a.pre, b.pre)
         }
 
         private fun String.stringValue(key: String): String? =
