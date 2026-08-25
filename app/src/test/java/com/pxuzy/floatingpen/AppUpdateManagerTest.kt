@@ -40,16 +40,6 @@ class AppUpdateManagerTest {
     }
 
     @Test
-    fun `pre-release is older than its release`() {
-        assertTrue(AppUpdateManager.isNewer("0.4.0", "0.4.0-beta.1"))
-        assertTrue(AppUpdateManager.isNewer("0.4.0-beta.2", "0.4.0-beta.1"))
-        assertTrue(AppUpdateManager.isNewer("0.4.0-beta.1", "0.3.22"))
-        assertFalse(AppUpdateManager.isNewer("0.4.0-beta.1", "0.4.0-beta.1"))
-        assertFalse(AppUpdateManager.isNewer("0.4.0-beta.1", "0.4.0"))
-        assertTrue(AppUpdateManager.isNewer("0.4.0-rc.1", "0.4.0-beta.2"))
-    }
-
-    @Test
     fun `parses current latest release update asset`() {
         val json = """
             {"tag_name":"v0.3.11","html_url":"https://github.com/Pxuzy/float-ink/releases/tag/v0.3.11",
