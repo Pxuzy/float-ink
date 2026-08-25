@@ -962,7 +962,10 @@ class DrawingOverlayView(
                     dismissRestoreClearBar(discardSnapshot = false)
                     elements = drawingSession.currentLayer.elements
                     onSessionChanged()
-                    rebuildCanvasPanel(); canvasView.invalidate()
+                    canvasView.invalidate()
+                    // 选中即收起面板：面板悬浮在画布上时，落笔点落在面板内会被当成
+                    // “点击图层行”而误切层（用户反馈“一画就切回旧图层”的根因）。
+                    toolbarPopupHost.removeView(panel); canvasPanel = null
                 },
                 onLongClick = {
                     drawingSession.moveLayer(layer.id, 0)
