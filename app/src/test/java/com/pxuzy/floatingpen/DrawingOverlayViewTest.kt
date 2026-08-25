@@ -708,6 +708,8 @@ class DrawingOverlayViewTest {
 
         toolbar.findByTag("canvas-selector").performClick()
         view.findByTag("layer:${second.id}").performClick()
+        // 选中即收起面板，避免面板遮挡画布被误点为切层
+        assertTrue(runCatching { view.findByTag("canvas-panel") }.isFailure)
         drawGesture(canvas, 20f, 30f, 80f, 90f)
 
         assertEquals(1, first.elements.size)
@@ -751,6 +753,7 @@ class DrawingOverlayViewTest {
 
         toolbar.findByTag("canvas-selector").performClick()
         view.findByTag("layer:${second.id}").performClick()
+        assertTrue(runCatching { view.findByTag("canvas-panel") }.isFailure)
         drawGesture(canvas, 20f, 40f, 100f, 120f)
 
         assertTrue(second.visible)
