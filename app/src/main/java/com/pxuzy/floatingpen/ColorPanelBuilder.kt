@@ -68,7 +68,7 @@ class ColorPanelBuilder(
         return panel
     }
 
-    /** One low-interference width slider row; the caller persists and applies the value. */
+    /** Two-row width control: a slim header row with label + value, and a full-width slider below. */
     private fun widthRow(): View {
         val minWidthDp = PenSettings.MIN_WIDTH_DP
         val maxSteps = PenSettings.MAX_WIDTH_DP - PenSettings.MIN_WIDTH_DP
@@ -83,18 +83,29 @@ class ColorPanelBuilder(
         }
         return LinearLayout(context).apply {
             tag = "panel-width-row"
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = 48.dp
+            orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                48.dp,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
             ).apply { topMargin = 8.dp }
-            addView(TextView(context).apply {
-                text = "线宽"
-                textSize = 13f
-                setTextColor(FloatInkTheme.textSecondary)
-            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { marginEnd = 8.dp })
+            // 第一行：标签 + 当前值（右对齐），滑块独占整行
+            addView(LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                addView(TextView(context).apply {
+                    text = "线宽"
+                    textSize = 12f
+                    setTextColor(FloatInkTheme.textSecondary)
+                }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+                widthLabel = TextView(context).apply {
+                    tag = "panel-width-label"
+                    text = "${initialWidthDp.toInt()} dp"
+                    textSize = 12f
+                    gravity = Gravity.END
+                    setTextColor(FloatInkTheme.textPrimary)
+                }
+                addView(widthLabel, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
             widthSeek = SeekBar(context).apply {
                 tag = "panel-width-seek"
                 max = maxSteps
@@ -109,15 +120,7 @@ class ColorPanelBuilder(
                     override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
                 })
             }
-            addView(widthSeek, LinearLayout.LayoutParams(0, 48.dp, 1f))
-            widthLabel = TextView(context).apply {
-                tag = "panel-width-label"
-                text = "${initialWidthDp.toInt()} dp"
-                textSize = 13f
-                gravity = Gravity.END
-                setTextColor(FloatInkTheme.textPrimary)
-            }
-            addView(widthLabel, LinearLayout.LayoutParams(48.dp, LinearLayout.LayoutParams.WRAP_CONTENT))
+            addView(widthSeek, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 48.dp))
         }
     }
 
