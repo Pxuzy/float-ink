@@ -498,10 +498,9 @@ class DrawingOverlayView(
         val toolContent = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            configuredToolIds.take(4).forEach { toolId -> addView(createToolIcon(toolId)) }
-            if (configuredToolIds.size > 4) {
-                addView(createActionBtn("more", ::toggleMoreTools).apply { tag = "more-tools" })
-            }
+            // 主条滚动容纳全部启用工具，一步可达；"更多"仅作辅助工具入口
+            configuredToolIds.forEach { toolId -> addView(createToolIcon(toolId)) }
+            addView(createActionBtn("more", ::toggleMoreTools).apply { tag = "more-tools" })
         }
         val toolScroll = HorizontalScrollView(context).apply {
             tag = "toolbar-tool-scroll"
@@ -859,22 +858,17 @@ class DrawingOverlayView(
         closeColorPanel()
         closeCanvasPanel()
         val panel = MoreToolsPanelBuilder(
-                    context = context,
-                    density = density,
-                    actionButtonSize = actionButtonSize(),
-                    panelToolIds = PenSettings.morePanelToolsOrAll(context, PenSettings.TOOL_IDS),
-                    isGoldenGuideVisible = { goldenGuideVisible },
-                    createToolIcon = ::createToolIcon,
-                    onFibonacciSelected = {
-                        selectAuxiliaryTool("fibonacci")
-                        closeMoreToolsPanel()
-                    },
-                    onGoldenGuideToggled = ::toggleGoldenGuide,
-                    onPanelToolSelected = { toolId ->
-                        selectTool(toolId)
-                        closeMoreToolsPanel()
-                    },
-                ).build()
+            context = context,
+            density = density,
+            actionButtonSize = actionButtonSize(),
+            isGoldenGuideVisible = { goldenGuideVisible },
+            createToolIcon = ::createToolIcon,
+            onFibonacciSelected = {
+                selectAuxiliaryTool("fibonacci")
+                closeMoreToolsPanel()
+            },
+            onGoldenGuideToggled = ::toggleGoldenGuide,
+        ).build()
         moreToolsPanel = panel
         toolbarPopupHost.addView(panel, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT))
         positionPopupAboveToolbar(panel)

@@ -103,29 +103,6 @@ class MainActivityTest {
     }
 
     @Test
-    fun `settings page exposes more panel tool toggles and persists changes`() {
-        PenSettings.saveMorePanelTools(context, PenSettings.TOOL_IDS)
-        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
-        val root = activity.findViewById<ViewGroup>(android.R.id.content)
-        root.findByTag("nav-settings").performClick()
-
-        assertNotNull(root.findByTag("more-panel-tools-panel"))
-        assertNotNull(root.findByTag("more-panel-tools-section"))
-        val eraserToggle = root.findByTag("more-panel-toggle:eraser") as CheckBox
-        assertTrue(eraserToggle.isChecked)
-
-        eraserToggle.performClick()
-        val persisted = PenSettings.morePanelTools(context) ?: PenSettings.TOOL_IDS
-        assertFalse("eraser" in persisted)
-        assertTrue(persisted.containsAll(PenSettings.TOOL_IDS - "eraser"))
-
-        val penToggle = root.findByTag("more-panel-toggle:pen") as CheckBox
-        penToggle.performClick()
-        val afterPenOff = PenSettings.morePanelTools(context) ?: PenSettings.TOOL_IDS
-        assertFalse("pen" in afterPenOff)
-    }
-
-    @Test
     fun `home page exposes every tool preview and persisted style`() {
         PenSettings.saveToolStyle(context, "pen", 0xFF123456.toInt(), 4f)
         PenSettings.saveToolStyle(context, "circle", 0xFF654321.toInt(), 11f)

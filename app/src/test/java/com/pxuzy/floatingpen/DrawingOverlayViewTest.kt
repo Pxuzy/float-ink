@@ -218,11 +218,13 @@ class DrawingOverlayViewTest {
     }
 
     @Test
-    fun `lecture toolbar hides more without overflow and keeps fixed controls accessible`() {
+    fun `lecture toolbar keeps more reachable and fixed controls accessible`() {
         val view = DrawingOverlayView(context, "pen", 0, toolbarToolIds = listOf("pen", "line", "arrow", "rect")) {}
         val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
 
-        assertTrue(runCatching { toolbar.findByTag("more-tools") }.isFailure)
+        // 更多按钮常驻：辅助工具（黄金线/斐波那契）必须始终可达；工具全部在主条滚动区
+        assertNotNull(toolbar.findByTag("more-tools"))
+        assertNotNull(toolbar.findByTag("tool:rect"))
         listOf("toolbar-drag-handle", "undo", "canvas-selector", "exit").forEach { tag ->
             val control = toolbar.findByTag(tag)
             assertEquals(36.dp, control.layoutParams.width)
@@ -344,7 +346,19 @@ class DrawingOverlayViewTest {
         assertTrue(view.elementsForTest().isEmpty())
     }
     @Test
-    fun `more tools panel lists every tool plus auxiliary guides`() {
+    fun `toolbar scroll area hosts every enabled tool`() {
+        val view = DrawingOverlayView(context, "pen", 0) {}
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
+
+        // 所有启用工具直接在主条滚动区，一步可达（不再依赖“更多”抽屉）
+        PenSettings.TOOL_IDS.forEach { toolId ->
+            assertNotNull("主条应包含 $toolId", toolbar.findByTag("tool:$toolId"))
+        }
+        assertNotNull(toolbar.findByTag("toolbar-tool-scroll"))
+    }
+
+    @Test
+    fun `more tools panel keeps auxiliary guides only`() {
         val view = DrawingOverlayView(context, "pen", 0) {}
         val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
 
@@ -354,40 +368,8 @@ class DrawingOverlayViewTest {
         assertEquals("辅助工具", (panel.getChildAt(0) as TextView).text)
         assertEquals("fibonacci-retracement", panel.getChildAt(1).tag)
         assertEquals("golden-guide", panel.getChildAt(2).tag)
-        assertEquals("全部工具", (panel.getChildAt(3) as TextView).text)
-        // 所有工具都出现在三个点面板（含主条已有工具）
-        PenSettings.TOOL_IDS.forEach { toolId ->
-            assertNotNull("面板应包含 $toolId", panel.findByTag("tool:$toolId"))
-        }
-    }
-
-    @Test
-    fun `more tools panel respects the configured subset`() {
-        val view = DrawingOverlayView(context, "pen", 0) {}
-        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
-        PenSettings.saveMorePanelTools(context, listOf("circle", "eraser"))
-
-        toolbar.findByTag("more-tools").performClick()
-        val panel = view.findByTag("more-tools-panel") as LinearLayout
-
-        assertNotNull(panel.findByTag("tool:circle"))
-        assertNotNull(panel.findByTag("tool:eraser"))
+        // 工具切换全部在主条滚动区，面板不再承载工具
         assertTrue(runCatching { panel.findByTag("tool:pen") }.isFailure)
-        assertTrue(runCatching { panel.findByTag("tool:arrow") }.isFailure)
-    }
-
-    @Test
-    fun `more tools panel with empty selection shows placeholder`() {
-        val view = DrawingOverlayView(context, "pen", 0) {}
-        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
-        PenSettings.saveMorePanelTools(context, emptyList())
-
-        toolbar.findByTag("more-tools").performClick()
-        val panel = view.findByTag("more-tools-panel") as LinearLayout
-
-        PenSettings.TOOL_IDS.forEach { toolId ->
-            assertTrue(runCatching { panel.findByTag("tool:$toolId") }.isFailure)
-        }
     }
 
     @Test

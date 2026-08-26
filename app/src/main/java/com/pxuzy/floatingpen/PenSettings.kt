@@ -19,7 +19,6 @@ object PenSettings {
     const val KEY_TOOL_ARROW_SCALE = "tool_arrow_scale"
     const val KEY_TOOLBAR_ORDER = "toolbar_order"
     const val KEY_TOOLBAR_ENABLED = "toolbar_enabled"
-    const val KEY_MORE_PANEL_TOOLS = "more_panel_tools"
     const val KEY_BUBBLE_SIZE_DP = "bubble_size_dp"
     const val KEY_TOOLBAR_BUTTON_SIZE_DP = "toolbar_button_size_dp"
     private const val KEY_BUBBLE_X = "bubble_x"
@@ -346,25 +345,6 @@ object PenSettings {
     }
 
     fun normalizeTool(tool: String?): String = tool?.takeIf(TOOL_IDS::contains) ?: DEFAULT_TOOL
-
-    /** 三个点面板中要显示的工具；未配置时返回 null（= 全部工具）。空列表 = 明确全不显示。 */
-    fun saveMorePanelTools(context: Context, tools: List<String>) {
-        prefs(context).edit()
-            .putString(KEY_MORE_PANEL_TOOLS, tools.filter { it in TOOL_IDS }.distinct().joinToString(","))
-            .apply()
-    }
-
-    fun morePanelTools(context: Context): List<String>? {
-        val raw = prefs(context).getString(KEY_MORE_PANEL_TOOLS, null) ?: return null
-        return parseToolIds(raw)
-    }
-
-    fun morePanelToolsOrAll(context: Context, available: List<String>): List<String> {
-        val configured = morePanelTools(context)
-        if (configured != null) return configured
-        return (available + TOOL_IDS).filter { it in TOOL_IDS }.distinct()
-    }
-
     private fun parseToolIds(serialized: String): List<String> = serialized.split(',').filter { it in TOOL_IDS }.distinct()
     private fun clampWidth(value: Float): Float = value.coerceIn(MIN_WIDTH_DP.toFloat(), MAX_WIDTH_DP.toFloat())
     private fun toolColorKey(tool: String) = "tool_${tool}_color_argb"
