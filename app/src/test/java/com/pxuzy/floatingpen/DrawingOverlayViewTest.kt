@@ -344,7 +344,7 @@ class DrawingOverlayViewTest {
         assertTrue(view.elementsForTest().isEmpty())
     }
     @Test
-    fun `more tools separates auxiliary guides from drawing shapes`() {
+    fun `more tools panel lists every tool plus auxiliary guides`() {
         val view = DrawingOverlayView(context, "pen", 0) {}
         val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
 
@@ -354,7 +354,40 @@ class DrawingOverlayViewTest {
         assertEquals("辅助工具", (panel.getChildAt(0) as TextView).text)
         assertEquals("fibonacci-retracement", panel.getChildAt(1).tag)
         assertEquals("golden-guide", panel.getChildAt(2).tag)
-        assertEquals("更多形状", (panel.getChildAt(3) as TextView).text)
+        assertEquals("全部工具", (panel.getChildAt(3) as TextView).text)
+        // 所有工具都出现在三个点面板（含主条已有工具）
+        PenSettings.TOOL_IDS.forEach { toolId ->
+            assertNotNull("面板应包含 $toolId", panel.findByTag("tool:$toolId"))
+        }
+    }
+
+    @Test
+    fun `more tools panel respects the configured subset`() {
+        val view = DrawingOverlayView(context, "pen", 0) {}
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
+        PenSettings.saveMorePanelTools(context, listOf("circle", "eraser"))
+
+        toolbar.findByTag("more-tools").performClick()
+        val panel = view.findByTag("more-tools-panel") as LinearLayout
+
+        assertNotNull(panel.findByTag("tool:circle"))
+        assertNotNull(panel.findByTag("tool:eraser"))
+        assertTrue(runCatching { panel.findByTag("tool:pen") }.isFailure)
+        assertTrue(runCatching { panel.findByTag("tool:arrow") }.isFailure)
+    }
+
+    @Test
+    fun `more tools panel with empty selection shows placeholder`() {
+        val view = DrawingOverlayView(context, "pen", 0) {}
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
+        PenSettings.saveMorePanelTools(context, emptyList())
+
+        toolbar.findByTag("more-tools").performClick()
+        val panel = view.findByTag("more-tools-panel") as LinearLayout
+
+        PenSettings.TOOL_IDS.forEach { toolId ->
+            assertTrue(runCatching { panel.findByTag("tool:$toolId") }.isFailure)
+        }
     }
 
     @Test

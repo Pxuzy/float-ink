@@ -859,22 +859,22 @@ class DrawingOverlayView(
         closeColorPanel()
         closeCanvasPanel()
         val panel = MoreToolsPanelBuilder(
-            context = context,
-            density = density,
-            actionButtonSize = actionButtonSize(),
-            overflowToolIds = configuredToolIds.drop(4),
-            isGoldenGuideVisible = { goldenGuideVisible },
-            createToolIcon = ::createToolIcon,
-            onFibonacciSelected = {
-                selectAuxiliaryTool("fibonacci")
-                closeMoreToolsPanel()
-            },
-            onGoldenGuideToggled = ::toggleGoldenGuide,
-            onOverflowToolSelected = { toolId ->
-                selectTool(toolId)
-                closeMoreToolsPanel()
-            },
-        ).build()
+                    context = context,
+                    density = density,
+                    actionButtonSize = actionButtonSize(),
+                    panelToolIds = PenSettings.morePanelToolsOrAll(context, PenSettings.TOOL_IDS),
+                    isGoldenGuideVisible = { goldenGuideVisible },
+                    createToolIcon = ::createToolIcon,
+                    onFibonacciSelected = {
+                        selectAuxiliaryTool("fibonacci")
+                        closeMoreToolsPanel()
+                    },
+                    onGoldenGuideToggled = ::toggleGoldenGuide,
+                    onPanelToolSelected = { toolId ->
+                        selectTool(toolId)
+                        closeMoreToolsPanel()
+                    },
+                ).build()
         moreToolsPanel = panel
         toolbarPopupHost.addView(panel, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT))
         positionPopupAboveToolbar(panel)
