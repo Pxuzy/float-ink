@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -223,5 +225,26 @@ class PenSettingsTest {
         PenSettings.saveToolbarLayout(context, PenSettings.TOOL_IDS, emptySet())
 
         assertEquals(setOf("pen"), PenSettings.loadToolbarLayout(context).enabled)
+    }
+
+    @Test
+    fun `more panel tools default to all tools when never configured`() {
+        assertNull(PenSettings.morePanelTools(context))
+        assertEquals(
+            PenSettings.TOOL_IDS,
+            PenSettings.morePanelToolsOrAll(context, listOf("pen")),
+        )
+    }
+
+    @Test
+    fun `more panel tools persist subset and empty selection`() {
+        PenSettings.saveMorePanelTools(context, listOf("circle", "eraser", "unknown"))
+
+        assertEquals(listOf("circle", "eraser"), PenSettings.morePanelTools(context))
+        assertEquals(listOf("circle", "eraser"), PenSettings.morePanelToolsOrAll(context, PenSettings.TOOL_IDS))
+
+        PenSettings.saveMorePanelTools(context, emptyList())
+        assertEquals(emptyList<String>(), PenSettings.morePanelTools(context))
+        assertEquals(emptyList<String>(), PenSettings.morePanelToolsOrAll(context, PenSettings.TOOL_IDS))
     }
 }

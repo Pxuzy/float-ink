@@ -13,6 +13,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -99,6 +100,29 @@ class MainActivityTest {
         assertEquals("检查更新", updateButton.text.toString())
         assertEquals("检查软件更新", updateButton.contentDescription.toString())
         assertNotNull(updateButton.compoundDrawablesRelative[0])
+    }
+
+    @Test
+    fun `settings page exposes more panel tool toggles and persists changes`() {
+        PenSettings.saveMorePanelTools(context, PenSettings.TOOL_IDS)
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        root.findByTag("nav-settings").performClick()
+
+        assertNotNull(root.findByTag("more-panel-tools-panel"))
+        assertNotNull(root.findByTag("more-panel-tools-section"))
+        val eraserToggle = root.findByTag("more-panel-toggle:eraser") as CheckBox
+        assertTrue(eraserToggle.isChecked)
+
+        eraserToggle.performClick()
+        val persisted = PenSettings.morePanelTools(context) ?: PenSettings.TOOL_IDS
+        assertFalse("eraser" in persisted)
+        assertTrue(persisted.containsAll(PenSettings.TOOL_IDS - "eraser"))
+
+        val penToggle = root.findByTag("more-panel-toggle:pen") as CheckBox
+        penToggle.performClick()
+        val afterPenOff = PenSettings.morePanelTools(context) ?: PenSettings.TOOL_IDS
+        assertFalse("pen" in afterPenOff)
     }
 
     @Test
