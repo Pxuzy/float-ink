@@ -13,12 +13,10 @@ class MoreToolsPanelBuilder(
     private val context: Context,
     private val density: Float,
     private val actionButtonSize: Int,
-    private val panelToolIds: List<String>,
     private val isGoldenGuideVisible: () -> Boolean,
     private val createToolIcon: (String) -> View,
     private val onFibonacciSelected: () -> Unit,
     private val onGoldenGuideToggled: () -> Unit,
-    private val onPanelToolSelected: (String) -> Unit,
 ) {
     private val Int.dp: Int get() = (this * density).toInt()
     private val Float.dpf: Float get() = this * density
@@ -62,25 +60,6 @@ class MoreToolsPanelBuilder(
                 background = guideBackground()
             }
         })
-        addView(sectionTitle("全部工具"))
-        if (panelToolIds.isEmpty()) {
-            addView(TextView(context).apply {
-                text = "暂无工具"
-                textSize = 12f
-                setTextColor(Color.parseColor("#91A0B2"))
-                gravity = Gravity.CENTER
-            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, 40.dp))
-        } else {
-            addView(LinearLayout(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER
-                panelToolIds.forEach { toolId ->
-                    addView(createToolIcon(toolId).apply {
-                        setOnClickListener { onPanelToolSelected(toolId) }
-                    })
-                }
-            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, actionButtonSize))
-        }
     }
 
     private fun sectionTitle(title: String): TextView = TextView(context).apply {

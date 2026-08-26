@@ -691,9 +691,6 @@ class MainActivity : ComponentActivity() {
                     })
                 }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = 12.dp })
 
-        addView(sectionTitle("更多面板工具").apply { tag = "more-panel-tools-section" })
-        addView(buildMorePanelToolsPanel())
-
         addView(sectionTitle("历史画板"))
         addView(buildHistorySection())
         addView(sectionTitle("软件更新").apply { tag = "settings-update-section" })
@@ -731,41 +728,6 @@ class MainActivity : ComponentActivity() {
                 setOnClickListener { checkForUpdate() }
             }, LinearLayout.LayoutParams(112.dp, 44.dp))
         })
-    }
-
-    private fun buildMorePanelToolsPanel(): View {
-        val selectedTools = PenSettings.morePanelToolsOrAll(this, PenSettings.TOOL_IDS).toMutableSet()
-        return LinearLayout(this).apply {
-            tag = "more-panel-tools-panel"
-            orientation = LinearLayout.VERTICAL
-            setPadding(14.dp, 12.dp, 14.dp, 12.dp)
-            background = panelBackground()
-            addView(settingHeader("三个点中显示的工具", "勾选后出现在悬浮层“更多”面板", "more-panel-tools-help"))
-            PenSettings.TOOL_IDS.forEach { toolId ->
-                addView(CheckBox(this@MainActivity).apply {
-                    tag = "more-panel-toggle:$toolId"
-                    text = DrawingElement.toolNames[toolId] ?: toolId
-                    textSize = 15f
-                    setTextColor(Color.WHITE)
-                    minHeight = 48.dp
-                    isChecked = toolId in selectedTools
-                    setOnCheckedChangeListener { _, checked ->
-                        if (checked) selectedTools.add(toolId) else selectedTools.remove(toolId)
-                        PenSettings.saveMorePanelTools(
-                            this@MainActivity,
-                            PenSettings.TOOL_IDS.filter { it in selectedTools },
-                        )
-                        notifyOverlaySettingsChanged()
-                    }
-                })
-            }
-            addView(TextView(this@MainActivity).apply {
-                tag = "more-panel-tools-hint"
-                text = "全部取消后，“更多”面板只保留辅助工具"
-                textSize = 12f
-                setTextColor(Color.parseColor("#7F8A99"))
-            })
-        }
     }
 
     private fun buildHistorySection(): View {
