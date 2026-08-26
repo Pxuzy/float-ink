@@ -697,6 +697,71 @@ class DrawingOverlayViewTest {
     }
 
     @Test
+    fun `strokes land on the layer selected through the canvas panel`() {
+        val session = DrawingSession()
+        val first = session.currentLayer
+        session.addElement(CoreDrawingElement.Line(0f to 0f, 40f to 40f, Color.RED, 6f))
+        val second = session.createLayer("第二层")
+        val view = DrawingOverlayView(context, "pen", 0, drawingSession = session) {}
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
+        val canvas = view.getChildAt(0)
+
+        toolbar.findByTag("canvas-selector").performClick()
+        view.findByTag("layer:${second.id}").performClick()
+        // 选中即收起面板，避免面板遮挡画布被误点为切层
+        assertTrue(runCatching { view.findByTag("canvas-panel") }.isFailure)
+        drawGesture(canvas, 20f, 30f, 80f, 90f)
+
+        assertEquals(1, first.elements.size)
+        assertEquals(1, second.elements.size)
+        assertEquals(second, session.currentLayer)
+        assertTrue(second.elements.single() is CoreDrawingElement.Stroke)
+    }
+
+    @Test
+    fun `strokes land on the new board's active layer after board switch`() {
+        val session = DrawingSession()
+        val firstBoard = session.currentBoard
+        firstBoard.layers.first().let { it.elements += CoreDrawingElement.Line(0f to 0f, 40f to 40f, Color.RED, 6f) }
+        val secondBoard = session.createBoard("画板 2")
+        session.selectBoard(firstBoard.id)
+        val view = DrawingOverlayView(context, "pen", 0, drawingSession = session) {}
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
+        val canvas = view.getChildAt(0)
+
+        toolbar.findByTag("canvas-selector").performClick()
+        view.findByTag("board:${secondBoard.id}").performClick()
+        drawGesture(canvas, 10f, 10f, 70f, 70f)
+
+        assertEquals(1, firstBoard.layers.first().elements.size)
+        val secondBoardActiveLayer = secondBoard.layers.first { it.id == secondBoard.activeLayerId }
+        assertEquals(1, secondBoardActiveLayer.elements.size)
+        assertEquals(secondBoard, session.currentBoard)
+        assertTrue(secondBoardActiveLayer.elements.single() is CoreDrawingElement.Stroke)
+    }
+
+    @Test
+    fun `drawing on a hidden layer selected through the panel reveals and writes to it`() {
+        val session = DrawingSession()
+        val first = session.currentLayer
+        session.addElement(CoreDrawingElement.Line(0f to 0f, 40f to 40f, Color.RED, 6f))
+        val second = session.createLayer("隐藏层")
+        session.setLayerVisible(second.id, false)
+        val view = DrawingOverlayView(context, "pen", 0, drawingSession = session) {}
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
+        val canvas = view.getChildAt(0)
+
+        toolbar.findByTag("canvas-selector").performClick()
+        view.findByTag("layer:${second.id}").performClick()
+        assertTrue(runCatching { view.findByTag("canvas-panel") }.isFailure)
+        drawGesture(canvas, 20f, 40f, 100f, 120f)
+
+        assertTrue(second.visible)
+        assertEquals(1, second.elements.size)
+        assertEquals(1, first.elements.size)
+    }
+
+    @Test
     fun `color button opens palette and selected swatch applies globally`() {
         val view = DrawingOverlayView(context, "pen", 0) {}
         val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
