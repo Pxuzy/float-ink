@@ -140,7 +140,7 @@ class ToolIconView(context: Context, private val icon: String) : View(context) {
 
     private fun drawTablerUndoIcon(canvas: Canvas, drawable: android.graphics.drawable.Drawable?, cx: Float, cy: Float) {
         if (drawable == null) return
-        val half = (minOf(width, height) * 0.66f).toInt() / 2
+        val half = (minOf(width, height) * 0.76f).toInt() / 2
         drawable.setTint(paint.color)
         drawable.setBounds((cx - half).toInt(), (cy - half).toInt(), (cx + half).toInt(), (cy + half).toInt())
         drawable.draw(canvas)
