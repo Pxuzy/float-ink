@@ -23,6 +23,11 @@ class ToolIconView(context: Context, private val icon: String) : View(context) {
     } else {
         null
     }
+    private val image2UndoIcon = if (icon == "undo") {
+        context.getDrawable(R.drawable.ic_undo_image2)
+    } else {
+        null
+    }
 
     init {
         val tablerName = when (icon) {
@@ -58,7 +63,7 @@ class ToolIconView(context: Context, private val icon: String) : View(context) {
             "more" -> drawMore(canvas, cx, cy, r)
             "canvas" -> drawCanvas(canvas, cx, cy, r)
             "layer" -> drawLayer(canvas, cx, cy, r)
-            "undo" -> drawTablerUndoIcon(canvas, tablerUndoIcon, cx, cy)
+            "undo" -> drawTablerUndoIcon(canvas, image2UndoIcon ?: tablerUndoIcon, cx, cy)
             "eraser" -> drawTablerUndoIcon(canvas, tablerUndoIcon, cx, cy)
             "redo" -> drawRedo(canvas, cx, cy, r)
             "clear" -> drawClear(canvas, cx, cy, r)
