@@ -119,6 +119,18 @@ class MainActivityTest {
     }
 
     @Test
+    fun `action button text keeps contrast for white pen`() {
+        PenSettings.saveToolStyle(context, "pen", Color.WHITE, 4f)
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+
+        val actionBtn = root.findByTag("home-action-btn") as Button
+        val textColor = actionBtn.currentTextColor
+        // 白底必须深色文字
+        assertTrue("白底按钮文字应为深色，实际 $textColor", textColor == Color.parseColor("#1F2937"))
+    }
+
+    @Test
     fun `home page exposes every tool preview and persisted style`() {
         PenSettings.saveToolStyle(context, "pen", 0xFF123456.toInt(), 4f)
         PenSettings.saveToolStyle(context, "circle", 0xFF654321.toInt(), 11f)
