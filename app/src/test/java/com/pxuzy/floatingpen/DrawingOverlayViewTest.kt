@@ -777,6 +777,26 @@ class DrawingOverlayViewTest {
     }
 
     @Test
+    fun `selected tool icon follows pen color after palette change`() {
+        val view = DrawingOverlayView(context, "pen", DrawingElement.colorValues[0]) {}
+        val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
+        val penIcon = toolbar.findByTag("tool:pen")
+
+        // 初始：选中工具图标标记为当前画笔色（红色）
+        assertEquals(DrawingElement.colorValues[0], penIcon.getTag(R.id.tag_selected_color))
+
+        // 通过颜色面板改为蓝色
+        toolbar.findByTag("color").performClick()
+        view.findByTag("palette-color:1").performClick()
+
+        // 选中工具图标跟随新画笔色（蓝色）
+        assertEquals(DrawingElement.colorValues[1], penIcon.getTag(R.id.tag_selected_color))
+        assertEquals(DrawingElement.colorValues[1], penIcon.getTag(R.id.tag_selected_color) as Int)
+        // 未选中工具不跟随（保持白/空标记）
+        assertEquals(null, toolbar.findByTag("tool:line").getTag(R.id.tag_selected_color))
+    }
+
+    @Test
     fun `color button opens palette and selected swatch applies globally`() {
         val view = DrawingOverlayView(context, "pen", 0) {}
         val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
