@@ -3,6 +3,7 @@ package com.pxuzy.floatingpen
 import android.app.Application
 import android.graphics.Color
 import android.content.Context
+import android.content.Intent
 import android.app.DownloadManager
 import android.view.View
 import android.view.ViewGroup
@@ -113,9 +114,44 @@ class MainActivityTest {
         val whiteLabel = root.findByTag("home-tool-style:pen") as TextView
         assertEquals(Color.parseColor("#F2F5F9"), whiteLabel.currentTextColor)
         assertEquals("白色  ·  4 dp", whiteLabel.text.toString())
+        val whiteColor = root.findByTag("home-tool-color:pen")
+        assertEquals(Color.WHITE, (whiteColor.background as android.graphics.drawable.GradientDrawable).color?.defaultColor)
         val blackLabel = root.findByTag("home-tool-style:circle") as TextView
         assertEquals(Color.parseColor("#F2F5F9"), blackLabel.currentTextColor)
         assertTrue("颜色文案应包含线宽", blackLabel.text.toString().endsWith("4 dp"))
+        val blackColor = root.findByTag("home-tool-color:circle")
+        assertEquals(Color.BLACK, (blackColor.background as android.graphics.drawable.GradientDrawable).color?.defaultColor)
+    }
+
+    @Test
+    fun `home tool states refresh immediately after global color selection`() {
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        root.findByTag("nav-pen").performClick()
+        root.findByTag("global-color:1").performClick()
+        root.findByTag("nav-home").performClick()
+
+        val expected = DrawingElement.colorValues[1]
+        PenSettings.TOOL_IDS.forEach { toolId ->
+            val dot = root.findByTag("home-tool-color:$toolId")
+            assertEquals(expected, (dot.background as android.graphics.drawable.GradientDrawable).color?.defaultColor)
+            assertTrue((root.findByTag("home-tool-style:$toolId") as TextView).text.toString().startsWith("${DrawingElement.colorNames[1]}  ·"))
+        }
+    }
+
+    @Test
+    fun `home tool states refresh from overlay color broadcast`() {
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        val expected = DrawingElement.colorValues[2]
+        PenSettings.saveGlobalColor(activity, expected)
+
+        activity.sendBroadcast(Intent(OverlayService.ACTION_COLOR_CHANGED).setPackage(activity.packageName))
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+
+        val dot = root.findByTag("home-tool-color:pen")
+        assertEquals(expected, (dot.background as android.graphics.drawable.GradientDrawable).color?.defaultColor)
+        assertTrue((root.findByTag("home-tool-style:pen") as TextView).text.toString().startsWith("${DrawingElement.colorNames[2]}  ·"))
     }
 
     @Test
@@ -139,7 +175,11 @@ class MainActivityTest {
         PenSettings.TOOL_IDS.forEach { toolId ->
             assertNotNull(root.findByTag("home-tool:$toolId"))
             assertNotNull(root.findByTag("home-tool-preview:$toolId"))
+            assertNotNull(root.findByTag("home-tool-color:$toolId"))
         }
+        val eraserPreview = root.findByTag("home-tool-preview:eraser")
+        assertEquals("tabler", eraserPreview.getTag(R.id.tag_icon_family))
+        assertEquals("eraser", eraserPreview.getTag(R.id.tag_icon_name))
         assertEquals(4f, PenSettings.load(activity).styleFor("pen").widthDp)
         assertEquals(11f, PenSettings.load(activity).styleFor("circle").widthDp)
     }
