@@ -60,6 +60,9 @@ class MainActivity : ComponentActivity() {
     private val navButtons = mutableMapOf<String, TextView>()
     private val toolButtons = mutableMapOf<String, TextView>()
     private val colorButtons = mutableListOf<View>()
+    private val homeToolPreviews = mutableMapOf<String, ToolPreviewView>()
+    private val homeToolColorDots = mutableMapOf<String, View>()
+    private val homeToolStyleLabels = mutableMapOf<String, TextView>()
     private var bubbleOpacityPreview: View? = null
     private var currentPage = "home"
     private var selectedTool = PenSettings.DEFAULT_TOOL
@@ -73,6 +76,21 @@ class MainActivity : ComponentActivity() {
     private val overlayPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { onResume() }
+    private val colorChangedReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action != OverlayService.ACTION_COLOR_CHANGED) return
+            PenSettings.load(this@MainActivity).also {
+                selectedTool = it.tool
+                selectedGlobalColor = it.globalColor
+                selectedGlobalWidthDp = it.globalWidthDp
+                selectedColor = it.color
+                selectedWidthDp = it.widthDp
+                selectedArrowScale = it.arrowScale
+            }
+            refreshHomeToolStates()
+            updateUi()
+        }
+    }
     private val notificationSettingsLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { onResume() }
@@ -108,10 +126,12 @@ class MainActivity : ComponentActivity() {
         setContentView(buildUi())
         showPage("home")
         ContextCompat.registerReceiver(this, downloadReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE), ContextCompat.RECEIVER_NOT_EXPORTED)
+        ContextCompat.registerReceiver(this, colorChangedReceiver, IntentFilter(OverlayService.ACTION_COLOR_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
     }
 
     override fun onDestroy() {
         unregisterReceiver(downloadReceiver)
+        unregisterReceiver(colorChangedReceiver)
         super.onDestroy()
     }
 
@@ -223,9 +243,20 @@ class MainActivity : ComponentActivity() {
                 val style = values.styleFor(toolId)
                 addView(LinearLayout(this@MainActivity).apply {
                     orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; minimumHeight = 46.dp; tag = "home-tool:$toolId"
-                    addView(ToolPreviewView(this@MainActivity, toolId, style.color, style.widthDp).apply { tag = "home-tool-preview:$toolId" }, LinearLayout.LayoutParams(64.dp, 48.dp).apply { marginEnd = 10.dp })
+                    val preview = ToolPreviewView(this@MainActivity, toolId, style.color, style.widthDp).apply { tag = "home-tool-preview:$toolId" }
+                    homeToolPreviews[toolId] = preview
+                    addView(preview, LinearLayout.LayoutParams(64.dp, 48.dp).apply { marginEnd = 8.dp })
+                    val colorDot = View(this@MainActivity).apply {
+                        tag = "home-tool-color:$toolId"
+                        background = colorCircle(style.color)
+                        contentDescription = "${DrawingElement.toolNames[toolId]}颜色：${colorLabel(style.color)}"
+                    }
+                    homeToolColorDots[toolId] = colorDot
+                    addView(colorDot, LinearLayout.LayoutParams(16.dp, 16.dp).apply { marginEnd = 8.dp })
                     addView(TextView(this@MainActivity).apply { text = DrawingElement.toolNames[toolId] ?: toolId; textSize = 14f; setTextColor(Color.WHITE); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) })
-                    addView(TextView(this@MainActivity).apply { text = "${colorLabel(style.color)}  ·  ${style.widthDp.toInt()} dp"; textSize = 13f; setTextColor(Color.parseColor("#F2F5F9")); tag = "home-tool-style:$toolId"; contentDescription = "${DrawingElement.toolNames[toolId]}：${colorLabel(style.color)}，线宽 ${style.widthDp.toInt()}dp" })
+                    val styleLabel = TextView(this@MainActivity).apply { text = "${colorLabel(style.color)}  ·  ${style.widthDp.toInt()} dp"; textSize = 13f; setTextColor(Color.parseColor("#F2F5F9")); tag = "home-tool-style:$toolId"; contentDescription = "${DrawingElement.toolNames[toolId]}：${colorLabel(style.color)}，线宽 ${style.widthDp.toInt()}dp" }
+                    homeToolStyleLabels[toolId] = styleLabel
+                    addView(styleLabel)
                 })
             }
         })
@@ -247,6 +278,7 @@ class MainActivity : ComponentActivity() {
                 selectedColor = color
                 PenSettings.saveGlobalColor(this@MainActivity, color)
                 PenSettings.addRecentColor(this@MainActivity, color)
+                refreshHomeToolStates()
                 notifyOverlaySettingsChanged()
                 refreshPaletteSelection("global", color)
             })
@@ -566,11 +598,26 @@ class MainActivity : ComponentActivity() {
     private inner class ToolPreviewView(
         context: Context,
         private val tool: String,
-        private val previewColor: Int = selectedColor,
-        private val previewWidthDp: Float = selectedWidthDp,
+        private var previewColor: Int = selectedColor,
+        private var previewWidthDp: Float = selectedWidthDp,
     ) : View(context) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
         private val path = Path()
+        private val eraserIcon = if (tool == "eraser") context.getDrawable(R.drawable.ic_tabler_eraser) else null
+
+        init {
+            if (tool == "eraser") {
+                setTag(R.id.tag_icon_family, "tabler")
+                setTag(R.id.tag_icon_name, "eraser")
+            }
+        }
+
+        fun updateStyle(color: Int, widthDp: Float) {
+            previewColor = color
+            previewWidthDp = widthDp
+            invalidate()
+        }
+
         override fun onDraw(canvas: Canvas) {
             val left = 12.dp.toFloat(); val right = width - 12.dp.toFloat(); val center = height / 2f
             val inset = 5.dp.toFloat()
@@ -592,7 +639,16 @@ class MainActivity : ComponentActivity() {
                 }
                 "rect" -> canvas.drawRoundRect(left, 14.dp.toFloat(), right, height - 14.dp.toFloat(), 5.dp.toFloat(), 5.dp.toFloat(), paint)
                 "circle" -> { canvas.drawCircle(width / 2f, center, minOf((right - left) / 2f, height / 2f - 13.dp), paint); paint.style = Paint.Style.FILL; canvas.drawCircle(width / 2f, center, 2.5f.dp, paint) }
+                "eraser" -> drawEraser(canvas, width / 2f, center)
             }
+        }
+
+        private fun drawEraser(canvas: Canvas, cx: Float, cy: Float) {
+            val drawable = eraserIcon ?: return
+            val half = minOf(width, height) * 0.27f
+            drawable.setTint(previewColor)
+            drawable.setBounds((cx - half).toInt(), (cy - half).toInt(), (cx + half).toInt(), (cy + half).toInt())
+            drawable.draw(canvas)
         }
     }
 
@@ -1152,6 +1208,21 @@ class MainActivity : ComponentActivity() {
         if (::arrowScaleLabel.isInitialized) arrowScaleLabel.setTextColor(selectedColor)
         if (::arrowPreview.isInitialized) arrowPreview.invalidate()
         updateNavigation()
+    }
+
+    private fun refreshHomeToolStates() {
+        if (homeToolPreviews.isEmpty()) return
+        val values = PenSettings.load(this)
+        PenSettings.TOOL_IDS.forEach { toolId ->
+            val style = values.styleFor(toolId)
+            homeToolPreviews[toolId]?.updateStyle(style.color, style.widthDp)
+            homeToolColorDots[toolId]?.background = colorCircle(style.color)
+            homeToolColorDots[toolId]?.contentDescription = "${DrawingElement.toolNames[toolId]}颜色：${colorLabel(style.color)}"
+            homeToolStyleLabels[toolId]?.apply {
+                text = "${colorLabel(style.color)}  ·  ${style.widthDp.toInt()} dp"
+                contentDescription = "${DrawingElement.toolNames[toolId]}：${colorLabel(style.color)}，线宽 ${style.widthDp.toInt()}dp"
+            }
+        }
     }
 
     private fun updateNavigation() {

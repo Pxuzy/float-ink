@@ -883,13 +883,20 @@ class DrawingOverlayViewTest {
     fun `selected tool indicator uses current pen color and updates immediately`() {
         val view = DrawingOverlayView(context, "pen", 0) {}
         val toolbar = view.findByTag("monochrome-toolbar") as LinearLayout
-        val pen = toolbar.findByTag("tool:pen")
+        val pen = toolbar.findByTag("tool:pen") as ToolIconView
 
+        fun iconPaintColor(): Int = ToolIconView::class.java.getDeclaredField("paint").run {
+            isAccessible = true
+            (get(pen) as android.graphics.Paint).color
+        }
+
+        assertEquals(DrawingElement.colorValues[0], iconPaintColor())
         assertEquals(DrawingElement.colorValues[0], pen.getTag(R.id.tag_selected_color))
 
         toolbar.findByTag("color").performClick()
         view.findByTag("palette-color:1").performClick()
 
+        assertEquals(DrawingElement.colorValues[1], iconPaintColor())
         assertEquals(DrawingElement.colorValues[1], pen.getTag(R.id.tag_selected_color))
     }
 
