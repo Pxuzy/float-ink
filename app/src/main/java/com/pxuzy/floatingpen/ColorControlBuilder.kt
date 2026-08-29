@@ -68,6 +68,10 @@ class ColorControlBuilder(
     private fun dotBackground(color: Int, size: Int): GradientDrawable = GradientDrawable().apply {
         setColor(color)
         cornerRadius = (size / 2).toFloat()
-        setStroke(2.dpf.toInt(), Color.parseColor("#55FFFFFF"))
+        // 描边按颜色亮度自适应：亮色（白/黄）用深色描边，暗色（黑/蓝）用浅色描边，
+        // 保证黑/白画笔在深色工具栏和浅色画布上都能看清颜色点
+        val luminance = 0.299f * Color.red(color) + 0.587f * Color.green(color) + 0.114f * Color.blue(color)
+        val strokeColor = if (luminance > 140f) Color.parseColor("#99000000") else Color.parseColor("#AAFFFFFF")
+        setStroke(2.dpf.toInt(), strokeColor)
     }
 }
