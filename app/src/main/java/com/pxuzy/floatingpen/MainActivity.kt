@@ -171,7 +171,7 @@ class MainActivity : ComponentActivity() {
             addView(TextView(this@MainActivity).apply {
                 text = subtitle; textSize = 14f; setTextColor(FloatInkTheme.textSecondary)
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-                    topMargin = 4.dp; bottomMargin = 20.dp
+                    topMargin = 4.dp; bottomMargin = 14.dp
                 }
             })
             content()
@@ -219,7 +219,7 @@ class MainActivity : ComponentActivity() {
             PenSettings.TOOL_IDS.forEach { toolId ->
                 val style = values.styleFor(toolId)
                 addView(LinearLayout(this@MainActivity).apply {
-                    orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; minimumHeight = 56.dp; tag = "home-tool:$toolId"
+                    orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; minimumHeight = 46.dp; tag = "home-tool:$toolId"
                     addView(ToolPreviewView(this@MainActivity, toolId, style.color, style.widthDp).apply { tag = "home-tool-preview:$toolId" }, LinearLayout.LayoutParams(64.dp, 48.dp).apply { marginEnd = 10.dp })
                     addView(TextView(this@MainActivity).apply { text = DrawingElement.toolNames[toolId] ?: toolId; textSize = 14f; setTextColor(Color.WHITE); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) })
                     addView(TextView(this@MainActivity).apply { text = "${colorLabel(style.color)}  ·  ${style.widthDp.toInt()} dp"; textSize = 13f; setTextColor(style.color); contentDescription = "${DrawingElement.toolNames[toolId]}：${colorLabel(style.color)}，线宽 ${style.widthDp.toInt()}dp" })
