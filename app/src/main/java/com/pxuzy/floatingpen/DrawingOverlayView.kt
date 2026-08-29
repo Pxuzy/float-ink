@@ -748,7 +748,8 @@ class DrawingOverlayView(
     }
 
     private fun updateToolButton(button: View, isActive: Boolean) {
-        val iconColor = Color.WHITE
+        // 选中工具的图标跟随画笔颜色；未选中保持白色
+        val iconColor = if (isActive) selectedColor else Color.WHITE
         (button as? ToolIconView)?.setIconColor(iconColor)
         button.setTag(R.id.tag_selected_color, if (isActive) selectedColor else null)
         button.background = GradientDrawable().apply {
