@@ -61,13 +61,14 @@ sealed class DrawingElement {
     }
 
     companion object {
-        val colorNames = listOf("红色", "蓝色", "绿色", "黑色", "琥珀色")
+        val colorNames = listOf("红色", "蓝色", "绿色", "黑色", "琥珀色", "白色")
         val colorValues = listOf(
             0xFFF44336.toInt(),
             0xFF2196F3.toInt(),
             0xFF4CAF50.toInt(),
             0xFF212121.toInt(),
             0xFFFFC107.toInt(),
+            0xFFFFFFFF.toInt(),
         )
         val tools = listOf(
             ToolDef("pen", "画笔", intArrayOf(0xFF3B82F6.toInt(), 0xFF2563EB.toInt())),

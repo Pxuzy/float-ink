@@ -222,7 +222,7 @@ class MainActivity : ComponentActivity() {
                     orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; minimumHeight = 46.dp; tag = "home-tool:$toolId"
                     addView(ToolPreviewView(this@MainActivity, toolId, style.color, style.widthDp).apply { tag = "home-tool-preview:$toolId" }, LinearLayout.LayoutParams(64.dp, 48.dp).apply { marginEnd = 10.dp })
                     addView(TextView(this@MainActivity).apply { text = DrawingElement.toolNames[toolId] ?: toolId; textSize = 14f; setTextColor(Color.WHITE); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) })
-                    addView(TextView(this@MainActivity).apply { text = "${colorLabel(style.color)}  ·  ${style.widthDp.toInt()} dp"; textSize = 13f; setTextColor(style.color); contentDescription = "${DrawingElement.toolNames[toolId]}：${colorLabel(style.color)}，线宽 ${style.widthDp.toInt()}dp" })
+                    addView(TextView(this@MainActivity).apply { text = "${colorLabel(style.color)}  ·  ${style.widthDp.toInt()} dp"; textSize = 13f; setTextColor(Color.parseColor("#F2F5F9")); tag = "home-tool-style:$toolId"; contentDescription = "${DrawingElement.toolNames[toolId]}：${colorLabel(style.color)}，线宽 ${style.widthDp.toInt()}dp" })
                 })
             }
         })
