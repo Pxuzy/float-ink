@@ -69,6 +69,22 @@ class FloatingBubbleViewTest {
     }
 
     @Test
+    fun `runtime settings update bubble accent color immediately`() {
+        val bubble = bubble({}, {})
+        val expected = android.graphics.Color.BLUE
+
+        bubble.applySettings(PenSettings.load(context).copy(toolStyles = mapOf(
+            "pen" to ToolStyle(expected, 4f),
+        )))
+
+        val accent = bubble.javaClass.getDeclaredField("accentPaint").run {
+            isAccessible = true
+            get(bubble) as android.graphics.Paint
+        }
+        assertEquals(expected, accent.color)
+    }
+
+    @Test
     fun `runtime settings update auto hide policy immediately`() {
         val bubble = bubble({}, {})
         bubble.applySettings(PenSettings.load(context).copy(autoHide = false, autoHideDelayMs = 5000L))

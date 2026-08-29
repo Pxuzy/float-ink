@@ -76,6 +76,21 @@ class MainActivity : ComponentActivity() {
     private val overlayPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { onResume() }
+    private val colorChangedReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action != OverlayService.ACTION_COLOR_CHANGED) return
+            PenSettings.load(this@MainActivity).also {
+                selectedTool = it.tool
+                selectedGlobalColor = it.globalColor
+                selectedGlobalWidthDp = it.globalWidthDp
+                selectedColor = it.color
+                selectedWidthDp = it.widthDp
+                selectedArrowScale = it.arrowScale
+            }
+            refreshHomeToolStates()
+            updateUi()
+        }
+    }
     private val notificationSettingsLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { onResume() }
@@ -111,10 +126,12 @@ class MainActivity : ComponentActivity() {
         setContentView(buildUi())
         showPage("home")
         ContextCompat.registerReceiver(this, downloadReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE), ContextCompat.RECEIVER_NOT_EXPORTED)
+        ContextCompat.registerReceiver(this, colorChangedReceiver, IntentFilter(OverlayService.ACTION_COLOR_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
     }
 
     override fun onDestroy() {
         unregisterReceiver(downloadReceiver)
+        unregisterReceiver(colorChangedReceiver)
         super.onDestroy()
     }
 

@@ -151,6 +151,9 @@ class OverlayService : Service() {
                 // tool's width after the snapshot above was taken.
                 val widthDp = PenSettings.load(this).styleFor(tool).widthDp
                 PenSettings.saveToolStyle(this, tool, color, widthDp)
+                val updatedSettings = PenSettings.load(this)
+                bubbleView?.applySettings(updatedSettings)
+                sendBroadcast(Intent(ACTION_COLOR_CHANGED).setPackage(packageName))
             }
         )
         if (safeAddView(view, drawingOverlayParams)) {
@@ -275,6 +278,7 @@ class OverlayService : Service() {
         const val ACTION_HIDE_DRAWING = "com.pxuzy.floatingpen.HIDE_DRAWING"
         const val ACTION_LOAD_SESSION = "com.pxuzy.floatingpen.LOAD_SESSION"
         const val ACTION_SETTINGS_CHANGED = "com.pxuzy.floatingpen.SETTINGS_CHANGED"
+        const val ACTION_COLOR_CHANGED = "com.pxuzy.floatingpen.COLOR_CHANGED"
         const val ACTION_STOP = "com.pxuzy.floatingpen.STOP"
         const val EXTRA_SESSION_FILE = "extra_session_file"
     }
