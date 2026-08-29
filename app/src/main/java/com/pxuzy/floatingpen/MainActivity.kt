@@ -195,7 +195,10 @@ class MainActivity : ComponentActivity() {
         actionBtn = Button(this@MainActivity).apply {
             textSize = 13f; minHeight = 48.dp; isAllCaps = false; typeface = Typeface.DEFAULT_BOLD
             contentDescription = "启动或停止悬浮球"
+            tag = "home-action-btn"
             background = roundedBackground(selectedColor, 8f)
+            // 文字颜色按底色亮度自适应：浅色底（白/黄画笔）用深色字，深色底用白字
+            setTextColor(contrastTextColor(selectedColor))
             setOnClickListener { onActionClick() }
             layoutParams = LinearLayout.LayoutParams(132.dp, 48.dp)
         }
@@ -1167,7 +1170,12 @@ class MainActivity : ComponentActivity() {
         shape = GradientDrawable.OVAL; setColor(color)
         setStroke(if (selected) 3.dp else 1.dp, if (selected) Color.WHITE else Color.parseColor("#44505E"))
     }
-    private fun colorCircle(color: Int) = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(color) }
+    private fun colorCircle(color: Int) = GradientDrawable().apply {
+        shape = GradientDrawable.OVAL; setColor(color)
+        // 黑白等低对比色加自适应描边，深色卡片上保持可见
+        val luminance = 0.299f * Color.red(color) + 0.587f * Color.green(color) + 0.114f * Color.blue(color)
+        setStroke(2.dp, if (luminance > 140f) Color.parseColor("#66000000") else Color.parseColor("#66FFFFFF"))
+    }
     private fun colorLabel(color: Int): String {
         val index = DrawingElement.colorValues.indexOf(color)
         return if (index >= 0) DrawingElement.colorNames[index] else "自定义"
@@ -1182,6 +1190,11 @@ class MainActivity : ComponentActivity() {
         cornerRadius = 8.dpf
         setStroke(1.dp, FloatInkTheme.borderStrong)
     }
+    private fun contrastTextColor(background: Int): Int {
+        val luminance = 0.299f * Color.red(background) + 0.587f * Color.green(background) + 0.114f * Color.blue(background)
+        return if (luminance > 140f) Color.parseColor("#1F2937") else Color.WHITE
+    }
+
     private fun roundedBackground(color: Int, radius: Float) = GradientDrawable().apply { setColor(color); cornerRadius = radius.dp }
 
     override fun onResume() {
