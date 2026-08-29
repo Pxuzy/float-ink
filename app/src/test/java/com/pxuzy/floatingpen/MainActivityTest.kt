@@ -3,6 +3,7 @@ package com.pxuzy.floatingpen
 import android.app.Application
 import android.graphics.Color
 import android.content.Context
+import android.content.Intent
 import android.app.DownloadManager
 import android.view.View
 import android.view.ViewGroup
@@ -136,6 +137,21 @@ class MainActivityTest {
             assertEquals(expected, (dot.background as android.graphics.drawable.GradientDrawable).color?.defaultColor)
             assertTrue((root.findByTag("home-tool-style:$toolId") as TextView).text.toString().startsWith("${DrawingElement.colorNames[1]}  ·"))
         }
+    }
+
+    @Test
+    fun `home tool states refresh from overlay color broadcast`() {
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        val expected = DrawingElement.colorValues[2]
+        PenSettings.saveGlobalColor(activity, expected)
+
+        activity.sendBroadcast(Intent(OverlayService.ACTION_COLOR_CHANGED).setPackage(activity.packageName))
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+
+        val dot = root.findByTag("home-tool-color:pen")
+        assertEquals(expected, (dot.background as android.graphics.drawable.GradientDrawable).color?.defaultColor)
+        assertTrue((root.findByTag("home-tool-style:pen") as TextView).text.toString().startsWith("${DrawingElement.colorNames[2]}  ·"))
     }
 
     @Test
