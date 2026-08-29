@@ -1,6 +1,7 @@
 package com.pxuzy.floatingpen
 
 import android.app.Application
+import android.graphics.Color
 import android.content.Context
 import android.app.DownloadManager
 import android.view.View
@@ -100,6 +101,21 @@ class MainActivityTest {
         assertEquals("检查更新", updateButton.text.toString())
         assertEquals("检查软件更新", updateButton.contentDescription.toString())
         assertNotNull(updateButton.compoundDrawablesRelative[0])
+    }
+
+    @Test
+    fun `home style labels stay readable for black and white pen colors`() {
+        PenSettings.saveToolStyle(context, "pen", Color.WHITE, 4f)
+        PenSettings.saveToolStyle(context, "circle", Color.BLACK, 4f)
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+
+        val whiteLabel = root.findByTag("home-tool-style:pen") as TextView
+        assertEquals(Color.parseColor("#F2F5F9"), whiteLabel.currentTextColor)
+        assertEquals("白色  ·  4 dp", whiteLabel.text.toString())
+        val blackLabel = root.findByTag("home-tool-style:circle") as TextView
+        assertEquals(Color.parseColor("#F2F5F9"), blackLabel.currentTextColor)
+        assertTrue("颜色文案应包含线宽", blackLabel.text.toString().endsWith("4 dp"))
     }
 
     @Test
