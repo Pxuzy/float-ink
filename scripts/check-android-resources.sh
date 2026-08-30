@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# FloatInk Android resource integrity gate.
+# 悬浮画笔 Android resource integrity gate.
 # Usage:
 #   scripts/check-android-resources.sh working-tree
 #   scripts/check-android-resources.sh range <old> <new>

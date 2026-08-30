@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# FloatInk pre-push project integrity gate.
+# 悬浮画笔 pre-push project integrity gate.
 # Usage:
 #   scripts/check-project-gate.sh working-tree
 #   scripts/check-project-gate.sh range <old> <new> [local-ref]
@@ -38,13 +38,13 @@ check_manifest_permissions() {
   fi
   [[ -n "$manifest" ]] || { echo 'BLOCKED: app/src/main/AndroidManifest.xml is missing.' >&2; return 1; }
 
-  # This is the intentionally small product boundary for FloatInk. Any new
+  # This is the intentionally small product boundary for 悬浮画笔. Any new
   # permission must be explicitly reviewed and added here.
   permissions='SYSTEM_ALERT_WINDOW POST_NOTIFICATIONS FOREGROUND_SERVICE FOREGROUND_SERVICE_SPECIAL_USE INTERNET REQUEST_INSTALL_PACKAGES'
   while IFS= read -r permission; do
     [[ -z "$permission" ]] && continue
     if [[ " $permissions " != *" $permission "* ]]; then
-      printf 'BLOCKED: manifest permission %s is not on the FloatInk allowlist.\n' "$permission" >&2
+      printf 'BLOCKED: manifest permission %s is not on the 悬浮画笔 allowlist.\n' "$permission" >&2
       return 1
     fi
   done < <(printf '%s\n' "$manifest" | sed -nE 's/.*android:name="android\.permission\.([A-Z0-9_]+)".*/\1/p' | sort -u)

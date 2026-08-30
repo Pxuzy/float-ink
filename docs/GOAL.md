@@ -1,4 +1,4 @@
-# FloatInk 开发目标
+# 悬浮画笔（FloatPen）开发目标
 
 ## 总目标
 

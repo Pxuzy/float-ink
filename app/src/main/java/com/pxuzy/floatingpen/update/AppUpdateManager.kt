@@ -31,7 +31,7 @@ class AppUpdateManager(private val context: Context) {
                     connectTimeout = 8_000
                     readTimeout = 8_000
                     setRequestProperty("Accept", "application/vnd.github+json")
-                    setRequestProperty("User-Agent", "FloatInk/${BuildConfig.VERSION_NAME}")
+                    setRequestProperty("User-Agent", "FloatPen/${BuildConfig.VERSION_NAME}")
                 }
                 val body = connection.inputStream.bufferedReader().use { it.readText() }
                 if (connection.responseCode !in 200..299) {
@@ -48,7 +48,7 @@ class AppUpdateManager(private val context: Context) {
 
     fun downloadAndInstall(update: UpdateInfo): Long {
         val request = DownloadManager.Request(Uri.parse(update.downloadUrl))
-            .setTitle("浮墨 ${update.version}")
+            .setTitle("悬浮画笔 ${update.version}")
             .setDescription("正在下载更新 APK")
             .setMimeType(APK_MIME)
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
