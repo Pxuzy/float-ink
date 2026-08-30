@@ -45,9 +45,9 @@ object FloatInkSessionCodec {
 
     fun decode(payload: String): DecodedFloatInkSession {
         val root = JSONObject(payload)
-        require(root.optInt("formatVersion") == FORMAT_VERSION) { "不支持的 FloatInk 文件版本" }
+        require(root.optInt("formatVersion") == FORMAT_VERSION) { "不支持的悬浮画笔文件版本" }
         val boards = root.getJSONArray("boards")
-        require(boards.length() > 0) { "FloatInk 文件没有画板" }
+        require(boards.length() > 0) { "悬浮画笔文件没有画板" }
         val decodedBoards = (0 until boards.length()).map { index ->
             decodeBoard(boards.getJSONObject(index))
         }
@@ -133,8 +133,8 @@ object FloatInkSessionStore {
         val temp = File(file.path + ".tmp")
         if (file.exists()) copyAtomically(file, File(file.path + ".bak"))
         temp.writeText(FloatInkSessionCodec.encode(session, sessionId), Charsets.UTF_8)
-        if (file.exists() && !file.delete()) error("无法替换旧 FloatInk 文件")
-        require(temp.renameTo(file)) { "无法完成 FloatInk 文件原子替换" }
+        if (file.exists() && !file.delete()) error("无法替换旧悬浮画笔文件")
+        require(temp.renameTo(file)) { "无法完成悬浮画笔文件原子替换" }
     }
 
     /**

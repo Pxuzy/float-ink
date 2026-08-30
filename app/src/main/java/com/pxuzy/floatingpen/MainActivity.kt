@@ -1050,14 +1050,14 @@ class MainActivity : ComponentActivity() {
                         status?.text = "当前安装包签名不兼容，无法直接覆盖更新"
                         AlertDialog.Builder(this)
                             .setTitle("无法直接更新")
-                            .setMessage("当前安装的版本不是 FloatInk 正式签名包。Android 不允许不同签名覆盖安装，请先备份数据并卸载当前版本，再安装新版本。")
+                            .setMessage("当前安装的版本不是悬浮画笔正式签名包。Android 不允许不同签名覆盖安装，请先备份数据并卸载当前版本，再安装新版本。")
                             .setPositiveButton("知道了", null)
                             .show()
                         return@onSuccess
                     }
                     status?.text = "发现新版本：${update.version}"
                     AlertDialog.Builder(this)
-                        .setTitle("发现浮墨新版本")
+                        .setTitle("发现悬浮画笔新版本")
                         .setMessage("${BuildConfig.VERSION_NAME} → ${update.version}\n将从 GitHub Releases 下载 APK，随后由系统确认安装。")
                         .setPositiveButton("下载更新") { _, _ -> downloadUpdate(update) }
                         .setNegativeButton("取消", null)

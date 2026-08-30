@@ -24,7 +24,7 @@ class OverlayService : Service() {
         session = drawingSession,
         save = { session, sessionId ->
             runCatching { FloatInkSessionStore.save(FloatInkStorage.sessionFile(this, sessionId), session, sessionId) }
-                .onFailure { android.util.Log.e("OverlayService", "FloatInk 自动保存失败", it) }
+                .onFailure { android.util.Log.e("OverlayService", "悬浮画笔自动保存失败", it) }
         },
     )
     private var foregroundReady = false
@@ -166,12 +166,12 @@ class OverlayService : Service() {
             val loaded = FloatInkSessionStore.loadWithBackup(java.io.File(path))
             drawingSession.replaceFrom(loaded.decoded.session)
             if (loaded.recoveredFromBackup) {
-                android.util.Log.w("OverlayService", "历史 FloatInk 已从 .bak 恢复")
+                android.util.Log.w("OverlayService", "历史悬浮画笔已从 .bak 恢复")
             }
             sessionAutoSaver.markDirty()
             showDrawing()
         }.onFailure {
-            android.util.Log.e("OverlayService", "加载历史 FloatInk 失败", it)
+            android.util.Log.e("OverlayService", "加载历史悬浮画笔失败", it)
         }
     }
 
