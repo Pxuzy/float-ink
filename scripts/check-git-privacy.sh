@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# FloatInk Git privacy/security gate.
+# 悬浮画笔 Git privacy/security gate.
 # Usage:
 #   scripts/check-git-privacy.sh staged
 #   scripts/check-git-privacy.sh range <old> <new>

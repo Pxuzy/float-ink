@@ -1,4 +1,4 @@
-# 浮墨
+# 悬浮画笔
 
 > 面向讲课、演示与远程指导的 Android 悬浮屏幕讲解笔。
 
@@ -6,7 +6,7 @@
 [![Kotlin](https://img.shields.io/badge/Kotlin-Native-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/)
 [![Release](https://img.shields.io/github/v/release/Pxuzy/float-ink?display_name=tag&sort=semver)](https://github.com/Pxuzy/float-ink/releases)
 
-浮墨（FloatInk）在获得系统悬浮窗权限后，以一个可拖动的悬浮球运行在其他应用之上。点击悬浮球即可打开透明画板，用手指或手写笔在课件、PDF、网页、视频会议或任意应用上临时标注；退出画板后立刻回到原来的应用。
+悬浮画笔（FloatPen）在获得系统悬浮窗权限后，以一个可拖动的悬浮球运行在其他应用之上。点击悬浮球即可打开透明画板，用手指或手写笔在课件、PDF、网页、视频会议或任意应用上临时标注；退出画板后立刻回到原来的应用。
 
 - **当前版本：** `0.3.24`（`versionCode 38`）
 - **支持设备：** Android 10（API 29）及以上的手机和平板
@@ -24,9 +24,9 @@
 
 ## 安装
 
-1. 打开 [FloatInk Releases](https://github.com/Pxuzy/float-ink/releases/latest)，下载最新 APK。
+1. 打开 [悬浮画笔 Releases](https://github.com/Pxuzy/float-ink/releases/latest)，下载最新 APK。
 2. 在 Android 系统安装器中确认安装。首次从浏览器或文件管理器安装 APK 时，系统可能要求允许该来源安装未知应用。
-3. 打开 FloatInk，按提示授予“显示在其他应用上层”权限。
+3. 打开悬浮画笔，按提示授予“显示在其他应用上层”权限。
 4. 在应用内启用悬浮球。
 
 > 正式版之间使用同一发布证书签名，可直接覆盖安装并保留应用数据。若此前安装的是 Debug 或测试签名包，Android 不允许覆盖安装；请先确认旧数据是否需要保留，再卸载旧包并安装正式版。
@@ -34,7 +34,7 @@
 ## 快速使用
 
 ```text
-打开 FloatInk
+打开悬浮画笔
   → 授予悬浮窗权限并启用悬浮球
   → 切换到需要讲解的应用
   → 点击悬浮球，进入透明画板
@@ -90,7 +90,7 @@
 
 ## 隐私与权限
 
-FloatInk 是轻量、临时的讲解工具，不是截图编辑器或云端白板。
+悬浮画笔是轻量、临时的讲解工具，不是截图编辑器或云端白板。
 
 | 权限 | 用途 |
 |---|---|
@@ -100,7 +100,7 @@ FloatInk 是轻量、临时的讲解工具，不是截图编辑器或云端白�
 | `INTERNET` | 检查 GitHub Release 和下载更新 APK |
 | `REQUEST_INSTALL_PACKAGES` | 将已验证的 APK 交给系统安装器 |
 
-FloatInk 不会：
+悬浮画笔不会：
 
 - 截图、录屏、读取或保存底层应用画面。
 - 上传笔迹、建立账号、进行云同步或统计分析。
