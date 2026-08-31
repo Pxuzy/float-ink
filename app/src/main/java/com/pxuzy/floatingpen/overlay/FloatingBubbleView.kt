@@ -160,6 +160,9 @@ class FloatingBubbleView(context: Context, private val onTap: () -> Unit, privat
             }
             invalidate()
         }
+        // A settings-only change (e.g. accent color) may not alter alpha or
+        // size, so force a redraw to render the new state immediately.
+        invalidate()
     }
 
     internal fun keepInsideCurrentScreen() {

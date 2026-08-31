@@ -85,6 +85,18 @@ class FloatingBubbleViewTest {
     }
 
     @Test
+    fun `settings change forces bubble redraw for immediate rendering`() {
+        val bubble = bubble({}, {})
+        shadowOf(bubble).clearWasInvalidated()
+
+        bubble.applySettings(PenSettings.load(context).copy(toolStyles = mapOf(
+            "pen" to ToolStyle(android.graphics.Color.BLUE, 4f),
+        )))
+
+        assertTrue("颜色等非透明度设置也应立即重绘", shadowOf(bubble).wasInvalidated())
+    }
+
+    @Test
     fun `runtime settings update auto hide policy immediately`() {
         val bubble = bubble({}, {})
         bubble.applySettings(PenSettings.load(context).copy(autoHide = false, autoHideDelayMs = 5000L))

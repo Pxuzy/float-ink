@@ -501,6 +501,71 @@ class MainActivityTest {
         assertEquals(DrawingElement.colorValues[2], activity.privateField("selectedColor"))
     }
 
+    @Test
+    fun `settings page renders live toolbar preview from current config`() {
+        PenSettings.saveToolbarButtonSize(context, 46)
+        PenSettings.saveToolbarLayout(context, PenSettings.TOOL_IDS, PenSettings.TOOL_IDS.toSet() - "line")
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        root.findByTag("nav-settings").performClick()
+
+        val preview = root.findByTag("toolbar-preview") as ViewGroup
+        // drag handle + color dot + 5 enabled tools + more/undo/clear/canvas/exit
+        assertEquals(1 + 1 + 5 + 5, preview.childCount)
+        assertNotNull(root.findByTag("toolbar-preview-icon:pen"))
+        assertNull(root.findByTagOrNull("toolbar-preview-icon:line"))
+        assertEquals(
+            (46 * activity.resources.displayMetrics.density).toInt(),
+            root.findByTag("toolbar-preview-icon:pen").layoutParams.width,
+        )
+        assertNotNull(root.findByTag("toolbar-preview-summary"))
+    }
+
+    @Test
+    fun `toolbar size slider re-renders preview immediately`() {
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        root.findByTag("nav-settings").performClick()
+
+        (root.findByTag("setting-toolbar-size") as SeekBar).setProgress(22, true) // slider max=40 -> 20+22=42dp
+
+        val icon = root.findByTag("toolbar-preview-icon:pen")
+        assertEquals(
+            (42 * activity.resources.displayMetrics.density).toInt(),
+            icon.layoutParams.width,
+        )
+        assertTrue((root.findByTag("toolbar-preview-summary") as TextView).text.toString().contains("42dp"))
+    }
+
+    @Test
+    fun `disabling a toolbar tool removes it from preview immediately`() {
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        root.findByTag("nav-settings").performClick()
+        assertNotNull(root.findByTag("toolbar-preview-icon:rect"))
+
+        (root.findByTag("toolbar-enabled:rect") as CheckBox).isChecked = false
+
+        assertNull(root.findByTagOrNull("toolbar-preview-icon:rect"))
+    }
+
+    @Test
+    fun `global width change notifies running overlay immediately`() {
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        activity.getSharedPreferences(OverlayService.PREF_NAME, Application.MODE_PRIVATE).edit()
+            .putBoolean(OverlayService.PREF_KEY_SERVICE_RUNNING, true)
+            .putLong(OverlayService.PREF_KEY_SERVICE_STARTED_AT, System.currentTimeMillis())
+            .commit()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        root.findByTag("nav-pen").performClick()
+
+        (root.findByTag("global-width") as SeekBar).setProgress(10, true)
+
+        val intent = shadowOf(activity).nextStartedService
+        assertNotNull(intent)
+        assertEquals(OverlayService.ACTION_SETTINGS_CHANGED, intent.action)
+    }
+
     private fun ViewGroup.findByTagOrNull(tag: String): View? {
         if (this.tag == tag) return this
         for (index in 0 until childCount) {
