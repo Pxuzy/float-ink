@@ -1,7 +1,9 @@
 package com.pxuzy.floatingpen
 
 import android.app.Application
+import android.view.ViewGroup
 import androidx.test.core.app.ApplicationProvider
+import org.robolectric.Robolectric
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -204,6 +206,30 @@ class PenSettingsTest {
         PenSettings.saveBubblePosition(context, 120, 240, true)
 
         assertEquals(PenSettings.BubblePosition(120, 240, true), PenSettings.loadBubblePosition(context))
+    }
+
+    @Test
+    fun `toolbar color scope can be switched between global and current tool`() {
+        PenSettings.saveToolbarColorScopeGlobal(context, false)
+        assertEquals(false, PenSettings.load(context).toolbarColorScopeGlobal)
+
+        PenSettings.saveToolbarColorScopeGlobal(context, true)
+        assertEquals(true, PenSettings.load(context).toolbarColorScopeGlobal)
+    }
+
+    @Test
+    fun `toolbar color scope setting is exposed on settings page`() {
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        root.findViewWithTag<android.view.View>("nav-settings").performClick()
+
+        assertNotNull(root.findViewWithTag<android.view.View>("setting-toolbar-color-scope"))
+        assertNotNull(root.findViewWithTag<android.view.View>("setting-toolbar-color-scope-tool"))
+        assertNotNull(root.findViewWithTag<android.view.View>("setting-toolbar-color-scope-global"))
+        (root.findViewWithTag<android.widget.RadioButton>("setting-toolbar-color-scope-tool")).performClick()
+        assertEquals(false, PenSettings.load(activity).toolbarColorScopeGlobal)
+        (root.findViewWithTag<android.widget.RadioButton>("setting-toolbar-color-scope-global")).performClick()
+        assertEquals(true, PenSettings.load(activity).toolbarColorScopeGlobal)
     }
 
     @Test

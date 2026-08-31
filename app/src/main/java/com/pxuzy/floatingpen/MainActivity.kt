@@ -28,6 +28,8 @@ import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
@@ -738,6 +740,38 @@ class MainActivity : ComponentActivity() {
                             pageContainer.findViewWithTag<TextView>("setting-toolbar-size-label")?.text = "${size}dp"
                         })
                     }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 48.dp))
+                    addView(sectionTitle("悬浮栏选色范围").apply { tag = "toolbar-color-scope-section" })
+                    addView(RadioGroup(this@MainActivity).apply {
+                        tag = "setting-toolbar-color-scope"
+                        orientation = RadioGroup.VERTICAL
+                        val current = toolbarLayout.toolbarColorScopeGlobal
+                        addView(RadioButton(this@MainActivity).apply {
+                            id = View.generateViewId()
+                            tag = "setting-toolbar-color-scope-tool"
+                            text = "仅当前工具"
+                            isChecked = !current
+                            minHeight = 48.dp
+                            setTextColor(Color.WHITE)
+                        })
+                        addView(RadioButton(this@MainActivity).apply {
+                            id = View.generateViewId()
+                            tag = "setting-toolbar-color-scope-global"
+                            text = "全部工具"
+                            isChecked = current
+                            minHeight = 48.dp
+                            setTextColor(Color.WHITE)
+                        })
+                        setOnCheckedChangeListener { _, checkedId ->
+                            PenSettings.saveToolbarColorScopeGlobal(this@MainActivity, checkedId == findViewWithTag<RadioButton>("setting-toolbar-color-scope-global")?.id)
+                            notifyOverlaySettingsChanged()
+                        }
+                    })
+                    addView(TextView(this@MainActivity).apply {
+                        tag = "toolbar-color-scope-help"
+                        text = "悬浮工具栏点选颜色时，选择只影响当前工具或同步全部工具"
+                        textSize = 12f
+                        setTextColor(Color.parseColor("#91A0B2"))
+                    })
                     addView(TextView(this@MainActivity).apply {
                         tag = "toolbar-layout-help"
                         text = "长按拖动调整顺序，关闭开关隐藏工具；其他工具会收进“更多”"

@@ -21,6 +21,7 @@ object PenSettings {
     const val KEY_TOOLBAR_ENABLED = "toolbar_enabled"
     const val KEY_BUBBLE_SIZE_DP = "bubble_size_dp"
     const val KEY_TOOLBAR_BUTTON_SIZE_DP = "toolbar_button_size_dp"
+    const val KEY_TOOLBAR_COLOR_SCOPE_GLOBAL = "toolbar_color_scope_global"
     private const val KEY_BUBBLE_X = "bubble_x"
     private const val KEY_BUBBLE_Y = "bubble_y"
     private const val KEY_BUBBLE_SNAPPED_LEFT = "bubble_snapped_left"
@@ -133,6 +134,7 @@ object PenSettings {
         val arrowScale: Float,
         val toolbarOrder: List<String>,
         val toolbarEnabled: Set<String>,
+        val toolbarColorScopeGlobal: Boolean,
         val bubbleSizeDp: Int = DEFAULT_BUBBLE_SIZE_DP,
         val toolbarButtonSizeDp: Int = DEFAULT_TOOLBAR_BUTTON_SIZE_DP,
     ) {
@@ -189,11 +191,12 @@ object PenSettings {
             .coerceIn(MIN_AUTO_HIDE_DELAY_MS, MAX_AUTO_HIDE_DELAY_MS)
         val arrowScale = DEFAULT_ARROW_SCALE
         val layout = loadToolbarLayout(context)
+        val toolbarColorScopeGlobal = prefs.getBoolean(KEY_TOOLBAR_COLOR_SCOPE_GLOBAL, true)
         val bubbleSize = prefs.getInt(KEY_BUBBLE_SIZE_DP, DEFAULT_BUBBLE_SIZE_DP)
             .coerceIn(MIN_BUBBLE_SIZE_DP, MAX_BUBBLE_SIZE_DP)
         val toolbarButtonSize = prefs.getInt(KEY_TOOLBAR_BUTTON_SIZE_DP, DEFAULT_TOOLBAR_BUTTON_SIZE_DP)
             .coerceIn(MIN_TOOLBAR_BUTTON_SIZE_DP, MAX_TOOLBAR_BUTTON_SIZE_DP)
-        return Values(tool, globalColor, globalWidth, styles, recentColors, opacity, autoHide, delay, arrowScale, layout.order, layout.enabled, bubbleSize, toolbarButtonSize)
+        return Values(tool, globalColor, globalWidth, styles, recentColors, opacity, autoHide, delay, arrowScale, layout.order, layout.enabled, toolbarColorScopeGlobal, bubbleSize, toolbarButtonSize)
     }
 
     private fun migrateLegacyStyleIfNeeded(context: Context) {
@@ -320,6 +323,15 @@ object PenSettings {
         prefs(context).edit()
             .putInt(KEY_TOOLBAR_BUTTON_SIZE_DP, sizeDp.coerceIn(MIN_TOOLBAR_BUTTON_SIZE_DP, MAX_TOOLBAR_BUTTON_SIZE_DP))
             .apply()
+    }
+
+    fun saveToolbarColorScopeGlobal(context: Context, global: Boolean) {
+        prefs(context).edit().putBoolean(KEY_TOOLBAR_COLOR_SCOPE_GLOBAL, global).apply()
+    }
+
+    fun saveToolbarColor(context: Context, tool: String, color: Int, global: Boolean) {
+        if (global) saveGlobalColor(context, color)
+        else saveToolStyle(context, tool, color, load(context).styleFor(tool).widthDp)
     }
 
     fun loadToolbarLayout(context: Context): ToolbarLayout {

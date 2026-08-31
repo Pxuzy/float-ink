@@ -145,7 +145,8 @@ class OverlayService : Service() {
             onSessionChanged = { sessionAutoSaver.markDirty() },
             onTextInputModeChanged = ::setDrawingTextInputMode,
             toolbarButtonSizeDp = settings.toolbarButtonSizeDp,
-            onSelectionChanged = { tool, color ->
+            toolbarColorScopeGlobalEnabled = settings.toolbarColorScopeGlobal,
+            onSelectionChanged = { tool: String, color: Int ->
                 PenSettings.saveTool(this, tool)
                 // Read the width fresh: the overlay slider may have updated this
                 // tool's width after the snapshot above was taken.
