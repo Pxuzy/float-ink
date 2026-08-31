@@ -28,6 +28,8 @@ import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
@@ -285,6 +287,7 @@ class MainActivity : ComponentActivity() {
             addView(buildWidthControl("global", selectedGlobalWidthDp) { width ->
                 selectedGlobalWidthDp = width
                 PenSettings.saveGlobalStyle(this@MainActivity, selectedGlobalColor, width)
+                notifyOverlaySettingsChanged()
             })
             addView(Button(this@MainActivity).apply {
                 tag = "apply-global-style"
@@ -736,8 +739,50 @@ class MainActivity : ComponentActivity() {
                             PenSettings.saveToolbarButtonSize(this@MainActivity, size)
                             notifyOverlaySettingsChanged()
                             pageContainer.findViewWithTag<TextView>("setting-toolbar-size-label")?.text = "${size}dp"
+                            refreshToolbarPreview()
                         })
                     }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 48.dp))
+                    val previewHost = LinearLayout(this@MainActivity).apply {
+                        tag = "toolbar-preview-host"
+                        orientation = LinearLayout.VERTICAL
+                        setPadding(10.dp, 8.dp, 10.dp, 8.dp)
+                        background = panelBackground()
+                    }
+                    previewHost.addView(buildToolbarPreview(PenSettings.load(this@MainActivity)))
+                    addView(previewHost, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = 12.dp })
+                    addView(sectionTitle("悬浮栏选色范围").apply { tag = "toolbar-color-scope-section" })
+                    addView(RadioGroup(this@MainActivity).apply {
+                        tag = "setting-toolbar-color-scope"
+                        orientation = RadioGroup.VERTICAL
+                        val current = toolbarLayout.toolbarColorScopeGlobal
+                        addView(RadioButton(this@MainActivity).apply {
+                            id = View.generateViewId()
+                            tag = "setting-toolbar-color-scope-tool"
+                            text = "仅当前工具"
+                            isChecked = !current
+                            minHeight = 48.dp
+                            setTextColor(Color.WHITE)
+                        })
+                        addView(RadioButton(this@MainActivity).apply {
+                            id = View.generateViewId()
+                            tag = "setting-toolbar-color-scope-global"
+                            text = "全部工具"
+                            isChecked = current
+                            minHeight = 48.dp
+                            setTextColor(Color.WHITE)
+                        })
+                        setOnCheckedChangeListener { _, checkedId ->
+                            PenSettings.saveToolbarColorScopeGlobal(this@MainActivity, checkedId == findViewWithTag<RadioButton>("setting-toolbar-color-scope-global")?.id)
+                            notifyOverlaySettingsChanged()
+                            refreshToolbarPreview()
+                        }
+                    })
+                    addView(TextView(this@MainActivity).apply {
+                        tag = "toolbar-color-scope-help"
+                        text = "悬浮工具栏点选颜色时，选择只影响当前工具或同步全部工具"
+                        textSize = 12f
+                        setTextColor(Color.parseColor("#91A0B2"))
+                    })
                     addView(TextView(this@MainActivity).apply {
                         tag = "toolbar-layout-help"
                         text = "长按拖动调整顺序，关闭开关隐藏工具；其他工具会收进“更多”"
@@ -747,6 +792,7 @@ class MainActivity : ComponentActivity() {
                     addView(ToolbarLayoutEditorView(this@MainActivity, toolbarLayout.toolbarOrder, toolbarLayout.toolbarEnabled) { order, enabled ->
                         PenSettings.saveToolbarLayout(this@MainActivity, order, enabled)
                         notifyOverlaySettingsChanged()
+                        refreshToolbarPreview()
                     })
                 }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = 12.dp })
 
@@ -787,6 +833,63 @@ class MainActivity : ComponentActivity() {
                 setOnClickListener { checkForUpdate() }
             }, LinearLayout.LayoutParams(112.dp, 44.dp))
         })
+    }
+
+    /**
+     * 悬浮工具栏实时预览：按当前大小、顺序、显隐和当前颜色渲染，
+     * 与画布里的工具栏使用同一套图标和配色，设置改动后立即重建。
+     */
+    private fun buildToolbarPreview(values: PenSettings.Values): View {
+        val size = values.toolbarButtonSizeDp
+        val enabledIds = values.toolbarOrder.filter { it in values.toolbarEnabled }
+        val scopeText = if (values.toolbarColorScopeGlobal) "全部工具" else "仅当前工具"
+        val bar = LinearLayout(this).apply {
+            tag = "toolbar-preview"
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(4.dp, 3.dp, 4.dp, 3.dp)
+            background = GradientDrawable().apply {
+                setColor(FloatInkTheme.overlayBar)
+                cornerRadius = FloatInkTheme.PANEL_RADIUS_DP * resources.displayMetrics.density
+                setStroke(1.dpf.toInt(), FloatInkTheme.overlayStroke)
+            }
+        }
+        fun addIcon(iconId: String, isActive: Boolean = false) {
+            bar.addView(ToolIconView(this@MainActivity, iconId).apply {
+                tag = "toolbar-preview-icon:$iconId"
+                setIconColor(if (isActive) values.color else Color.WHITE)
+                layoutParams = LinearLayout.LayoutParams(size.dp, size.dp).apply { marginEnd = 2.dp }
+            })
+        }
+        addIcon("drag")
+        bar.addView(View(this@MainActivity).apply {
+            tag = "toolbar-preview-color-dot"
+            background = colorCircle(values.color)
+            layoutParams = LinearLayout.LayoutParams((size * 0.5f).toInt().dp, (size * 0.5f).toInt().dp).apply { marginEnd = 3.dp }
+        })
+        enabledIds.forEach { addIcon(it, values.tool == it) }
+        addIcon("more"); addIcon("undo"); addIcon("clear"); addIcon("canvas"); addIcon("exit")
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(HorizontalScrollView(this@MainActivity).apply {
+                isHorizontalScrollBarEnabled = false
+                clipToPadding = false
+                addView(bar, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT))
+            })
+            addView(TextView(this@MainActivity).apply {
+                tag = "toolbar-preview-summary"
+                text = "${enabledIds.size} 个工具 · 按钮 ${size}dp · 颜色影响：$scopeText"
+                textSize = 11f
+                setTextColor(Color.parseColor("#91A0B2"))
+                setPadding(2.dp, 6.dp, 2.dp, 0)
+            })
+        }
+    }
+
+    private fun refreshToolbarPreview() {
+        val host = pageContainer.findViewWithTag<LinearLayout>("toolbar-preview-host") ?: return
+        host.removeAllViews()
+        host.addView(buildToolbarPreview(PenSettings.load(this)))
     }
 
     private fun buildHistorySection(): View {
@@ -1223,6 +1326,7 @@ class MainActivity : ComponentActivity() {
                 contentDescription = "${DrawingElement.toolNames[toolId]}：${colorLabel(style.color)}，线宽 ${style.widthDp.toInt()}dp"
             }
         }
+        refreshToolbarPreview()
     }
 
     private fun updateNavigation() {

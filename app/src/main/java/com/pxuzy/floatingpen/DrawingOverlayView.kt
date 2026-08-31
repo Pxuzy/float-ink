@@ -36,6 +36,7 @@ class DrawingOverlayView(
     private val onSelectionChanged: (toolId: String, color: Int) -> Unit = { _, _ -> },
     private val onTextInputModeChanged: (Boolean) -> Unit = {},
     toolbarButtonSizeDp: Int = PenSettings.DEFAULT_TOOLBAR_BUTTON_SIZE_DP,
+    toolbarColorScopeGlobalEnabled: Boolean = true,
     private val onExit: () -> Unit,
 ) : FrameLayout(context) {
 
@@ -54,6 +55,7 @@ class DrawingOverlayView(
         onSelectionChanged: (toolId: String, color: Int) -> Unit = { _, _ -> },
         onTextInputModeChanged: (Boolean) -> Unit = {},
         toolbarButtonSizeDp: Int = PenSettings.DEFAULT_TOOLBAR_BUTTON_SIZE_DP,
+        toolbarColorScopeGlobalEnabled: Boolean = true,
         onExit: () -> Unit,
     ) : this(
         context = context,
@@ -68,6 +70,7 @@ class DrawingOverlayView(
         drawingSession = drawingSession,
         onSessionChanged = onSessionChanged,
         toolbarButtonSizeDp = toolbarButtonSizeDp,
+        toolbarColorScopeGlobalEnabled = toolbarColorScopeGlobalEnabled,
     ) {
         toolStyles.putAll(styles.mapKeys { PenSettings.normalizeTool(it.key) })
         applyCurrentToolStyle()
@@ -119,6 +122,7 @@ class DrawingOverlayView(
         PenSettings.MIN_TOOLBAR_BUTTON_SIZE_DP,
         PenSettings.MAX_TOOLBAR_BUTTON_SIZE_DP,
     )
+    private var toolbarColorScopeGlobal = toolbarColorScopeGlobalEnabled
 
     private fun isCompactWidth(): Boolean =
         resources.configuration.screenWidthDp in 1..399
@@ -172,6 +176,7 @@ class DrawingOverlayView(
     private val restoreClearTimeout = Handler(Looper.getMainLooper())
 
     init {
+        toolbarColorScopeGlobal = toolbarColorScopeGlobalEnabled
         drawPaint.color = currentColor
         setBackgroundColor(Color.argb(10, 0, 0, 0))
 
@@ -701,6 +706,7 @@ class DrawingOverlayView(
     internal fun applyExternalSettings(settings: PenSettings.Values) {
         toolStyles.putAll(settings.toolStyles)
         arrowScale = settings.arrowScale
+        toolbarColorScopeGlobal = settings.toolbarColorScopeGlobal
         val previousButtonSize = toolbarButtonSizeDp
         toolbarButtonSizeDp = settings.toolbarButtonSizeDp
         val nextToolbarIds = normalizeToolbarToolIds(settings.visibleToolbarToolIds())
@@ -1171,8 +1177,15 @@ class DrawingOverlayView(
     private fun applyColor(color: Int) {
         currentColor = color
         drawPaint.color = color
-        toolStyles[currentToolId] = ToolStyle(color, drawPaint.strokeWidth / density)
-        PenSettings.saveColor(context, color)
+        if (toolbarColorScopeGlobal) {
+            toolStyles.keys.toList().forEach { toolId ->
+                val width = toolStyles[toolId]?.widthDp ?: PenSettings.DEFAULT_WIDTH_DP
+                toolStyles[toolId] = ToolStyle(color, width)
+            }
+        } else {
+            toolStyles[currentToolId] = ToolStyle(color, drawPaint.strokeWidth / density)
+        }
+        PenSettings.saveToolbarColor(context, currentToolId, color, toolbarColorScopeGlobal)
         if (!PenSettings.isDefaultColor(color)) {
             PenSettings.addCustomColor(context, color)
             PenSettings.addRecentColor(context, color)
