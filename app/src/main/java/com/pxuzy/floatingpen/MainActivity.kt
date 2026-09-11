@@ -41,6 +41,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 
 class MainActivity : ComponentActivity() {
+    private var permissionDialog: AlertDialog? = null
+    private var permissionFlowActive = false
     private val updateManager by lazy { AppUpdateManager(this) }
     private val downloadReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -131,6 +133,7 @@ class MainActivity : ComponentActivity() {
         showPage("home")
         ContextCompat.registerReceiver(this, downloadReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE), ContextCompat.RECEIVER_NOT_EXPORTED)
         ContextCompat.registerReceiver(this, colorChangedReceiver, IntentFilter(OverlayService.ACTION_COLOR_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
+        window.decorView.post { maybeShowPermissionGuide() }
     }
 
     override fun onDestroy() {
@@ -1201,9 +1204,14 @@ class MainActivity : ComponentActivity() {
                         return@onSuccess
                     }
                     status?.text = "发现新版本：${update.version}"
+                    val notes = update.releaseNotes.trim().ifBlank { "本次版本未提供更新说明。" }
+                    val published = update.publishedAt.substringBefore('T').takeIf { it.isNotBlank() } ?: "日期未知"
                     AlertDialog.Builder(this)
                         .setTitle("发现悬浮画笔新版本")
-                        .setMessage("${BuildConfig.VERSION_NAME} → ${update.version}\n将从 GitHub Releases 下载 APK，随后由系统确认安装。")
+                        .setMessage("${BuildConfig.VERSION_NAME} → ${update.version}\n${update.releaseName.ifBlank { "版本更新" }} · $published\n\n更新内容：\n${notes.take(1800)}\n\n将从 GitHub Releases 下载 APK，随后由系统确认安装。")
+                        .setNeutralButton("查看 Release") { _, _ ->
+                            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.releaseUrl)))
+                        }
                         .setPositiveButton("下载更新") { _, _ -> downloadUpdate(update) }
                         .setNegativeButton("取消", null)
                         .show()
@@ -1447,14 +1455,43 @@ class MainActivity : ComponentActivity() {
         }
         if (::pageContainer.isInitialized) showPage(currentPage)
         resumePendingDownloadInstall()
+        continuePermissionFlow()
     }
 
     private fun onActionClick() {
         if (isOverlayServiceRunning()) { stopOverlayService(); return }
         when {
-            !Settings.canDrawOverlays(this) -> requestOverlayPermission()
-            !hasNotificationPermission() -> requestNotificationPermission()
+            !Settings.canDrawOverlays(this) -> { permissionFlowActive = true; requestOverlayPermission() }
+            !hasNotificationPermission() -> { permissionFlowActive = true; requestNotificationPermission() }
             else -> startOverlayService()
+        }
+    }
+
+    private fun maybeShowPermissionGuide() {
+        if (Settings.canDrawOverlays(this) && hasNotificationPermission()) return
+        if (permissionDialog?.isShowing == true) return
+        permissionDialog = AlertDialog.Builder(this)
+            .setTitle("完成首次设置")
+            .setMessage("悬浮画笔需要悬浮窗权限显示画板，并需要通知权限保持后台服务稳定运行。点击“继续授权”后，系统会按顺序打开授权页面。")
+            .setPositiveButton("继续授权") { _, _ ->
+                permissionFlowActive = true
+                continuePermissionFlow()
+            }
+            .setNegativeButton("稍后设置", null)
+            .create()
+        permissionDialog?.show()
+    }
+
+    private fun continuePermissionFlow() {
+        if (!permissionFlowActive) return
+        if (!Settings.canDrawOverlays(this)) {
+            requestOverlayPermission()
+        } else if (!hasNotificationPermission()) {
+            requestNotificationPermission()
+        } else {
+            permissionFlowActive = false
+            permissionDialog = null
+            updateUi()
         }
     }
 
@@ -1468,17 +1505,19 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestNotificationPermission() {
-        AlertDialog.Builder(this)
-            .setTitle("需要通知权限")
-            .setMessage("后台悬浮服务需要通知权限保持稳定运行。")
-            .setPositiveButton("去设置") { _, _ ->
-                notificationSettingsLauncher.launch(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply { data = Uri.parse("package:$packageName") })
-            }.setNegativeButton("跳过") { _, _ -> startOverlayService() }.show()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), NOTIFICATION_PERMISSION_REQUEST)
+        }
     }
 
     private fun hasNotificationPermission(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == NOTIFICATION_PERMISSION_REQUEST) continuePermissionFlow()
+    }
 
     private fun isOverlayServiceRunning(): Boolean {
         val prefs = getSharedPreferences(OverlayService.PREF_NAME, MODE_PRIVATE)
@@ -1530,6 +1569,7 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
+        private const val NOTIFICATION_PERMISSION_REQUEST = 4101
         private const val SERVICE_START_GRACE_MS = 3_000L
         private const val ARROW_SCALE_STEPS = 300
     }

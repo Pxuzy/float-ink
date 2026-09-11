@@ -21,6 +21,9 @@ class AppUpdateManager(private val context: Context) {
         val version: String,
         val downloadUrl: String,
         val releaseUrl: String,
+        val releaseName: String = "",
+        val releaseNotes: String = "",
+        val publishedAt: String = "",
     )
 
     fun check(onResult: (Result<UpdateInfo?>) -> Unit) {
@@ -127,13 +130,23 @@ class AppUpdateManager(private val context: Context) {
             MessageDigest.getInstance("SHA-256").digest(toByteArray()).joinToString("") { "%02x".format(it) }
 
         fun parseLatestRelease(json: String): UpdateInfo? {
-            val tag = json.stringValue("tag_name") ?: return null
-            val releaseUrl = json.stringValue("html_url") ?: return null
-            val apkUrl = Regex(
-                "\\\"browser_download_url\\\"\\s*:\\s*\\\"([^\\\"]+\\.apk(?:\\?[^\\\"]*)?)\\\"",
-                RegexOption.IGNORE_CASE,
-            ).find(json)?.groupValues?.get(1) ?: return null
-            return UpdateInfo(tag.removePrefix("v"), apkUrl, releaseUrl)
+            val release = org.json.JSONObject(json)
+            val tag = release.optString("tag_name").takeIf { it.isNotBlank() } ?: return null
+            val releaseUrl = release.optString("html_url").takeIf { it.isNotBlank() } ?: return null
+            val assets = release.optJSONArray("assets") ?: return null
+            val apkUrl = (0 until assets.length()).asSequence()
+                .mapNotNull { index -> assets.optJSONObject(index) }
+                .map { asset -> asset.optString("browser_download_url") }
+                .firstOrNull { it.substringBefore('?').endsWith(".apk", ignoreCase = true) }
+                ?: return null
+            return UpdateInfo(
+                version = tag.removePrefix("v"),
+                downloadUrl = apkUrl,
+                releaseUrl = releaseUrl,
+                releaseName = release.optString("name"),
+                releaseNotes = release.optString("body"),
+                publishedAt = release.optString("published_at"),
+            )
         }
 
         fun isNewer(remote: String, local: String): Boolean = compareVersions(remote, local) > 0
