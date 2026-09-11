@@ -218,9 +218,9 @@ class MainActivity : ComponentActivity() {
             textSize = 13f; minHeight = 48.dp; isAllCaps = false; typeface = Typeface.DEFAULT_BOLD
             contentDescription = "启动或停止悬浮球"
             tag = "home-action-btn"
-            background = roundedBackground(selectedColor, 8f)
-            // 文字颜色按底色亮度自适应：浅色底（白/黄画笔）用深色字，深色底用白字
-            setTextColor(contrastTextColor(selectedColor))
+            // 主启动按钮固定使用主题强调色，不跟随画笔颜色
+            background = roundedBackground(FloatInkTheme.accent, 8f)
+            setTextColor(FloatInkTheme.onAccent)
             setOnClickListener { onActionClick() }
             layoutParams = LinearLayout.LayoutParams(132.dp, 48.dp)
         }
@@ -1296,8 +1296,15 @@ class MainActivity : ComponentActivity() {
 
     private fun updateToolButtons() {
         toolButtons.forEach { (tool, button) ->
-            button.background = roundedBackground(if (tool == selectedTool) selectedColor else Color.parseColor("#20262F"), 7f)
-            button.setTextColor(if (tool == selectedTool && Color.luminance(selectedColor) > 0.65f) Color.BLACK else Color.WHITE)
+            val selected = tool == selectedTool
+            // 选中：深蓝灰底 + 浅蓝描边 + 高对比文字；未选中：raised 底 + 次级文字
+            button.background = GradientDrawable().apply {
+                setColor(if (selected) FloatInkTheme.surfaceActive else FloatInkTheme.surfaceRaised)
+                cornerRadius = FloatInkTheme.PANEL_RADIUS_DP * resources.displayMetrics.density
+                setStroke(if (selected) 1.dp else 0, if (selected) FloatInkTheme.accent else FloatInkTheme.border)
+            }
+            button.setTextColor(if (selected) FloatInkTheme.textPrimary else FloatInkTheme.textSecondary)
+            button.typeface = if (selected) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
         }
     }
 

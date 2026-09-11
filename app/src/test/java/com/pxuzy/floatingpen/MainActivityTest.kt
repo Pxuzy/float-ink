@@ -155,15 +155,54 @@ class MainActivityTest {
     }
 
     @Test
-    fun `action button text keeps contrast for white pen`() {
+    fun `home action button is fixed accent regardless of pen color`() {
         PenSettings.saveToolStyle(context, "pen", Color.WHITE, 4f)
         val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
         val root = activity.findViewById<ViewGroup>(android.R.id.content)
 
         val actionBtn = root.findByTag("home-action-btn") as Button
-        val textColor = actionBtn.currentTextColor
-        // 白底必须深色文字
-        assertTrue("白底按钮文字应为深色，实际 $textColor", textColor == Color.parseColor("#1F2937"))
+        val bg = actionBtn.background as android.graphics.drawable.GradientDrawable
+        // 主启动按钮固定 accent，不跟随画笔色
+        assertEquals(FloatInkTheme.accent, bg.color?.defaultColor)
+        assertEquals(FloatInkTheme.onAccent, actionBtn.currentTextColor)
+    }
+
+    @Test
+    fun `selected tool uses deep blue-gray accent border and high contrast text`() {
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        root.findByTag("nav-pen").performClick()
+
+        val pen = root.findByTag("setting-tool:pen")
+        val penBg = pen.background as android.graphics.drawable.GradientDrawable
+        assertEquals(FloatInkTheme.surfaceActive, penBg.color?.defaultColor)
+        assertEquals(FloatInkTheme.accent, shadowOf(penBg).getStrokeColor())
+        assertEquals(FloatInkTheme.textPrimary, (pen as TextView).currentTextColor)
+
+        root.findByTag("setting-tool:arrow").performClick()
+        val arrowBg = root.findByTag("setting-tool:arrow").background as android.graphics.drawable.GradientDrawable
+        assertEquals(FloatInkTheme.accent, shadowOf(arrowBg).getStrokeColor())
+        val deselected = root.findByTag("setting-tool:pen")
+        assertEquals(FloatInkTheme.surfaceRaised, (deselected.background as android.graphics.drawable.GradientDrawable).color?.defaultColor)
+    }
+
+    @Test
+    fun `tool selection keeps real ink color in previews and color dots`() {
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        root.findByTag("nav-pen").performClick()
+        root.findByTag("global-color:1").performClick()
+        root.findByTag("setting-tool:circle").performClick()
+
+        // 选中按钮只承担选中态配色，笔迹颜色仍由工具样式承载
+        val circleBtn = root.findByTag("setting-tool:circle")
+        val bg = circleBtn.background as android.graphics.drawable.GradientDrawable
+        assertEquals(FloatInkTheme.surfaceActive, bg.color?.defaultColor)
+        assertEquals(DrawingElement.colorValues[1], PenSettings.load(activity).styleFor("circle").color)
+
+        root.findByTag("nav-home").performClick()
+        val dot = root.findByTag("home-tool-color:circle")
+        assertEquals(DrawingElement.colorValues[1], (dot.background as android.graphics.drawable.GradientDrawable).color?.defaultColor)
     }
 
     @Test
