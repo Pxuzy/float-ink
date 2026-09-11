@@ -155,12 +155,12 @@ class MainActivityTest {
         val root = activity.findViewById<ViewGroup>(android.R.id.content)
 
         val whiteLabel = root.findByTag("home-tool-style:pen") as TextView
-        assertEquals(Color.parseColor("#F2F5F9"), whiteLabel.currentTextColor)
+        assertEquals(FloatInkTheme.textPrimary, whiteLabel.currentTextColor)
         assertEquals("白色  ·  4 dp", whiteLabel.text.toString())
         val whiteColor = root.findByTag("home-tool-color:pen")
         assertEquals(Color.WHITE, (whiteColor.background as android.graphics.drawable.GradientDrawable).color?.defaultColor)
         val blackLabel = root.findByTag("home-tool-style:circle") as TextView
-        assertEquals(Color.parseColor("#F2F5F9"), blackLabel.currentTextColor)
+        assertEquals(FloatInkTheme.textPrimary, blackLabel.currentTextColor)
         assertTrue("颜色文案应包含线宽", blackLabel.text.toString().endsWith("4 dp"))
         val blackColor = root.findByTag("home-tool-color:circle")
         assertEquals(Color.BLACK, (blackColor.background as android.graphics.drawable.GradientDrawable).color?.defaultColor)

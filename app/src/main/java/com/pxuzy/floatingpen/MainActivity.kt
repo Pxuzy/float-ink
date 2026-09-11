@@ -259,7 +259,7 @@ class MainActivity : ComponentActivity() {
                     homeToolColorDots[toolId] = colorDot
                     addView(colorDot, LinearLayout.LayoutParams(16.dp, 16.dp).apply { marginEnd = 8.dp })
                     addView(TextView(this@MainActivity).apply { text = DrawingElement.toolNames[toolId] ?: toolId; textSize = 14f; setTextColor(Color.WHITE); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) })
-                    val styleLabel = TextView(this@MainActivity).apply { text = "${colorLabel(style.color)}  ·  ${style.widthDp.toInt()} dp"; textSize = 13f; setTextColor(Color.parseColor("#F2F5F9")); tag = "home-tool-style:$toolId"; contentDescription = "${DrawingElement.toolNames[toolId]}：${colorLabel(style.color)}，线宽 ${style.widthDp.toInt()}dp" }
+                    val styleLabel = TextView(this@MainActivity).apply { text = "${colorLabel(style.color)}  ·  ${style.widthDp.toInt()} dp"; textSize = 13f; setTextColor(FloatInkTheme.textPrimary); tag = "home-tool-style:$toolId"; contentDescription = "${DrawingElement.toolNames[toolId]}：${colorLabel(style.color)}，线宽 ${style.widthDp.toInt()}dp" }
                     homeToolStyleLabels[toolId] = styleLabel
                     addView(styleLabel)
                 })
@@ -387,7 +387,7 @@ class MainActivity : ComponentActivity() {
                     textSize = 14f
                     contentDescription = "删除自定义颜色 #%08X".format(java.util.Locale.US, color)
                     setTextColor(Color.WHITE)
-                    background = roundedBackground(Color.parseColor("#35404C"), 10f)
+                    background = roundedBackground(FloatInkTheme.border, 10f)
                     setOnClickListener { showDeleteColorDialog(color, prefix) }
                 }, FrameLayout.LayoutParams(20.dp, 20.dp, Gravity.TOP or Gravity.END))
             }
@@ -400,7 +400,7 @@ class MainActivity : ComponentActivity() {
             gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
             contentDescription = if (manageMode) "完成管理颜色" else "管理自定义颜色"
-            background = roundedBackground(Color.parseColor("#26303B"), 7f)
+            background = roundedBackground(FloatInkTheme.surfaceActive, 7f)
             setOnClickListener {
                 globalColorManageMode = !manageMode
                 showPage(currentPage)
@@ -409,7 +409,7 @@ class MainActivity : ComponentActivity() {
         row.addView(TextView(this).apply {
             tag = "$prefix-add-color"
             text = "+"; textSize = 22f; gravity = Gravity.CENTER; setTextColor(Color.WHITE)
-            background = roundedBackground(Color.parseColor("#26303B"), 7f)
+            background = roundedBackground(FloatInkTheme.surfaceActive, 7f)
             contentDescription = "增加颜色"
             setOnClickListener { showRgbColorDialog(prefix, onSelect) }
         }, LinearLayout.LayoutParams(48.dp, 48.dp).apply { marginStart = 2.dp })
@@ -454,7 +454,7 @@ class MainActivity : ComponentActivity() {
             setSingleLine(true)
             inputType = InputType.TYPE_CLASS_TEXT
             setTextColor(Color.WHITE)
-            setHintTextColor(Color.parseColor("#7F8A99"))
+            setHintTextColor(FloatInkTheme.textMuted)
             setText("#%08X".format(java.util.Locale.US, initialColor))
         }
         val rgbInput = RgbColorInputView(this).apply {
@@ -477,7 +477,7 @@ class MainActivity : ComponentActivity() {
             addView(picker, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, pickerHeight))
             addView(preview, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 40.dp).apply { topMargin = 8.dp })
             addView(TextView(this@MainActivity).apply {
-                text = "透明度"; textSize = 12f; setTextColor(Color.parseColor("#AFC2D8"))
+                text = "透明度"; textSize = 12f; setTextColor(FloatInkTheme.textSecondary)
             }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 28.dp).apply { topMargin = 6.dp })
             addView(alphaSeek, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 44.dp))
             addView(hexInput, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 48.dp).apply { topMargin = 4.dp })
@@ -563,7 +563,7 @@ class MainActivity : ComponentActivity() {
             header.addView(sectionTitle(if (prefix == "global") "全局线宽" else "工具线宽"), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             label = TextView(this@MainActivity).apply {
                 tag = "$prefix-width-label"; text = "${initial.toInt()} dp"; textSize = 13f
-                setTextColor(Color.parseColor("#AEB8C6"))
+                setTextColor(FloatInkTheme.textSecondary)
             }
             header.addView(label)
             addView(header)
@@ -586,7 +586,7 @@ class MainActivity : ComponentActivity() {
         arrowScaleLabel = TextView(this).apply {
             tag = "setting-arrow-scale-label"; text = formatArrowScale(selectedArrowScale); textSize = 13f
             setTextColor(selectedColor); setPadding(12.dp, 8.dp, 12.dp, 8.dp)
-            background = roundedBackground(Color.parseColor("#20262F"), 7f)
+            background = roundedBackground(FloatInkTheme.surfaceRaised, 7f)
             contentDescription = "箭头比例，点击精确输入"
             setOnClickListener { showArrowScaleInput() }
         }
@@ -628,7 +628,7 @@ class MainActivity : ComponentActivity() {
         override fun onDraw(canvas: Canvas) {
             val left = 12.dp.toFloat(); val right = width - 12.dp.toFloat(); val center = height / 2f
             val inset = 5.dp.toFloat()
-            paint.color = Color.parseColor("#18212B"); paint.style = Paint.Style.FILL
+            paint.color = FloatInkTheme.surface; paint.style = Paint.Style.FILL
             canvas.drawRoundRect(inset, inset, width - inset, height - inset, 10.dp.toFloat(), 10.dp.toFloat(), paint)
             paint.color = previewColor; paint.strokeWidth = (previewWidthDp * .72f).coerceAtLeast(2f).dp; paint.style = Paint.Style.STROKE
             paint.strokeCap = Paint.Cap.ROUND; paint.strokeJoin = Paint.Join.ROUND
@@ -894,7 +894,7 @@ class MainActivity : ComponentActivity() {
                 tag = "toolbar-preview-summary"
                 text = "${enabledIds.size} 个工具 · 按钮 ${size}dp · 颜色影响：$scopeText"
                 textSize = 11f
-                setTextColor(Color.parseColor("#91A0B2"))
+                setTextColor(FloatInkTheme.textSecondary)
                 setPadding(2.dp, 6.dp, 2.dp, 0)
             })
         }
@@ -1317,7 +1317,7 @@ class MainActivity : ComponentActivity() {
     private fun settingHeader(title: String, value: String, valueTag: String) = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
         addView(sectionTitle(title), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        addView(TextView(this@MainActivity).apply { tag = valueTag; text = value; textSize = 13f; setTextColor(Color.parseColor("#AEB8C6")) })
+        addView(TextView(this@MainActivity).apply { tag = valueTag; text = value; textSize = 13f; setTextColor(FloatInkTheme.textSecondary) })
     }
 
     /** 滑块统一使用 accent 强调色进度与滑块头。 */
@@ -1433,11 +1433,6 @@ class MainActivity : ComponentActivity() {
         cornerRadius = 8.dpf
         setStroke(1.dp, FloatInkTheme.borderStrong)
     }
-    private fun contrastTextColor(background: Int): Int {
-        val luminance = 0.299f * Color.red(background) + 0.587f * Color.green(background) + 0.114f * Color.blue(background)
-        return if (luminance > 140f) Color.parseColor("#1F2937") else Color.WHITE
-    }
-
     private fun roundedBackground(color: Int, radius: Float) = GradientDrawable().apply { setColor(color); cornerRadius = radius.dp }
 
     override fun onResume() {
