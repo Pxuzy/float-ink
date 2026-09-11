@@ -116,9 +116,6 @@
 
 源码使用原生 Android、Kotlin 和 Gradle。开发、测试、发布门禁及项目状态记录见 [项目状态](docs/PROJECT_STATE.md) 与 [项目目标](docs/GOAL.md)。
 
-> 开发分支 `feat/graphite-settings-ui`（未合并）：石墨蓝主题与设置页分类改造，计划与状态见
-> [docs/PLAN_GRAPHITE_SETTINGS_UI.md](docs/PLAN_GRAPHITE_SETTINGS_UI.md)。
-
 ## 许可证
 
 当前许可证尚未确定，项目暂不对外承诺具体开源许可。公开发布前会补充 `LICENSE` 文件并明确使用、分发与贡献规则。

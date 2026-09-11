@@ -276,9 +276,9 @@ feat(theme): 中文标题
 - Release 构建缺少签名环境时直接失败，不再允许生成可发布但未签名的 APK。
 - GitHub Release 使用固定的悬浮画笔发布证书 SHA-256 校验，防止新旧版本无法覆盖安装。
 
-## 分支 feat/graphite-settings-ui：石墨蓝主题与设置分类（未合并）
+## 2026-09-12 石墨蓝主题与设置分类
 
-本切片在独立 worktree 的分支 `feat/graphite-settings-ui`（基于 `origin/main` 2b23efc）上实现，**尚未合并、未推送**；满意后由用户决定是否合并。版本号与图标不变。
+石墨蓝主题、设置页分类与首次授权引导按远端标签格式逐条接到 `origin/main` 之上；版本号与图标不变。
 
 - 主题：设置类界面换用石墨蓝配色（background/surface/surfaceRaised/surfaceActive/textPrimary/textSecondary/border），新增 `accent #8AB4F8` 与 `onAccent` 深色文字；悬浮画板 overlay 保持透明黑色，透明度与图标未动。
 - 交互：主启动按钮固定 accent、不再跟随画笔色；工具选中态为深蓝灰底 + 浅蓝描边 + 高对比文字；滑块/单选/复选统一 accent；笔迹预览与色点仍使用真实工具色。
