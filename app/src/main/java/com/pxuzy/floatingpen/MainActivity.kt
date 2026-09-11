@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.res.ColorStateList
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -23,6 +24,7 @@ import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.CheckBox
+import android.widget.CompoundButton
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
@@ -567,6 +569,7 @@ class MainActivity : ComponentActivity() {
             addView(SeekBar(this@MainActivity).apply {
                 tag = "$prefix-width"; max = PenSettings.MAX_WIDTH_DP - PenSettings.MIN_WIDTH_DP
                 progress = initial.toInt() - PenSettings.MIN_WIDTH_DP
+                tintSeekBar(this)
                 setOnSeekBarChangeListener(userSeek { value ->
                     val width = (value + PenSettings.MIN_WIDTH_DP).toFloat()
                     label.text = "${width.toInt()} dp"
@@ -681,6 +684,7 @@ class MainActivity : ComponentActivity() {
             tag = "setting-bubble-opacity"
             max = 65
             progress = ((settings.bubbleOpacity - 0.35f) * 100).toInt()
+            tintSeekBar(this)
             setOnSeekBarChangeListener(userSeek { value ->
                 val opacity = 0.35f + value / 100f
                 PenSettings.saveBubbleOpacity(this@MainActivity, opacity)
@@ -696,6 +700,7 @@ class MainActivity : ComponentActivity() {
             setTextColor(Color.WHITE)
             minHeight = 48.dp
             isChecked = settings.autoHide
+            tintCompoundButton(this)
             setOnCheckedChangeListener { _, checked ->
                 PenSettings.saveAutoHide(this@MainActivity, checked)
                 notifyOverlaySettingsChanged()
@@ -708,6 +713,7 @@ class MainActivity : ComponentActivity() {
             max = 9
             progress = ((settings.autoHideDelayMs - 500L) / 500L).toInt()
             isEnabled = settings.autoHide
+            tintSeekBar(this)
             setOnSeekBarChangeListener(userSeek { value ->
                 val delay = 500L + value * 500L
                 PenSettings.saveAutoHideDelay(this@MainActivity, delay)
@@ -734,6 +740,7 @@ class MainActivity : ComponentActivity() {
                         tag = "setting-toolbar-size"
                         max = PenSettings.MAX_TOOLBAR_BUTTON_SIZE_DP - PenSettings.MIN_TOOLBAR_BUTTON_SIZE_DP
                         progress = toolbarLayout.toolbarButtonSizeDp - PenSettings.MIN_TOOLBAR_BUTTON_SIZE_DP
+                        tintSeekBar(this)
                         setOnSeekBarChangeListener(userSeek { value ->
                             val size = PenSettings.MIN_TOOLBAR_BUTTON_SIZE_DP + value
                             PenSettings.saveToolbarButtonSize(this@MainActivity, size)
@@ -762,6 +769,7 @@ class MainActivity : ComponentActivity() {
                             isChecked = !current
                             minHeight = 48.dp
                             setTextColor(Color.WHITE)
+                            tintCompoundButton(this)
                         })
                         addView(RadioButton(this@MainActivity).apply {
                             id = View.generateViewId()
@@ -770,6 +778,7 @@ class MainActivity : ComponentActivity() {
                             isChecked = current
                             minHeight = 48.dp
                             setTextColor(Color.WHITE)
+                            tintCompoundButton(this)
                         })
                         setOnCheckedChangeListener { _, checkedId ->
                             PenSettings.saveToolbarColorScopeGlobal(this@MainActivity, checkedId == findViewWithTag<RadioButton>("setting-toolbar-color-scope-global")?.id)
@@ -1276,6 +1285,24 @@ class MainActivity : ComponentActivity() {
         orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
         addView(sectionTitle(title), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         addView(TextView(this@MainActivity).apply { tag = valueTag; text = value; textSize = 13f; setTextColor(Color.parseColor("#AEB8C6")) })
+    }
+
+    /** 滑块统一使用 accent 强调色进度与滑块头。 */
+    private fun tintSeekBar(seek: SeekBar) {
+        seek.progressTintList = ColorStateList.valueOf(FloatInkTheme.accent)
+        seek.progressBackgroundTintList = ColorStateList.valueOf(FloatInkTheme.border)
+        seek.thumbTintList = ColorStateList.valueOf(FloatInkTheme.accent)
+    }
+
+    /** 复选/单选按钮统一使用 accent 选中色，未选中为弱化灰。 */
+    private fun tintCompoundButton(button: CompoundButton) {
+        androidx.core.widget.CompoundButtonCompat.setButtonTintList(
+            button,
+            ColorStateList(
+                arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
+                intArrayOf(FloatInkTheme.accent, FloatInkTheme.textMuted)
+            )
+        )
     }
 
     private fun sectionTitle(value: String) = TextView(this).apply {

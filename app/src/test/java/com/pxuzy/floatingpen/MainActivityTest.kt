@@ -7,6 +7,7 @@ import android.content.Intent
 import android.app.DownloadManager
 import android.view.View
 import android.view.ViewGroup
+import android.widget.RadioButton
 import android.widget.SeekBar
 import android.widget.CheckBox
 import android.widget.Button
@@ -152,6 +153,38 @@ class MainActivityTest {
         val dot = root.findByTag("home-tool-color:pen")
         assertEquals(expected, (dot.background as android.graphics.drawable.GradientDrawable).color?.defaultColor)
         assertTrue((root.findByTag("home-tool-style:pen") as TextView).text.toString().startsWith("${DrawingElement.colorNames[2]}  ·"))
+    }
+
+    @Test
+    fun `sliders checkboxes and radios use accent tint`() {
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        root.findByTag("nav-settings").performClick()
+
+        val opacity = root.findByTag("setting-bubble-opacity") as SeekBar
+        assertEquals(FloatInkTheme.accent, opacity.progressTintList?.defaultColor)
+        assertEquals(FloatInkTheme.accent, opacity.thumbTintList?.defaultColor)
+
+        val delay = root.findByTag("setting-auto-hide-delay") as SeekBar
+        assertEquals(FloatInkTheme.accent, delay.progressTintList?.defaultColor)
+
+        val autoHide = root.findByTag("setting-auto-hide") as CheckBox
+        val autoHideTint = androidx.core.widget.CompoundButtonCompat.getButtonTintList(autoHide)
+        assertEquals(FloatInkTheme.accent, autoHideTint?.getColorForState(intArrayOf(android.R.attr.state_checked), 0))
+
+        val toolToggle = root.findByTag("toolbar-enabled:pen") as CheckBox
+        val toolTint = androidx.core.widget.CompoundButtonCompat.getButtonTintList(toolToggle)
+        assertEquals(FloatInkTheme.accent, toolTint?.getColorForState(intArrayOf(android.R.attr.state_checked), 0))
+
+        val scopeGlobal = root.findByTag("setting-toolbar-color-scope-global") as RadioButton
+        val scopeTint = androidx.core.widget.CompoundButtonCompat.getButtonTintList(scopeGlobal)
+        assertEquals(FloatInkTheme.accent, scopeTint?.getColorForState(intArrayOf(android.R.attr.state_checked), 0))
+
+        root.findByTag("nav-pen").performClick()
+        val width = root.findByTag("global-width") as SeekBar
+        assertEquals(FloatInkTheme.accent, width.progressTintList?.defaultColor)
+        val toolWidth = root.findByTag("tool-width") as SeekBar
+        assertEquals(FloatInkTheme.accent, toolWidth.progressTintList?.defaultColor)
     }
 
     @Test

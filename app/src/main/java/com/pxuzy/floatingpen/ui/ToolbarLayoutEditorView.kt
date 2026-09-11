@@ -71,6 +71,14 @@ class ToolbarLayoutEditorView(
             isChecked = toolId in enabled
             minWidth = 48.dp
             minHeight = 48.dp
+            // 统一 accent 选中色，未选中为弱化灰
+            androidx.core.widget.CompoundButtonCompat.setButtonTintList(
+                this,
+                android.content.res.ColorStateList(
+                    arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
+                    intArrayOf(FloatInkTheme.accent, FloatInkTheme.textMuted)
+                )
+            )
             setOnCheckedChangeListener { _, checked ->
                 if (!checked && enabled.size <= 1) {
                     isChecked = true
