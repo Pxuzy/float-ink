@@ -15,6 +15,7 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
+import com.pxuzy.floatingpen.core.DrawingSession
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -95,14 +96,55 @@ class MainActivityTest {
         assertNotNull(root.findByTag("setting-auto-hide"))
         assertNotNull(root.findByTag("setting-auto-hide-delay"))
         assertNotNull(root.findByTag("settings-bubble-section"))
-        assertNotNull(root.findByTag("settings-auto-hide-section"))
+        // 悬浮球分组不再有重复的「自动隐藏」小节标题
+        assertNull(root.findByTagOrNull("settings-auto-hide-section"))
         assertNotNull(root.findByTag("settings-live-copy"))
         assertNotNull(root.findByTag("toolbar-layout-section"))
         assertNotNull(root.findByTag("toolbar-tool:pen"))
+        assertNotNull(root.findByTag("settings-update-section"))
         val updateButton = root.findByTag("settings-check-update") as Button
         assertEquals("检查更新", updateButton.text.toString())
         assertEquals("检查软件更新", updateButton.contentDescription.toString())
         assertNotNull(updateButton.compoundDrawablesRelative[0])
+    }
+
+    @Test
+    fun `settings page groups sections in bubble toolbar history about order`() {
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        root.findByTag("nav-settings").performClick()
+
+        val host = root.getChildAt(0) as ViewGroup
+        val pageContainer = host.getChildAt(0) as ViewGroup
+        val scroll = pageContainer.getChildAt(0) as ViewGroup
+        val column = scroll.getChildAt(0) as LinearLayout
+        fun sectionIndex(tag: String): Int =
+            (0 until column.childCount).first { column.getChildAt(it).tag == tag }
+        val bubble = sectionIndex("settings-bubble-section")
+        val toolbar = sectionIndex("toolbar-layout-section")
+        val history = sectionIndex("settings-history-entry")
+        val about = sectionIndex("settings-update-section")
+        assertTrue("设置页分组顺序错误：$bubble $toolbar $history $about",
+            bubble < toolbar && toolbar < history && history < about)
+    }
+
+    @Test
+    fun `toolbar settings put size preview before tool visibility and color scope`() {
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        root.findByTag("nav-settings").performClick()
+
+        val panel = root.findByTag("settings-toolbar-panel") as LinearLayout
+        fun childIndex(tag: String): Int =
+            (0 until panel.childCount).first { panel.getChildAt(it).tag == tag }
+        val size = childIndex("setting-toolbar-size")
+        val preview = childIndex("toolbar-preview-host")
+        val orderTitle = childIndex("toolbar-order-section")
+        val editor = childIndex("toolbar-layout-editor")
+        val scopeTitle = childIndex("toolbar-color-scope-section")
+        assertTrue("悬浮工具栏顺序错误：$size $preview $orderTitle $editor $scopeTitle",
+            size < preview && preview < orderTitle && orderTitle < editor && editor < scopeTitle)
+        assertNotNull(root.findByTag("setting-toolbar-color-scope"))
     }
 
     @Test
@@ -442,17 +484,64 @@ class MainActivityTest {
     }
 
     @Test
-    fun `history section uses compact rows and secondary action bar`() {
+    fun `history entry opens dedicated history page with back navigation`() {
         val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
         val root = activity.findViewById<ViewGroup>(android.R.id.content)
         root.findByTag("nav-settings").performClick()
 
-        assertNull(root.findByTagOrNull("history-location"))
+        // 设置页只保留历史入口，不再内嵌列表
+        assertNull(root.findByTagOrNull("history-actions"))
+        val entry = root.findByTag("settings-history-entry")
+        assertNotNull(entry)
+        assertNotNull(root.findByTag("history-section-title"))
+
+        entry.performClick()
+        assertNotNull(root.findByTag("history-back"))
+        assertNotNull(root.findByTag("history-list"))
         val actions = root.findByTag("history-actions") as LinearLayout
         assertEquals(LinearLayout.HORIZONTAL, actions.orientation)
         assertTrue(root.findByTag("history-import") is LinearLayout)
         assertTrue(root.findByTag("history-trash") is LinearLayout)
-        assertTrue(root.findByTag("history-empty-icon") is FloatInkIconView)
+        assertNotNull(root.findByTag("history-empty-icon"))
+
+        root.findByTag("history-back").performClick()
+        assertNotNull(root.findByTag("setting-bubble-opacity"))
+    }
+
+    @Test
+    fun `history import from sub page opens file picker`() {
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        root.findByTag("nav-settings").performClick()
+        root.findByTag("settings-history-entry").performClick()
+
+        root.findByTag("history-import").performClick()
+
+        assertEquals(Intent.ACTION_GET_CONTENT, shadowOf(activity).nextStartedActivity.action)
+    }
+
+    @Test
+    fun `history trash restore returns to history page and dismisses dialog`() {
+        FloatInkStorage.rootDirectory(context).deleteRecursively()
+        val repository = FloatInkHistoryRepository(context)
+        val sessionId = "session-history-page"
+        FloatInkSessionStore.save(FloatInkStorage.sessionFile(context, sessionId), DrawingSession(), sessionId)
+        repository.register(sessionId, "历史会话")
+        repository.delete(sessionId)
+
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        root.findByTag("nav-settings").performClick()
+        root.findByTag("settings-history-entry").performClick()
+        root.findByTag("history-trash").performClick()
+
+        val dialog = ShadowAlertDialog.getLatestAlertDialog()
+        val custom = dialog.findViewById<ViewGroup>(android.R.id.custom)
+        custom.findByTag("history-trash-restore:$sessionId").performClick()
+
+        assertEquals(1, repository.list().size)
+        assertTrue(!dialog.isShowing)
+        assertNotNull(root.findByTag("history-list"))
     }
 
     @Test

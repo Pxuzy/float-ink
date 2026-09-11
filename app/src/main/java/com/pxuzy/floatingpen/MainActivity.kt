@@ -110,7 +110,7 @@ class MainActivity : ComponentActivity() {
             }
             FloatInkHistoryRepository(this).import(temp)
             temp.delete()
-            showPage("settings")
+            showPage("history")
             Toast.makeText(this, "历史会话导入成功", Toast.LENGTH_SHORT).show()
         }.onFailure { error ->
             Toast.makeText(this, "导入失败：${error.localizedMessage ?: "文件无效"}", Toast.LENGTH_LONG).show()
@@ -177,6 +177,7 @@ class MainActivity : ComponentActivity() {
             when (page) {
                 "pen" -> buildPenPage()
                 "settings" -> buildSettingsPage()
+                "history" -> buildHistoryPage()
                 else -> buildHomePage()
             },
             FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
@@ -661,8 +662,7 @@ class MainActivity : ComponentActivity() {
     private fun buildSettingsPage(): View = buildPage("设置", "让悬浮按钮更贴合你的使用习惯") {
         val settings = PenSettings.load(this@MainActivity)
 
-        addView(sectionTitle("显示与自动隐藏").apply { tag = "settings-bubble-section" })
-        addView(sectionTitle("自动隐藏").apply { tag = "settings-auto-hide-section" })
+        addView(sectionTitle("悬浮球").apply { tag = "settings-bubble-section" })
         val behaviorPanel = LinearLayout(this@MainActivity).apply {
             tag = "settings-behavior-panel"
             orientation = LinearLayout.VERTICAL
@@ -725,89 +725,94 @@ class MainActivity : ComponentActivity() {
             tag = "settings-live-copy"
             text = "修改会立即应用到当前悬浮球"
             textSize = 12f
-            setTextColor(Color.parseColor("#7F8A99"))
+            setTextColor(FloatInkTheme.textMuted)
         })
         addView(behaviorPanel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = 12.dp })
 
         addView(sectionTitle("悬浮工具栏").apply { tag = "toolbar-layout-section" })
         val toolbarLayout = PenSettings.load(this@MainActivity)
         addView(LinearLayout(this@MainActivity).apply {
-                    orientation = LinearLayout.VERTICAL
-                    setPadding(14.dp, 12.dp, 14.dp, 12.dp)
-                    background = panelBackground()
-                    addView(settingHeader("工具栏大小", "${toolbarLayout.toolbarButtonSizeDp}dp", "setting-toolbar-size-label"))
-                    addView(SeekBar(this@MainActivity).apply {
-                        tag = "setting-toolbar-size"
-                        max = PenSettings.MAX_TOOLBAR_BUTTON_SIZE_DP - PenSettings.MIN_TOOLBAR_BUTTON_SIZE_DP
-                        progress = toolbarLayout.toolbarButtonSizeDp - PenSettings.MIN_TOOLBAR_BUTTON_SIZE_DP
-                        tintSeekBar(this)
-                        setOnSeekBarChangeListener(userSeek { value ->
-                            val size = PenSettings.MIN_TOOLBAR_BUTTON_SIZE_DP + value
-                            PenSettings.saveToolbarButtonSize(this@MainActivity, size)
-                            notifyOverlaySettingsChanged()
-                            pageContainer.findViewWithTag<TextView>("setting-toolbar-size-label")?.text = "${size}dp"
-                            refreshToolbarPreview()
-                        })
-                    }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 48.dp))
-                    val previewHost = LinearLayout(this@MainActivity).apply {
-                        tag = "toolbar-preview-host"
-                        orientation = LinearLayout.VERTICAL
-                        setPadding(10.dp, 8.dp, 10.dp, 8.dp)
-                        background = panelBackground()
-                    }
-                    previewHost.addView(buildToolbarPreview(PenSettings.load(this@MainActivity)))
-                    addView(previewHost, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = 12.dp })
-                    addView(sectionTitle("悬浮栏选色范围").apply { tag = "toolbar-color-scope-section" })
-                    addView(RadioGroup(this@MainActivity).apply {
-                        tag = "setting-toolbar-color-scope"
-                        orientation = RadioGroup.VERTICAL
-                        val current = toolbarLayout.toolbarColorScopeGlobal
-                        addView(RadioButton(this@MainActivity).apply {
-                            id = View.generateViewId()
-                            tag = "setting-toolbar-color-scope-tool"
-                            text = "仅当前工具"
-                            isChecked = !current
-                            minHeight = 48.dp
-                            setTextColor(Color.WHITE)
-                            tintCompoundButton(this)
-                        })
-                        addView(RadioButton(this@MainActivity).apply {
-                            id = View.generateViewId()
-                            tag = "setting-toolbar-color-scope-global"
-                            text = "全部工具"
-                            isChecked = current
-                            minHeight = 48.dp
-                            setTextColor(Color.WHITE)
-                            tintCompoundButton(this)
-                        })
-                        setOnCheckedChangeListener { _, checkedId ->
-                            PenSettings.saveToolbarColorScopeGlobal(this@MainActivity, checkedId == findViewWithTag<RadioButton>("setting-toolbar-color-scope-global")?.id)
-                            notifyOverlaySettingsChanged()
-                            refreshToolbarPreview()
-                        }
-                    })
-                    addView(TextView(this@MainActivity).apply {
-                        tag = "toolbar-color-scope-help"
-                        text = "悬浮工具栏点选颜色时，选择只影响当前工具或同步全部工具"
-                        textSize = 12f
-                        setTextColor(Color.parseColor("#91A0B2"))
-                    })
-                    addView(TextView(this@MainActivity).apply {
-                        tag = "toolbar-layout-help"
-                        text = "长按拖动调整顺序，关闭开关隐藏工具；其他工具会收进“更多”"
-                        textSize = 12f
-                        setTextColor(Color.parseColor("#91A0B2"))
-                    })
-                    addView(ToolbarLayoutEditorView(this@MainActivity, toolbarLayout.toolbarOrder, toolbarLayout.toolbarEnabled) { order, enabled ->
-                        PenSettings.saveToolbarLayout(this@MainActivity, order, enabled)
-                        notifyOverlaySettingsChanged()
-                        refreshToolbarPreview()
-                    })
-                }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = 12.dp })
+            tag = "settings-toolbar-panel"
+            orientation = LinearLayout.VERTICAL
+            setPadding(14.dp, 12.dp, 14.dp, 12.dp)
+            background = panelBackground()
+            // 1. 工具栏大小 + 实时预览
+            addView(settingHeader("工具栏大小", "${toolbarLayout.toolbarButtonSizeDp}dp", "setting-toolbar-size-label"))
+            addView(SeekBar(this@MainActivity).apply {
+                tag = "setting-toolbar-size"
+                max = PenSettings.MAX_TOOLBAR_BUTTON_SIZE_DP - PenSettings.MIN_TOOLBAR_BUTTON_SIZE_DP
+                progress = toolbarLayout.toolbarButtonSizeDp - PenSettings.MIN_TOOLBAR_BUTTON_SIZE_DP
+                tintSeekBar(this)
+                setOnSeekBarChangeListener(userSeek { value ->
+                    val size = PenSettings.MIN_TOOLBAR_BUTTON_SIZE_DP + value
+                    PenSettings.saveToolbarButtonSize(this@MainActivity, size)
+                    notifyOverlaySettingsChanged()
+                    pageContainer.findViewWithTag<TextView>("setting-toolbar-size-label")?.text = "${size}dp"
+                    refreshToolbarPreview()
+                })
+            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 48.dp))
+            val previewHost = LinearLayout(this@MainActivity).apply {
+                tag = "toolbar-preview-host"
+                orientation = LinearLayout.VERTICAL
+                setPadding(10.dp, 8.dp, 10.dp, 8.dp)
+                background = panelBackground()
+            }
+            previewHost.addView(buildToolbarPreview(PenSettings.load(this@MainActivity)))
+            addView(previewHost, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = 12.dp })
+            // 2. 工具显隐排序
+            addView(sectionTitle("工具显隐排序").apply { tag = "toolbar-order-section" })
+            addView(TextView(this@MainActivity).apply {
+                tag = "toolbar-layout-help"
+                text = "长按拖动调整顺序，关闭开关隐藏工具；其他工具会收进“更多”"
+                textSize = 12f
+                setTextColor(FloatInkTheme.textSecondary)
+            })
+            addView(ToolbarLayoutEditorView(this@MainActivity, toolbarLayout.toolbarOrder, toolbarLayout.toolbarEnabled) { order, enabled ->
+                PenSettings.saveToolbarLayout(this@MainActivity, order, enabled)
+                notifyOverlaySettingsChanged()
+                refreshToolbarPreview()
+            }.apply { tag = "toolbar-layout-editor" })
+            // 3. 悬浮栏选色范围
+            addView(sectionTitle("悬浮栏选色范围").apply { tag = "toolbar-color-scope-section" })
+            addView(RadioGroup(this@MainActivity).apply {
+                tag = "setting-toolbar-color-scope"
+                orientation = RadioGroup.VERTICAL
+                val current = toolbarLayout.toolbarColorScopeGlobal
+                addView(RadioButton(this@MainActivity).apply {
+                    id = View.generateViewId()
+                    tag = "setting-toolbar-color-scope-tool"
+                    text = "仅当前工具"
+                    isChecked = !current
+                    minHeight = 48.dp
+                    setTextColor(Color.WHITE)
+                    tintCompoundButton(this)
+                })
+                addView(RadioButton(this@MainActivity).apply {
+                    id = View.generateViewId()
+                    tag = "setting-toolbar-color-scope-global"
+                    text = "全部工具"
+                    isChecked = current
+                    minHeight = 48.dp
+                    setTextColor(Color.WHITE)
+                    tintCompoundButton(this)
+                })
+                setOnCheckedChangeListener { _, checkedId ->
+                    PenSettings.saveToolbarColorScopeGlobal(this@MainActivity, checkedId == findViewWithTag<RadioButton>("setting-toolbar-color-scope-global")?.id)
+                    notifyOverlaySettingsChanged()
+                    refreshToolbarPreview()
+                }
+            })
+            addView(TextView(this@MainActivity).apply {
+                tag = "toolbar-color-scope-help"
+                text = "悬浮工具栏点选颜色时，选择只影响当前工具或同步全部工具"
+                textSize = 12f
+                setTextColor(FloatInkTheme.textSecondary)
+            })
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = 12.dp })
 
-        addView(sectionTitle("历史画板"))
+        // 历史画板：设置页只保留入口，点击进入独立子页
         addView(buildHistorySection())
-        addView(sectionTitle("软件更新").apply { tag = "settings-update-section" })
+        addView(sectionTitle("关于与更新").apply { tag = "settings-update-section" })
         addView(LinearLayout(this@MainActivity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -817,7 +822,7 @@ class MainActivity : ComponentActivity() {
                 tag = "settings-update-status"
                 text = "当前版本：${BuildConfig.VERSION_NAME}"
                 textSize = 12f
-                setTextColor(Color.parseColor("#91A0B2"))
+                setTextColor(FloatInkTheme.textSecondary)
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             })
             addView(Button(this@MainActivity).apply {
@@ -901,59 +906,80 @@ class MainActivity : ComponentActivity() {
         host.addView(buildToolbarPreview(PenSettings.load(this)))
     }
 
-    private fun buildHistorySection(): View {
-        val repository = FloatInkHistoryRepository(this)
-        val section = LinearLayout(this).apply {
-            tag = "history-section"
+    private fun buildHistorySection(): View = LinearLayout(this).apply {
+        tag = "settings-history-entry"
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(14.dp, 12.dp, 14.dp, 12.dp)
+        background = panelBackground()
+        setOnClickListener { showPage("history") }
+        addView(FloatInkIconView(this@MainActivity, "history").apply {
+            contentDescription = "历史画板"
+        }, LinearLayout.LayoutParams(36.dp, 36.dp).apply { marginEnd = 8.dp })
+        addView(LinearLayout(this@MainActivity).apply {
             orientation = LinearLayout.VERTICAL
-        }
-        section.addView(LinearLayout(this).apply {
+            addView(TextView(this@MainActivity).apply {
+                tag = "history-section-title"
+                text = "历史画板"
+                textSize = 16f
+                setTypeface(typeface, Typeface.BOLD)
+                setTextColor(Color.WHITE)
+            })
+            addView(TextView(this@MainActivity).apply {
+                tag = "history-section-summary"
+                text = "打开最近会话，更多操作收在行尾菜单"
+                textSize = 12f
+                setTextColor(FloatInkTheme.textSecondary)
+            })
+        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        addView(TextView(this@MainActivity).apply {
+            text = "›"
+            textSize = 24f
+            setTextColor(FloatInkTheme.textSecondary)
+            gravity = Gravity.CENTER_VERTICAL
+            contentDescription = "进入历史画板"
+        })
+    }
+
+    /** 历史画板独立子页：列表 + 打开 / 重命名 / 复制 / 删除 + 导入 / 回收站。 */
+    private fun buildHistoryPage(): View = buildPage("历史画板", "打开最近会话，更多操作收在行尾菜单") {
+        addView(LinearLayout(this@MainActivity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            addView(FloatInkIconView(this@MainActivity, "history").apply {
-                contentDescription = "历史画板"
-            }, LinearLayout.LayoutParams(36.dp, 36.dp).apply { marginEnd = 8.dp })
-            addView(LinearLayout(this@MainActivity).apply {
-                orientation = LinearLayout.VERTICAL
-                addView(TextView(this@MainActivity).apply {
-                    tag = "history-section-title"
-                    text = "历史画板"
-                    textSize = 16f
-                    setTypeface(typeface, Typeface.BOLD)
-                    setTextColor(Color.WHITE)
-                })
-                addView(TextView(this@MainActivity).apply {
-                    tag = "history-section-summary"
-                    text = "打开最近会话，更多操作收在行尾菜单"
-                    textSize = 12f
-                    setTextColor(Color.parseColor("#91A0B2"))
-                })
-            }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 52.dp))
-        val list = LinearLayout(this).apply {
+            addView(TextView(this@MainActivity).apply {
+                tag = "history-back"
+                text = "← 返回设置"
+                textSize = 14f
+                setTextColor(FloatInkTheme.accent)
+                minHeight = 44.dp
+                gravity = Gravity.CENTER_VERTICAL
+                contentDescription = "返回设置"
+                setOnClickListener { showPage("settings") }
+            })
+        })
+        val repository = FloatInkHistoryRepository(this@MainActivity)
+        val list = LinearLayout(this@MainActivity).apply {
             tag = "history-list"
             orientation = LinearLayout.VERTICAL
         }
         fun refresh() {
             list.removeAllViews()
             val entries = repository.list()
-            pageContainer.findViewWithTag<TextView>("history-section-summary")?.text =
-                if (entries.isEmpty()) "暂无已保存会话" else "${entries.size} 个已保存会话"
             if (entries.isEmpty()) {
-                list.addView(LinearLayout(this).apply {
+                list.addView(LinearLayout(this@MainActivity).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
                     setPadding(12.dp, 8.dp, 12.dp, 8.dp)
                     background = historyRowBackground()
                     addView(FloatInkIconView(this@MainActivity, "canvas").apply {
                         tag = "history-empty-icon"
-                        setIconColor(Color.parseColor("#718096"))
+                        setIconColor(FloatInkTheme.textMuted)
                     }, LinearLayout.LayoutParams(40.dp, 48.dp).apply { marginEnd = 8.dp })
                     addView(TextView(this@MainActivity).apply {
                         tag = "history-empty"
                         text = "暂无历史画板\n完成绘制后会自动出现在这里"
                         textSize = 13f
-                        setTextColor(Color.parseColor("#91A0B2"))
+                        setTextColor(FloatInkTheme.textSecondary)
                         gravity = Gravity.CENTER_VERTICAL
                     }, LinearLayout.LayoutParams(0, 64.dp, 1f))
                 }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
@@ -961,7 +987,7 @@ class MainActivity : ComponentActivity() {
                 })
             }
             entries.forEach { entry ->
-                val row = LinearLayout(this).apply {
+                val row = LinearLayout(this@MainActivity).apply {
                     tag = "history:${entry.sessionId}"
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
@@ -969,10 +995,10 @@ class MainActivity : ComponentActivity() {
                     background = historyRowBackground()
                     setOnClickListener { openHistoryEntry(entry) }
                 }
-                row.addView(FloatInkIconView(this, "canvas").apply {
+                row.addView(FloatInkIconView(this@MainActivity, "canvas").apply {
                     contentDescription = "历史画板"
                 }, LinearLayout.LayoutParams(38.dp, 52.dp).apply { marginEnd = 8.dp })
-                row.addView(LinearLayout(this).apply {
+                row.addView(LinearLayout(this@MainActivity).apply {
                     orientation = LinearLayout.VERTICAL
                     gravity = Gravity.CENTER_VERTICAL
                     addView(TextView(this@MainActivity).apply {
@@ -985,14 +1011,14 @@ class MainActivity : ComponentActivity() {
                     addView(TextView(this@MainActivity).apply {
                         text = historyEntryMeta(entry)
                         textSize = 11f
-                        setTextColor(Color.parseColor("#91A0B2"))
+                        setTextColor(FloatInkTheme.textSecondary)
                         maxLines = 1
                     })
                 }, LinearLayout.LayoutParams(0, 56.dp, 1f))
-                row.addView(FloatInkIconView(this, "more").apply {
+                row.addView(FloatInkIconView(this@MainActivity, "more").apply {
                     tag = "history-menu:${entry.sessionId}"
                     contentDescription = "${entry.name}更多操作"
-                    setIconColor(Color.parseColor("#D2D8E0"))
+                    setIconColor(FloatInkTheme.textSecondary)
                     setOnClickListener { showHistoryEntryMenu(repository, entry, ::refresh) }
                 }, LinearLayout.LayoutParams(42.dp, 48.dp))
                 list.addView(row, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
@@ -1000,9 +1026,9 @@ class MainActivity : ComponentActivity() {
                 })
             }
         }
-        section.addView(list)
+        addView(list)
         refresh()
-        section.addView(LinearLayout(this).apply {
+        addView(LinearLayout(this@MainActivity).apply {
             tag = "history-actions"
             orientation = LinearLayout.HORIZONTAL
             addView(historyAction("history-import", "import", "导入会话") {
@@ -1012,7 +1038,6 @@ class MainActivity : ComponentActivity() {
                 showHistoryTrashDialog(repository)
             })
         }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 52.dp).apply { topMargin = 2.dp })
-        return section
     }
 
     private fun openHistoryEntry(entry: FloatInkHistoryEntry) {
@@ -1064,17 +1089,17 @@ class MainActivity : ComponentActivity() {
             gravity = Gravity.CENTER
             contentDescription = label
             background = GradientDrawable().apply {
-                setColor(Color.parseColor("#171D25"))
+                setColor(FloatInkTheme.surface)
                 cornerRadius = 8.dp.toFloat()
-                setStroke(1.dp, Color.parseColor("#34404E"))
+                setStroke(1.dp, FloatInkTheme.border)
             }
             addView(FloatInkIconView(this@MainActivity, icon).apply {
-                setIconColor(Color.parseColor("#D2D8E0"))
+                setIconColor(FloatInkTheme.textSecondary)
             }, LinearLayout.LayoutParams(30.dp, 40.dp))
             addView(TextView(this@MainActivity).apply {
                 text = label
                 textSize = 13f
-                setTextColor(Color.parseColor("#D2D8E0"))
+                setTextColor(FloatInkTheme.textPrimary)
                 gravity = Gravity.CENTER_VERTICAL
             })
             layoutParams = LinearLayout.LayoutParams(0, 48.dp, 1f).apply {
@@ -1085,9 +1110,9 @@ class MainActivity : ComponentActivity() {
         }
 
     private fun historyRowBackground() = GradientDrawable().apply {
-        setColor(Color.parseColor("#141A21"))
+        setColor(FloatInkTheme.surface)
         cornerRadius = 10.dp.toFloat()
-        setStroke(1.dp, Color.parseColor("#2C3541"))
+        setStroke(1.dp, FloatInkTheme.border)
     }
 
     private fun historyEntryMeta(entry: FloatInkHistoryEntry): String {
@@ -1112,6 +1137,7 @@ class MainActivity : ComponentActivity() {
             orientation = LinearLayout.VERTICAL
             setPadding(24.dp, 8.dp, 24.dp, 8.dp)
         }
+        lateinit var dialog: AlertDialog
         trash.forEach { entry ->
             list.addView(LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -1122,20 +1148,27 @@ class MainActivity : ComponentActivity() {
                     layoutParams = LinearLayout.LayoutParams(0, 48.dp, 1f)
                 })
                 addView(Button(this@MainActivity).apply {
+                    tag = "history-trash-restore:${entry.sessionId}"
                     text = "恢复"; isAllCaps = false
-                    setOnClickListener { repository.restore(entry.sessionId); showPage("settings") }
+                    setOnClickListener {
+                        repository.restore(entry.sessionId)
+                        dialog.dismiss()
+                        showPage("history")
+                    }
                 })
             })
         }
-        AlertDialog.Builder(this)
+        dialog = AlertDialog.Builder(this)
             .setTitle("回收站")
             .setView(list)
             .setNegativeButton("关闭", null)
             .setNeutralButton("清空回收站") { _, _ ->
                 repository.clearTrash()
                 Toast.makeText(this, "回收站已清空", Toast.LENGTH_SHORT).show()
+                showPage("history")
             }
-            .show()
+            .create()
+        dialog.show()
     }
 
     private fun notifyOverlaySettingsChanged() {
@@ -1365,7 +1398,8 @@ class MainActivity : ComponentActivity() {
 
     private fun updateNavigation() {
         navButtons.forEach { (page, button) ->
-            val active = page == currentPage
+            // 历史画板是设置页的内部子页，返回时高亮设置
+            val active = if (currentPage == "history") page == "settings" else page == currentPage
             button.setTextColor(if (active) FloatInkTheme.textPrimary else FloatInkTheme.textSecondary)
             button.typeface = if (active) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
             button.background = roundedBackground(
