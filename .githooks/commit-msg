@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# 提交信息门禁：只接受远端仓库（origin/main）实际使用的标签格式。
+# 格式：type(scope): 中文标题
+#       空行
+#       - 具体改动（每条一行）
+# type 与 scope 一律英文小写；中文类型会被拒绝并给出对应英文。
+set -euo pipefail
+
+MSG_FILE="${1:-}"
+[[ -z "${MSG_FILE}" || ! -f "${MSG_FILE}" ]] && exit 0
+
+SUBJECT="$(grep -v '^#' "${MSG_FILE}" | sed '/^[[:space:]]*$/d' | head -n1 || true)"
+[[ -z "${SUBJECT}" ]] && exit 0
+
+# 紧急情况显式跳过（默认不跳过）
+[[ "${SKIP_COMMIT_MSG_GATE:-0}" == "1" ]] && exit 0
+
+TYPES='feat|fix|docs|refactor|chore|merge|perf|release|revert|test|build|style|ci'
+
+# git revert 自动生成的 Revert "xxx" 还原内层信息后再校验
+CHECK="${SUBJECT}"
+if [[ "${SUBJECT}" == Revert\ \"*\" ]]; then
+  CHECK="${SUBJECT#Revert \"}"
+  CHECK="${CHECK%\"}"
+fi
+
+if [[ ! "${CHECK}" =~ ^(${TYPES})\([a-z0-9][a-z0-9._-]*\):[[:space:]]+.+$ ]]; then
+  cat >&2 <<'EOF'
+✖ 提交信息不符合远端标签格式，已阻止本次提交。
+
+远端格式：
+  type(scope): 中文标题
+  （空行）
+  - 具体改动
+  - 行为影响
+
+允许的 type（英文，取自远端 main 历史）：
+  feat  fix  docs  refactor  chore  merge  perf  release  revert  test  build
+
+中文类型请换成对应英文：
+  功能/新增 → feat      修复 → fix        文档 → docs
+  重构 → refactor       合并 → merge      发布 → release
+  优化 → perf           回退 → revert     测试 → test
+  构建 → build          调整/美化/清理 → chore
+
+scope 用英文小写（如 theme / toolbar / color / settings / permission / gate）。
+示例：feat(theme): 应用石墨蓝配色并新增 accent 强调色
+
+紧急跳过：SKIP_COMMIT_MSG_GATE=1 git commit ...
+EOF
+  exit 1
+fi
+
+exit 0

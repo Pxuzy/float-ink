@@ -146,15 +146,19 @@
 - 不恢复已经明确排除的截图、录屏、云同步和 iPad 方向
 - 修改后运行 `./gradlew testDebugUnitTest :app:assembleDebug`
 - 提交前运行 `git diff --check`
-- 使用 Quant 风格中文提交信息：
+- 提交信息只使用远端仓库的标签格式（英文 type/scope + 中文标题）：
 
 ```text
-类型(范围): 中文标题
+feat(theme): 中文标题
 
 - 具体改动
 - 行为影响
 - 测试和构建验证结果
 ```
+
+- `.githooks/commit-msg` 校验标签格式：中文类型（修复/重构/合并/发布…）会被拒绝并给出对应英文，`type` 取远端历史用过的英文集。
+- 版本标签沿用 `v<major>.<minor>.<patch>`（与远端一致），不移动远端已有标签。
+- `.githooks/pre-push` 只放行快进推送：非快进覆盖远端历史、删除远端引用、移动远端已有标签一律拒绝（`ALLOW_REMOTE_REWRITE=1` 可显式跳过）。本地提交必须先 rebase 到 `origin/main` 之上，只往远端“加”提交。
 
 ## 2026-07-31 Git 钩子融合切片
 
