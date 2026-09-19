@@ -11,7 +11,8 @@
 - 发布前审查修复通知权限拒绝后重复请求的问题；取消或拒绝后结束授权流程，首页发起的启动在已有悬浮窗权限时可继续，首次引导不会自动启动服务。
 - 合并后 225 项 JVM/Robolectric 测试、Debug APK 构建和 `lintVitalRelease` 通过；新增 Android 13 权限拒绝、空结果、取消和正常启动回归。
 - 发布说明采用 ReadAny 的用户变化分类，工程细节留在项目记录；Release 直接读取仓库说明，APK 增加元数据断言和 SHA-256 附件。
-- 完整面向用户的更新说明见 [v0.3.25](releases/v0.3.25.md)。正式 APK 由标签工作流构建、校验签名并发布；实际结果以对应 Actions 和 Release 为准。
+- 完整面向用户的更新说明见 [v0.3.25](releases/v0.3.25.md)。[正式 Release](https://github.com/Pxuzy/float-ink/releases/tag/v0.3.25) 已发布并确认为 latest，包含 APK 与 SHA-256 附件。
+- [签名发布任务](https://github.com/Pxuzy/float-ink/actions/runs/35432483262) 和 [主线 CI](https://github.com/Pxuzy/float-ink/actions/runs/35432483378) 均成功；发布提交为 `23e0ae2`，正式 APK 的包名、`0.3.25 / 39` 版本及固定证书校验通过。
 - 真机触摸、横竖屏、分屏和覆盖安装仍待验收。
 
 ## 项目定位
