@@ -1,12 +1,53 @@
-# 悬浮画笔
+<p align="center">
+  <img src="app/src/main/res/mipmap-nodpi/ic_launcher_floatink.png" width="128" height="128" alt="悬浮画笔 FloatPen 图标" />
+</p>
 
-> 面向讲课、演示与远程指导的 Android 悬浮屏幕讲解笔。
+<h1 align="center">悬浮画笔 · FloatPen</h1>
 
-[![Android 29+](https://img.shields.io/badge/Android-29%2B-3DDC84?logo=android&logoColor=white)](https://developer.android.com/about/versions/10)
-[![Kotlin](https://img.shields.io/badge/Kotlin-Native-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/)
-[![Release](https://img.shields.io/github/v/release/Pxuzy/float-ink?display_name=tag&sort=semver)](https://github.com/Pxuzy/float-ink/releases)
+<p align="center">
+  <strong>面向 Android 手机和平板的悬浮屏幕讲解笔</strong>
+</p>
 
-悬浮画笔（FloatPen）在获得系统悬浮窗权限后，以一个可拖动的悬浮球运行在其他应用之上。点击悬浮球即可打开透明画板，用手指或手写笔在课件、PDF、网页、视频会议或任意应用上临时标注；退出画板后立刻回到原来的应用。
+<p align="center">
+  <em>讲到哪里，就画到哪里。</em>
+</p>
+
+<p align="center">
+  点击悬浮球，在课件、PDF、网页或视频会议上打开透明画板。<br />
+  用手指或手写笔圈出重点、画出思路，讲完一键退出，回到原来的应用。
+</p>
+
+<p align="center">
+  <a href="https://github.com/Pxuzy/float-ink/releases/latest"><img src="https://img.shields.io/github/v/release/Pxuzy/float-ink?display_name=tag&amp;sort=semver&amp;label=Download&amp;color=2563eb" alt="下载最新版本" /></a>
+  <a href="https://github.com/Pxuzy/float-ink/stargazers"><img src="https://img.shields.io/github/stars/Pxuzy/float-ink?style=flat&amp;label=Stars" alt="GitHub Stars" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-blue.svg" alt="许可证 Apache-2.0" /></a>
+  <br />
+  <a href="#版本与下载"><img src="https://img.shields.io/badge/platform-Android%2010%2B%20%7C%20%E6%89%8B%E6%9C%BA%20%7C%20%E5%B9%B3%E6%9D%BF-007ec6" alt="支持平台：Android 10+ 手机和平板" /></a>
+  <a href="README.en.md" lang="en"><img src="https://img.shields.io/badge/lang-English-d93f0b" alt="Switch to English" /></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/Pxuzy/float-ink/releases/latest"><strong>下载 APK</strong></a> ·
+  <a href="#快速使用">快速上手</a> ·
+  <a href="#功能亮点">功能亮点</a> ·
+  <a href="docs/releases/v0.3.25.md">更新说明</a> ·
+  <a href="https://github.com/Pxuzy/float-ink/issues">反馈问题</a>
+</p>
+
+---
+
+## 功能亮点
+
+| | 功能 | 用法 |
+|---|---|---|
+| ✍️ | 透明画板 | 直接在当前应用上方标注，支持手指与手写笔 |
+| 🫧 | 悬浮入口 | 自由拖动，需要时靠近边缘自动隐藏 |
+| 📐 | 多种绘图工具 | 画笔、直线、箭头、矩形与圆形，快速圈画重点 |
+| 🎨 | 画笔样式 | 分别保存工具颜色与线宽，悬浮栏快速选色 |
+| 🗂️ | 多画板与图层 | 切换画板、调整图层顺序与显隐，按图层撤销和清空 |
+| 📏 | 比例辅助 | 黄金参考线与两点式斐波那契回撤，辅助构图和讲解 |
+
+## 版本与下载
 
 - **当前版本：** `0.3.25`（`versionCode 39`）
 - **支持设备：** Android 10（API 29）及以上的手机和平板
@@ -22,7 +63,7 @@
 | 现场演示 | 通过悬浮球快速进入和退出画板，减少对原有工作流的打断 |
 | 构图与比例讲解 | 用黄金参考线或两点式斐波那契回撤辅助说明比例关系 |
 
-## 安装
+## 安装步骤
 
 1. 打开 [悬浮画笔 Releases](https://github.com/Pxuzy/float-ink/releases/latest)，下载最新 APK。
 2. 在 Android 系统安装器中确认安装。首次从浏览器或文件管理器安装 APK 时，系统可能要求允许该来源安装未知应用。
@@ -121,4 +162,6 @@
 
 ## 许可证
 
-当前许可证尚未确定，项目暂不对外承诺具体开源许可。公开发布前会补充 `LICENSE` 文件并明确使用、分发与贡献规则。
+本项目由 `Pxuzy` 以 Apache License 2.0 发布。你可以自由使用、修改、商用和再发布本项目，但须遵守许可证中的版权、许可证和归属要求。
+
+完整条款见 [LICENSE](LICENSE)。仓库中使用的第三方图标资源及其许可证见 [第三方资源归属说明](docs/THIRD_PARTY_NOTICES.md)。
