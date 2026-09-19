@@ -43,6 +43,7 @@ import androidx.core.content.ContextCompat
 class MainActivity : ComponentActivity() {
     private var permissionDialog: AlertDialog? = null
     private var permissionFlowActive = false
+    private var startAfterPermissionFlow = false
     private val updateManager by lazy { AppUpdateManager(this) }
     private val downloadReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -81,7 +82,10 @@ class MainActivity : ComponentActivity() {
 
     private val overlayPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
-    ) { onResume() }
+    ) {
+        if (Settings.canDrawOverlays(this)) continuePermissionFlow()
+        else finishPermissionFlow()
+    }
     private val colorChangedReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action != OverlayService.ACTION_COLOR_CHANGED) return
@@ -97,9 +101,6 @@ class MainActivity : ComponentActivity() {
             updateUi()
         }
     }
-    private val notificationSettingsLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { onResume() }
     private val historyFilePickerLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri ->
@@ -1461,16 +1462,14 @@ class MainActivity : ComponentActivity() {
         }
         if (::pageContainer.isInitialized) showPage(currentPage)
         resumePendingDownloadInstall()
-        continuePermissionFlow()
     }
 
     private fun onActionClick() {
         if (isOverlayServiceRunning()) { stopOverlayService(); return }
-        when {
-            !Settings.canDrawOverlays(this) -> { permissionFlowActive = true; requestOverlayPermission() }
-            !hasNotificationPermission() -> { permissionFlowActive = true; requestNotificationPermission() }
-            else -> startOverlayService()
-        }
+        if (permissionFlowActive) return
+        startAfterPermissionFlow = true
+        permissionFlowActive = true
+        continuePermissionFlow()
     }
 
     private fun maybeShowPermissionGuide() {
@@ -1478,7 +1477,7 @@ class MainActivity : ComponentActivity() {
         if (permissionDialog?.isShowing == true) return
         permissionDialog = AlertDialog.Builder(this)
             .setTitle("完成首次设置")
-            .setMessage("悬浮画笔需要悬浮窗权限显示画板，并需要通知权限保持后台服务稳定运行。点击“继续授权”后，系统会按顺序打开授权页面。")
+            .setMessage("悬浮画笔需要悬浮窗权限显示画板。通知权限用于显示后台服务通知，也可以暂不授予。点击“继续授权”后，系统会按顺序打开授权页面。")
             .setPositiveButton("继续授权") { _, _ ->
                 permissionFlowActive = true
                 continuePermissionFlow()
@@ -1495,10 +1494,16 @@ class MainActivity : ComponentActivity() {
         } else if (!hasNotificationPermission()) {
             requestNotificationPermission()
         } else {
-            permissionFlowActive = false
-            permissionDialog = null
-            updateUi()
+            finishPermissionFlow()
         }
+    }
+
+    private fun finishPermissionFlow() {
+        val shouldStart = permissionFlowActive && startAfterPermissionFlow && Settings.canDrawOverlays(this)
+        permissionFlowActive = false
+        startAfterPermissionFlow = false
+        permissionDialog = null
+        if (shouldStart) startOverlayService() else updateUi()
     }
 
     private fun requestOverlayPermission() {
@@ -1507,7 +1512,9 @@ class MainActivity : ComponentActivity() {
             .setMessage("需要在其他 App 上方显示透明画板。点击去授权后，请允许显示悬浮窗。")
             .setPositiveButton("去授权") { _, _ ->
                 overlayPermissionLauncher.launch(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
-            }.setNegativeButton("取消", null).show()
+            }.setNegativeButton("取消") { _, _ -> finishPermissionFlow() }
+            .setOnCancelListener { finishPermissionFlow() }
+            .show()
     }
 
     private fun requestNotificationPermission() {
@@ -1522,7 +1529,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == NOTIFICATION_PERMISSION_REQUEST) continuePermissionFlow()
+        // A denied or dismissed notification prompt must not request itself again.
+        // Android permits a foreground service without notification permission.
+        if (requestCode == NOTIFICATION_PERMISSION_REQUEST) finishPermissionFlow()
     }
 
     private fun isOverlayServiceRunning(): Boolean {
