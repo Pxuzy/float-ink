@@ -157,15 +157,19 @@
 - 不恢复已经明确排除的截图、录屏、云同步和 iPad 方向
 - 修改后运行 `./gradlew testDebugUnitTest :app:assembleDebug`
 - 提交前运行 `git diff --check`
-- 使用 Quant 风格中文提交信息：
+- 提交信息只使用远端仓库的标签格式（英文 type/scope + 中文标题）：
 
 ```text
-类型(范围): 中文标题
+feat(theme): 中文标题
 
 - 具体改动
 - 行为影响
 - 测试和构建验证结果
 ```
+
+- `.githooks/commit-msg` 校验标签格式：中文类型（修复/重构/合并/发布…）会被拒绝并给出对应英文，`type` 取远端历史用过的英文集。
+- 版本标签沿用 `v<major>.<minor>.<patch>`（与远端一致），不移动远端已有标签。
+- `.githooks/pre-push` 只放行快进推送：非快进覆盖远端历史、删除远端引用、移动远端已有标签一律拒绝（`ALLOW_REMOTE_REWRITE=1` 可显式跳过）。本地提交必须先 rebase 到 `origin/main` 之上，只往远端“加”提交。
 
 ## 2026-07-31 Git 钩子融合切片
 
@@ -282,3 +286,14 @@
 
 - Release 构建缺少签名环境时直接失败，不再允许生成可发布但未签名的 APK。
 - GitHub Release 使用固定的悬浮画笔发布证书 SHA-256 校验，防止新旧版本无法覆盖安装。
+
+## 2026-09-12 石墨蓝主题与设置分类
+
+石墨蓝主题、设置页分类与首次授权引导按远端标签格式逐条接到 `origin/main` 之上；版本号与图标不变。
+
+- 主题：设置类界面换用石墨蓝配色（background/surface/surfaceRaised/surfaceActive/textPrimary/textSecondary/border），新增 `accent #8AB4F8` 与 `onAccent` 深色文字；悬浮画板 overlay 保持透明黑色，透明度与图标未动。
+- 交互：主启动按钮固定 accent、不再跟随画笔色；工具选中态为深蓝灰底 + 浅蓝描边 + 高对比文字；滑块/单选/复选统一 accent；笔迹预览与色点仍使用真实工具色。
+- 设置页四分类：悬浮球（透明度含预览、自动隐藏、隐藏延迟关闭时禁用，去除重复标题）、悬浮工具栏（大小+实时预览→工具显隐排序→选色范围）、历史画板（设置页只留入口，点击进入独立子页，含列表/打开/重命名/复制/删除/导入/回收站恢复与清空及返回导航）、关于与更新（版本检查）。
+- 导航修复：历史导入成功与回收站恢复后返回历史子页（原实现固定返回 settings）。
+- 验证：全量 Robolectric 单测与 Debug 构建通过（`testDebugUnitTest` + `:app:assembleDebug --rerun-tasks`）；独立 `.test` debug APK 包名/版本已核验。真实设备及无真机渲染截图尚未验证。
+- 详细计划见 `docs/PLAN_GRAPHITE_SETTINGS_UI.md`。

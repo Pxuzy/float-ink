@@ -6,9 +6,40 @@ clean_revisions=()
 
 while read -r LOCAL_REF LOCAL_OID REMOTE_REF REMOTE_OID; do
   [[ -z "${LOCAL_REF:-}" ]] && continue
-  if [[ "$LOCAL_OID" == "0000000000000000000000000000000000000000" ]]; then
-    continue
+
+  # 保护远端仓库：删除远端引用、非快进覆盖、移动已存在的远端标签，默认一律拒绝，
+  # 保证本地提交只会“加”在远端之上，不会改写远端历史或标签。
+  if [[ "${ALLOW_REMOTE_REWRITE:-0}" != "1" ]]; then
+    if [[ "$LOCAL_OID" == "0000000000000000000000000000000000000000" ]]; then
+      echo "✖ 拒绝删除远端引用 $REMOTE_REF（属于改写远端仓库）。" >&2
+      echo "  确认要删除时：ALLOW_REMOTE_REWRITE=1 git push ..." >&2
+      failed=1
+      continue
+    fi
+    if [[ "$REMOTE_OID" != "0000000000000000000000000000000000000000" ]]; then
+      if ! git cat-file -e "${REMOTE_OID}^{commit}" 2>/dev/null; then
+        echo "✖ 本地缺少远端对象 ${REMOTE_OID:0:8}（$REMOTE_REF），无法确认是否为快进推送。" >&2
+        echo "  先执行：git fetch origin" >&2
+        failed=1
+        continue
+      fi
+      if [[ "$REMOTE_REF" == refs/tags/* && "$LOCAL_OID" != "$REMOTE_OID" ]]; then
+        echo "✖ 拒绝移动远端已存在的标签 $REMOTE_REF（${REMOTE_OID:0:8} → ${LOCAL_OID:0:8}）。" >&2
+        echo "  远端标签已由你更新过，本地标签不会覆盖它；确需移动时：ALLOW_REMOTE_REWRITE=1 git push ..." >&2
+        failed=1
+        continue
+      fi
+      if ! git merge-base --is-ancestor "$REMOTE_OID" "$LOCAL_OID" 2>/dev/null; then
+        echo "✖ 拒绝非快进推送：$REMOTE_REF 的远端提交 ${REMOTE_OID:0:8} 不是本地提交 ${LOCAL_OID:0:8} 的祖先，推送会覆盖远端历史。" >&2
+        echo "  正确做法是把本地提交接到远端之上：" >&2
+        echo "    git fetch origin" >&2
+        echo "    git rebase --onto origin/main <本地与远端的共同基点> <本地分支>" >&2
+        failed=1
+        continue
+      fi
+    fi
   fi
+
   if [[ "$REMOTE_OID" == "0000000000000000000000000000000000000000" ]]; then
     if [[ "$LOCAL_REF" == refs/tags/v* ]]; then
       TAG_COMMIT="$(git rev-parse "$LOCAL_OID^{}")"

@@ -7,6 +7,7 @@ import android.content.Intent
 import android.app.DownloadManager
 import android.view.View
 import android.view.ViewGroup
+import android.widget.RadioButton
 import android.widget.SeekBar
 import android.widget.CheckBox
 import android.widget.Button
@@ -14,6 +15,7 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
+import com.pxuzy.floatingpen.core.DrawingSession
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -94,15 +96,56 @@ class MainActivityTest {
         assertNotNull(root.findByTag("setting-auto-hide"))
         assertNotNull(root.findByTag("setting-auto-hide-delay"))
         assertNotNull(root.findByTag("settings-bubble-section"))
-        assertNotNull(root.findByTag("settings-auto-hide-section"))
+        // 悬浮球分组不再有重复的「自动隐藏」小节标题
+        assertNull(root.findByTagOrNull("settings-auto-hide-section"))
         assertNotNull(root.findByTag("settings-free-position-copy"))
         assertNotNull(root.findByTag("settings-live-copy"))
         assertNotNull(root.findByTag("toolbar-layout-section"))
         assertNotNull(root.findByTag("toolbar-tool:pen"))
+        assertNotNull(root.findByTag("settings-update-section"))
         val updateButton = root.findByTag("settings-check-update") as Button
         assertEquals("检查更新", updateButton.text.toString())
         assertEquals("检查软件更新", updateButton.contentDescription.toString())
         assertNotNull(updateButton.compoundDrawablesRelative[0])
+    }
+
+    @Test
+    fun `settings page groups sections in bubble toolbar history about order`() {
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        root.findByTag("nav-settings").performClick()
+
+        val host = root.getChildAt(0) as ViewGroup
+        val pageContainer = host.getChildAt(0) as ViewGroup
+        val scroll = pageContainer.getChildAt(0) as ViewGroup
+        val column = scroll.getChildAt(0) as LinearLayout
+        fun sectionIndex(tag: String): Int =
+            (0 until column.childCount).first { column.getChildAt(it).tag == tag }
+        val bubble = sectionIndex("settings-bubble-section")
+        val toolbar = sectionIndex("toolbar-layout-section")
+        val history = sectionIndex("settings-history-entry")
+        val about = sectionIndex("settings-update-section")
+        assertTrue("设置页分组顺序错误：$bubble $toolbar $history $about",
+            bubble < toolbar && toolbar < history && history < about)
+    }
+
+    @Test
+    fun `toolbar settings put size preview before tool visibility and color scope`() {
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        root.findByTag("nav-settings").performClick()
+
+        val panel = root.findByTag("settings-toolbar-panel") as LinearLayout
+        fun childIndex(tag: String): Int =
+            (0 until panel.childCount).first { panel.getChildAt(it).tag == tag }
+        val size = childIndex("setting-toolbar-size")
+        val preview = childIndex("toolbar-preview-host")
+        val orderTitle = childIndex("toolbar-order-section")
+        val editor = childIndex("toolbar-layout-editor")
+        val scopeTitle = childIndex("toolbar-color-scope-section")
+        assertTrue("悬浮工具栏顺序错误：$size $preview $orderTitle $editor $scopeTitle",
+            size < preview && preview < orderTitle && orderTitle < editor && editor < scopeTitle)
+        assertNotNull(root.findByTag("setting-toolbar-color-scope"))
     }
 
     @Test
@@ -113,12 +156,12 @@ class MainActivityTest {
         val root = activity.findViewById<ViewGroup>(android.R.id.content)
 
         val whiteLabel = root.findByTag("home-tool-style:pen") as TextView
-        assertEquals(Color.parseColor("#F2F5F9"), whiteLabel.currentTextColor)
+        assertEquals(FloatInkTheme.textPrimary, whiteLabel.currentTextColor)
         assertEquals("白色  ·  4 dp", whiteLabel.text.toString())
         val whiteColor = root.findByTag("home-tool-color:pen")
         assertEquals(Color.WHITE, (whiteColor.background as android.graphics.drawable.GradientDrawable).color?.defaultColor)
         val blackLabel = root.findByTag("home-tool-style:circle") as TextView
-        assertEquals(Color.parseColor("#F2F5F9"), blackLabel.currentTextColor)
+        assertEquals(FloatInkTheme.textPrimary, blackLabel.currentTextColor)
         assertTrue("颜色文案应包含线宽", blackLabel.text.toString().endsWith("4 dp"))
         val blackColor = root.findByTag("home-tool-color:circle")
         assertEquals(Color.BLACK, (blackColor.background as android.graphics.drawable.GradientDrawable).color?.defaultColor)
@@ -156,15 +199,86 @@ class MainActivityTest {
     }
 
     @Test
-    fun `action button text keeps contrast for white pen`() {
+    fun `sliders checkboxes and radios use accent tint`() {
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        root.findByTag("nav-settings").performClick()
+
+        val opacity = root.findByTag("setting-bubble-opacity") as SeekBar
+        assertEquals(FloatInkTheme.accent, opacity.progressTintList?.defaultColor)
+        assertEquals(FloatInkTheme.accent, opacity.thumbTintList?.defaultColor)
+
+        val delay = root.findByTag("setting-auto-hide-delay") as SeekBar
+        assertEquals(FloatInkTheme.accent, delay.progressTintList?.defaultColor)
+
+        val autoHide = root.findByTag("setting-auto-hide") as CheckBox
+        val autoHideTint = androidx.core.widget.CompoundButtonCompat.getButtonTintList(autoHide)
+        assertEquals(FloatInkTheme.accent, autoHideTint?.getColorForState(intArrayOf(android.R.attr.state_checked), 0))
+
+        val toolToggle = root.findByTag("toolbar-enabled:pen") as CheckBox
+        val toolTint = androidx.core.widget.CompoundButtonCompat.getButtonTintList(toolToggle)
+        assertEquals(FloatInkTheme.accent, toolTint?.getColorForState(intArrayOf(android.R.attr.state_checked), 0))
+
+        val scopeGlobal = root.findByTag("setting-toolbar-color-scope-global") as RadioButton
+        val scopeTint = androidx.core.widget.CompoundButtonCompat.getButtonTintList(scopeGlobal)
+        assertEquals(FloatInkTheme.accent, scopeTint?.getColorForState(intArrayOf(android.R.attr.state_checked), 0))
+
+        root.findByTag("nav-pen").performClick()
+        val width = root.findByTag("global-width") as SeekBar
+        assertEquals(FloatInkTheme.accent, width.progressTintList?.defaultColor)
+        val toolWidth = root.findByTag("tool-width") as SeekBar
+        assertEquals(FloatInkTheme.accent, toolWidth.progressTintList?.defaultColor)
+    }
+
+    @Test
+    fun `home action button is fixed accent regardless of pen color`() {
         PenSettings.saveToolStyle(context, "pen", Color.WHITE, 4f)
         val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
         val root = activity.findViewById<ViewGroup>(android.R.id.content)
 
         val actionBtn = root.findByTag("home-action-btn") as Button
-        val textColor = actionBtn.currentTextColor
-        // 白底必须深色文字
-        assertTrue("白底按钮文字应为深色，实际 $textColor", textColor == Color.parseColor("#1F2937"))
+        val bg = actionBtn.background as android.graphics.drawable.GradientDrawable
+        // 主启动按钮固定 accent，不跟随画笔色
+        assertEquals(FloatInkTheme.accent, bg.color?.defaultColor)
+        assertEquals(FloatInkTheme.onAccent, actionBtn.currentTextColor)
+    }
+
+    @Test
+    fun `selected tool uses deep blue-gray accent border and high contrast text`() {
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        root.findByTag("nav-pen").performClick()
+
+        val pen = root.findByTag("setting-tool:pen")
+        val penBg = pen.background as android.graphics.drawable.GradientDrawable
+        assertEquals(FloatInkTheme.surfaceActive, penBg.color?.defaultColor)
+        assertEquals(FloatInkTheme.accent, shadowOf(penBg).getStrokeColor())
+        assertEquals(FloatInkTheme.textPrimary, (pen as TextView).currentTextColor)
+
+        root.findByTag("setting-tool:arrow").performClick()
+        val arrowBg = root.findByTag("setting-tool:arrow").background as android.graphics.drawable.GradientDrawable
+        assertEquals(FloatInkTheme.accent, shadowOf(arrowBg).getStrokeColor())
+        val deselected = root.findByTag("setting-tool:pen")
+        assertEquals(FloatInkTheme.surfaceRaised, (deselected.background as android.graphics.drawable.GradientDrawable).color?.defaultColor)
+    }
+
+    @Test
+    fun `tool selection keeps real ink color in previews and color dots`() {
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        root.findByTag("nav-pen").performClick()
+        root.findByTag("global-color:1").performClick()
+        root.findByTag("setting-tool:circle").performClick()
+
+        // 选中按钮只承担选中态配色，笔迹颜色仍由工具样式承载
+        val circleBtn = root.findByTag("setting-tool:circle")
+        val bg = circleBtn.background as android.graphics.drawable.GradientDrawable
+        assertEquals(FloatInkTheme.surfaceActive, bg.color?.defaultColor)
+        assertEquals(DrawingElement.colorValues[1], PenSettings.load(activity).styleFor("circle").color)
+
+        root.findByTag("nav-home").performClick()
+        val dot = root.findByTag("home-tool-color:circle")
+        assertEquals(DrawingElement.colorValues[1], (dot.background as android.graphics.drawable.GradientDrawable).color?.defaultColor)
     }
 
     @Test
@@ -371,17 +485,64 @@ class MainActivityTest {
     }
 
     @Test
-    fun `history section uses compact rows and secondary action bar`() {
+    fun `history entry opens dedicated history page with back navigation`() {
         val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
         val root = activity.findViewById<ViewGroup>(android.R.id.content)
         root.findByTag("nav-settings").performClick()
 
-        assertNull(root.findByTagOrNull("history-location"))
+        // 设置页只保留历史入口，不再内嵌列表
+        assertNull(root.findByTagOrNull("history-actions"))
+        val entry = root.findByTag("settings-history-entry")
+        assertNotNull(entry)
+        assertNotNull(root.findByTag("history-section-title"))
+
+        entry.performClick()
+        assertNotNull(root.findByTag("history-back"))
+        assertNotNull(root.findByTag("history-list"))
         val actions = root.findByTag("history-actions") as LinearLayout
         assertEquals(LinearLayout.HORIZONTAL, actions.orientation)
         assertTrue(root.findByTag("history-import") is LinearLayout)
         assertTrue(root.findByTag("history-trash") is LinearLayout)
-        assertTrue(root.findByTag("history-empty-icon") is FloatInkIconView)
+        assertNotNull(root.findByTag("history-empty-icon"))
+
+        root.findByTag("history-back").performClick()
+        assertNotNull(root.findByTag("setting-bubble-opacity"))
+    }
+
+    @Test
+    fun `history import from sub page opens file picker`() {
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        root.findByTag("nav-settings").performClick()
+        root.findByTag("settings-history-entry").performClick()
+
+        root.findByTag("history-import").performClick()
+
+        assertEquals(Intent.ACTION_GET_CONTENT, shadowOf(activity).nextStartedActivity.action)
+    }
+
+    @Test
+    fun `history trash restore returns to history page and dismisses dialog`() {
+        FloatInkStorage.rootDirectory(context).deleteRecursively()
+        val repository = FloatInkHistoryRepository(context)
+        val sessionId = "session-history-page"
+        FloatInkSessionStore.save(FloatInkStorage.sessionFile(context, sessionId), DrawingSession(), sessionId)
+        repository.register(sessionId, "历史会话")
+        repository.delete(sessionId)
+
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        root.findByTag("nav-settings").performClick()
+        root.findByTag("settings-history-entry").performClick()
+        root.findByTag("history-trash").performClick()
+
+        val dialog = ShadowAlertDialog.getLatestAlertDialog()
+        val custom = dialog.findViewById<ViewGroup>(android.R.id.custom)
+        custom.findByTag("history-trash-restore:$sessionId").performClick()
+
+        assertEquals(1, repository.list().size)
+        assertTrue(!dialog.isShowing)
+        assertNotNull(root.findByTag("history-list"))
     }
 
     @Test

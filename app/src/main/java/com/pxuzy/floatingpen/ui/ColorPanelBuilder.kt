@@ -95,14 +95,15 @@ class ColorPanelBuilder(
                 addView(TextView(context).apply {
                     text = "线宽"
                     textSize = 12f
-                    setTextColor(FloatInkTheme.textSecondary)
+                    // 悬浮画板面板文字保持主题改造前的原灰度，画板视觉不随主题变化
+                    setTextColor(Color.parseColor("#91A0B2"))
                 }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
                 widthLabel = TextView(context).apply {
                     tag = "panel-width-label"
                     text = "${initialWidthDp.toInt()} dp"
                     textSize = 12f
                     gravity = Gravity.END
-                    setTextColor(FloatInkTheme.textPrimary)
+                    setTextColor(Color.parseColor("#F7F9FB"))
                 }
                 addView(widthLabel, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))

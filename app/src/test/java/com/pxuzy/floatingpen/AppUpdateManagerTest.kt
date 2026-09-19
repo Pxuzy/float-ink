@@ -6,7 +6,10 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class AppUpdateManagerTest {
     @Test
     fun `parses latest release apk asset`() {
@@ -42,7 +45,7 @@ class AppUpdateManagerTest {
     @Test
     fun `parses current latest release update asset`() {
         val json = """
-            {"tag_name":"v0.3.11","html_url":"https://github.com/Pxuzy/float-ink/releases/tag/v0.3.11",
+            {"tag_name":"v0.3.11","name":"修复版","body":"- 修复悬浮球\n- 优化启动","published_at":"2026-09-01T10:00:00Z","html_url":"https://github.com/Pxuzy/float-ink/releases/tag/v0.3.11",
              "assets":[{"name":"float-ink-0.3.11.apk","browser_download_url":"https://github.com/Pxuzy/float-ink/releases/download/v0.3.11/float-ink-0.3.11.apk"}]}
         """.trimIndent()
 
@@ -50,6 +53,9 @@ class AppUpdateManagerTest {
 
         assertNotNull(update)
         assertEquals("0.3.11", update!!.version)
+        assertEquals("修复版", update.releaseName)
+        assertTrue(update.releaseNotes.contains("修复悬浮球"))
+        assertEquals("2026-09-01T10:00:00Z", update.publishedAt)
         assertTrue(AppUpdateManager.isNewer(update.version, "0.3.10"))
     }
 

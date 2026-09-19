@@ -44,7 +44,7 @@ class ToolbarLayoutEditorView(
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(10.dp, 4.dp, 8.dp, 4.dp)
-            background = roundedBackground(Color.parseColor("#151C25"), 10f)
+            background = roundedBackground(FloatInkTheme.surfaceRaised, 10f)
             isLongClickable = true
             setOnLongClickListener {
                 val clip = ClipData.newPlainText("toolbar-tool", toolId)
@@ -56,7 +56,7 @@ class ToolbarLayoutEditorView(
             text = "☰"
             textSize = 18f
             gravity = Gravity.CENTER
-            setTextColor(Color.parseColor("#91A0B2"))
+            setTextColor(FloatInkTheme.textSecondary)
             contentDescription = "拖动排序 $label"
         }, LayoutParams(44.dp, 48.dp))
         row.addView(TextView(context).apply {
@@ -71,6 +71,14 @@ class ToolbarLayoutEditorView(
             isChecked = toolId in enabled
             minWidth = 48.dp
             minHeight = 48.dp
+            // 统一 accent 选中色，未选中为弱化灰
+            androidx.core.widget.CompoundButtonCompat.setButtonTintList(
+                this,
+                android.content.res.ColorStateList(
+                    arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
+                    intArrayOf(FloatInkTheme.accent, FloatInkTheme.textMuted)
+                )
+            )
             setOnCheckedChangeListener { _, checked ->
                 if (!checked && enabled.size <= 1) {
                     isChecked = true
@@ -126,7 +134,7 @@ class ToolbarLayoutEditorView(
     private fun roundedBackground(color: Int, radius: Float) = GradientDrawable().apply {
         setColor(color)
         cornerRadius = radius.dpf
-        setStroke(1.dp, Color.parseColor("#263241"))
+        setStroke(1.dp, FloatInkTheme.border)
     }
 
     private val Int.dp: Int get() = (this * resources.displayMetrics.density).toInt()
