@@ -1,6 +1,6 @@
 # 第三方资源归属说明
 
-FloatPen 的应用代码以 Apache License 2.0 发布；以下资源保留其各自的版权和许可证。
+float-ink 的应用代码以 Apache License 2.0 发布；以下资源保留其各自的版权和许可证。
 
 ## Lucide
 

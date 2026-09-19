@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="app/src/main/res/mipmap-nodpi/ic_launcher_floatink.png" width="128" height="128" alt="悬浮画笔 FloatPen 图标" />
+  <img src="app/src/main/res/mipmap-nodpi/ic_launcher_floatink.png" width="128" height="128" alt="悬浮画笔 float-ink 图标" />
 </p>
 
-<h1 align="center">悬浮画笔 · FloatPen</h1>
+<h1 align="center">float-ink · 悬浮画笔</h1>
 
 <p align="center">
   <strong>面向 Android 手机和平板的悬浮屏幕讲解笔</strong>
@@ -22,7 +22,7 @@
   <a href="https://github.com/Pxuzy/float-ink/stargazers"><img src="https://img.shields.io/github/stars/Pxuzy/float-ink?style=flat&amp;label=Stars" alt="GitHub Stars" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-blue.svg" alt="许可证 Apache-2.0" /></a>
   <br />
-  <a href="#版本与下载"><img src="https://img.shields.io/badge/platform-Android%2010%2B%20%7C%20%E6%89%8B%E6%9C%BA%20%7C%20%E5%B9%B3%E6%9D%BF-007ec6" alt="支持平台：Android 10+ 手机和平板" /></a>
+  <a href="#安装步骤"><img src="https://img.shields.io/badge/platform-Android%2010%2B%20%7C%20%E6%89%8B%E6%9C%BA%20%7C%20%E5%B9%B3%E6%9D%BF-007ec6" alt="支持平台：Android 10+ 手机和平板" /></a>
   <a href="README.en.md" lang="en"><img src="https://img.shields.io/badge/lang-English-d93f0b" alt="Switch to English" /></a>
 </p>
 
@@ -46,13 +46,6 @@
 | 🎨 | 画笔样式 | 分别保存工具颜色与线宽，悬浮栏快速选色 |
 | 🗂️ | 多画板与图层 | 切换画板、调整图层顺序与显隐，按图层撤销和清空 |
 | 📏 | 比例辅助 | 黄金参考线与两点式斐波那契回撤，辅助构图和讲解 |
-
-## 版本与下载
-
-- **当前版本：** `0.3.25`（`versionCode 39`）
-- **支持设备：** Android 10（API 29）及以上的手机和平板
-- **正式下载：** [GitHub Releases](https://github.com/Pxuzy/float-ink/releases/latest)
-- **应用包名：** `com.pxuzy.floatingpen`
 
 ## 适用场景
 

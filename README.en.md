@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="app/src/main/res/mipmap-nodpi/ic_launcher_floatink.png" width="128" height="128" alt="FloatPen app icon" />
+  <img src="app/src/main/res/mipmap-nodpi/ic_launcher_floatink.png" width="128" height="128" alt="float-ink app icon" />
 </p>
 
-<h1 align="center">FloatPen · 悬浮画笔</h1>
+<h1 align="center">float-ink · 悬浮画笔</h1>
 
 <p align="center">
   <strong>A floating annotation pen for Android phones and tablets</strong>
@@ -22,7 +22,7 @@
   <a href="https://github.com/Pxuzy/float-ink/stargazers"><img src="https://img.shields.io/github/stars/Pxuzy/float-ink?style=flat&amp;label=Stars" alt="GitHub Stars" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-blue.svg" alt="Apache-2.0 license" /></a>
   <br />
-  <a href="#version-and-download"><img src="https://img.shields.io/badge/platform-Android%2010%2B%20%7C%20Phones%20%7C%20Tablets-007ec6" alt="Supported platforms: Android 10+ phones and tablets" /></a>
+  <a href="#installation"><img src="https://img.shields.io/badge/platform-Android%2010%2B%20%7C%20Phones%20%7C%20Tablets-007ec6" alt="Supported platforms: Android 10+ phones and tablets" /></a>
   <a href="README.md" lang="zh-CN"><img src="https://img.shields.io/badge/lang-%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-d93f0b" alt="切换到简体中文" /></a>
 </p>
 
@@ -47,16 +47,9 @@
 | 🗂️ | Boards and layers | Switch boards, reorder or hide layers, and undo or clear the active layer |
 | 📏 | Proportion guides | Use golden-ratio guides and two-point Fibonacci retracement for visual explanations |
 
-## Version and download
-
-- **Current version:** `0.3.25` (`versionCode 39`)
-- **Supported devices:** Phones and tablets running Android 10 (API 29) or later
-- **Official download:** [GitHub Releases](https://github.com/Pxuzy/float-ink/releases/latest)
-- **Package name:** `com.pxuzy.floatingpen`
-
 ## Use cases
 
-| Use case | How FloatPen helps |
+| Use case | How float-ink helps |
 |---|---|
 | Teaching | Circle, connect, and highlight key points on slides, web pages, or PDFs |
 | Remote collaboration | Explain shared content or video calls with immediate annotations, without editing screenshots |
@@ -65,9 +58,9 @@
 
 ## Installation
 
-1. Open [FloatPen Releases](https://github.com/Pxuzy/float-ink/releases/latest) and download the latest APK.
+1. Open [float-ink Releases](https://github.com/Pxuzy/float-ink/releases/latest) and download the latest APK.
 2. Confirm installation in the Android system installer. When installing an APK from a browser or file manager for the first time, Android may ask you to allow that source to install unknown apps.
-3. Open FloatPen and grant the “Display over other apps” permission when prompted.
+3. Open float-ink and grant the “Display over other apps” permission when prompted.
 4. Enable the floating button in the app.
 
 > Official releases use the same signing certificate, so you can install updates over an existing official release while keeping app data. Android cannot install an official release over a Debug or test build signed with a different certificate. Before uninstalling the old build, check whether you need to preserve any data.
@@ -75,7 +68,7 @@
 ## Quick start
 
 ```text
-Open FloatPen
+Open float-ink
   → Grant overlay permission and enable the floating button
   → Switch to the app you want to annotate
   → Tap the floating button to open the transparent canvas
@@ -135,7 +128,7 @@ Settings vary by manufacturer. See the [deployment and device setup guide (Chine
 
 ## Privacy and permissions
 
-FloatPen is a lightweight tool for temporary annotations, not a screenshot editor or cloud whiteboard.
+float-ink is a lightweight tool for temporary annotations, not a screenshot editor or cloud whiteboard.
 
 | Permission | Purpose |
 |---|---|
@@ -145,7 +138,7 @@ FloatPen is a lightweight tool for temporary annotations, not a screenshot edito
 | `INTERNET` | Check GitHub Releases and download APK updates |
 | `REQUEST_INSTALL_PACKAGES` | Hand a verified APK to the system installer |
 
-FloatPen does not:
+float-ink does not:
 
 - Take screenshots, record the screen, or read or save the underlying app's screen content.
 - Upload strokes, create accounts, sync to the cloud, or collect analytics.
