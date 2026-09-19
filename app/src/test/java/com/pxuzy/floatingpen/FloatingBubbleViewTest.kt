@@ -6,6 +6,7 @@ import android.view.MotionEvent
 import android.view.WindowManager
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -189,6 +190,155 @@ class FloatingBubbleViewTest {
         assertEquals(0, longPresses)
     }
 
+    @Test
+    fun `drag keeps a free position when auto hide is disabled`() {
+        val bubble = bubble({}, {})
+        bubble.applySettings(PenSettings.load(context).copy(autoHide = false))
+        val windowManager = context.getSystemService(Application.WINDOW_SERVICE) as WindowManager
+        windowManager.addView(bubble, bubble.layoutParams)
+
+        try {
+            bubble.dispatchTouchEvent(event(MotionEvent.ACTION_DOWN, 10f, 10f))
+            bubble.dispatchTouchEvent(event(MotionEvent.ACTION_MOVE, 70f, 90f))
+            bubble.dispatchTouchEvent(event(MotionEvent.ACTION_UP, 70f, 90f))
+
+            val params = bubble.layoutParams as WindowManager.LayoutParams
+            assertEquals(160, params.x)
+            assertEquals(180, params.y)
+            assertEquals(PenSettings.BubblePosition(160, 180, false), PenSettings.loadBubblePosition(context))
+            idleForHide()
+            assertEquals(160, params.x)
+            assertEquals(false, bubble.isHiddenForTest())
+        } finally {
+            windowManager.removeView(bubble)
+        }
+    }
+
+    @Test
+    fun `drag keeps a free position away from the edge when auto hide is enabled`() {
+        val bubble = bubble({}, {})
+        bubble.applySettings(PenSettings.load(context).copy(autoHide = true))
+        val windowManager = context.getSystemService(Application.WINDOW_SERVICE) as WindowManager
+        windowManager.addView(bubble, bubble.layoutParams)
+
+        try {
+            bubble.dispatchTouchEvent(event(MotionEvent.ACTION_DOWN, 10f, 10f))
+            bubble.dispatchTouchEvent(event(MotionEvent.ACTION_MOVE, 70f, 90f))
+            bubble.dispatchTouchEvent(event(MotionEvent.ACTION_UP, 70f, 90f))
+
+            val params = bubble.layoutParams as WindowManager.LayoutParams
+            assertEquals(160, params.x)
+            assertEquals(180, params.y)
+            assertEquals(PenSettings.BubblePosition(160, 180, false), PenSettings.loadBubblePosition(context))
+            idleForHide()
+            assertEquals(160, params.x)
+            assertEquals(false, bubble.isHiddenForTest())
+        } finally {
+            windowManager.removeView(bubble)
+        }
+    }
+
+    @Test
+    fun `drag near an edge docks and persists the selected side`() {
+        val bubble = bubble({}, {})
+        bubble.applySettings(PenSettings.load(context).copy(autoHide = true))
+        val windowManager = context.getSystemService(Application.WINDOW_SERVICE) as WindowManager
+        windowManager.addView(bubble, bubble.layoutParams)
+
+        try {
+            bubble.dispatchTouchEvent(event(MotionEvent.ACTION_DOWN, 10f, 10f))
+            bubble.dispatchTouchEvent(event(MotionEvent.ACTION_MOVE, -90f, 90f))
+            bubble.dispatchTouchEvent(event(MotionEvent.ACTION_UP, -90f, 90f))
+
+            val params = bubble.layoutParams as WindowManager.LayoutParams
+            assertEquals((8 * context.resources.displayMetrics.density).toInt(), params.x)
+            assertNotNull(PenSettings.loadBubblePosition(context))
+            assertTrue(PenSettings.loadBubblePosition(context)!!.snappedLeft)
+            assertEquals(false, bubble.isHiddenForTest())
+            idleForHide()
+            assertEquals(true, bubble.isHiddenForTest())
+
+            bubble.applySettings(PenSettings.load(context).copy(autoHide = false))
+            assertEquals(false, bubble.isHiddenForTest())
+            idleForHide()
+            assertEquals(false, bubble.isHiddenForTest())
+        } finally {
+            windowManager.removeView(bubble)
+        }
+    }
+
+    @Test
+    fun `disabled edge hiding keeps a near-edge point and enabling it docks after delay`() {
+        val bubble = bubble({}, {})
+        bubble.applySettings(PenSettings.load(context).copy(autoHide = false))
+        val wm = context.getSystemService(Application.WINDOW_SERVICE) as WindowManager
+        wm.addView(bubble, bubble.layoutParams)
+        try {
+            bubble.dispatchTouchEvent(event(MotionEvent.ACTION_DOWN, 10f, 10f))
+            bubble.dispatchTouchEvent(event(MotionEvent.ACTION_MOVE, -70f, 90f))
+            bubble.dispatchTouchEvent(event(MotionEvent.ACTION_UP, -70f, 90f))
+            val params = bubble.layoutParams as WindowManager.LayoutParams
+            idleForHide()
+            assertEquals(20, params.x)
+            assertEquals(false, bubble.isHiddenForTest())
+
+            bubble.applySettings(PenSettings.load(context).copy(autoHide = true))
+            assertEquals(20, params.x)
+            idleForHide()
+            assertEquals((8 * context.resources.displayMetrics.density).toInt(), params.x)
+            assertEquals(true, bubble.isHiddenForTest())
+        } finally {
+            wm.removeView(bubble)
+        }
+    }
+
+    @Test
+    fun `cancelled right-edge drag hides and expanding screen restores visibility`() {
+        val bubble = bubble({}, {})
+        val metrics = context.resources.displayMetrics
+        val originalWidth = metrics.widthPixels
+        val wm = context.getSystemService(Application.WINDOW_SERVICE) as WindowManager
+        wm.addView(bubble, bubble.layoutParams)
+        try {
+            bubble.dispatchTouchEvent(event(MotionEvent.ACTION_DOWN, 10f, 10f))
+            bubble.dispatchTouchEvent(event(MotionEvent.ACTION_MOVE, originalWidth.toFloat(), 90f))
+            bubble.dispatchTouchEvent(event(MotionEvent.ACTION_CANCEL, originalWidth.toFloat(), 90f))
+            val params = bubble.layoutParams as WindowManager.LayoutParams
+            assertEquals(originalWidth - (56 * metrics.density).toInt(), params.x)
+            idleForHide()
+            assertEquals(true, bubble.isHiddenForTest())
+            assertEquals(false, PenSettings.loadBubblePosition(context)!!.snappedLeft)
+
+            metrics.widthPixels = originalWidth * 2
+            bubble.keepInsideCurrentScreen()
+            idleForHide()
+            assertEquals(false, bubble.isHiddenForTest())
+            assertEquals(originalWidth - (56 * metrics.density).toInt(), params.x)
+        } finally {
+            metrics.widthPixels = originalWidth
+            wm.removeView(bubble)
+        }
+    }
+
+    @Test
+    fun `saved free position stays visible after recreating the bubble`() {
+        PenSettings.saveBubblePosition(context, 160, 180, false)
+        val bubble = bubble({}, {}).apply {
+            (layoutParams as WindowManager.LayoutParams).apply { x = 0; y = 0 }
+        }
+        val wm = context.getSystemService(Application.WINDOW_SERVICE) as WindowManager
+        wm.addView(bubble, bubble.layoutParams)
+        try {
+            idleForHide()
+            val params = bubble.layoutParams as WindowManager.LayoutParams
+            assertEquals(160, params.x)
+            assertEquals(180, params.y)
+            assertEquals(false, bubble.isHiddenForTest())
+        } finally {
+            wm.removeView(bubble)
+        }
+    }
+
     private fun bubble(onTap: () -> Unit, onLongPress: () -> Unit) =
         FloatingBubbleView(context, onTap, onLongPress).apply {
             layoutParams = WindowManager.LayoutParams().apply {
@@ -200,4 +350,13 @@ class FloatingBubbleViewTest {
 
     private fun event(action: Int, x: Float, y: Float): MotionEvent =
         MotionEvent.obtain(0, 0, action, x, y, 0)
+
+    private fun idleForHide() = shadowOf(android.os.Looper.getMainLooper())
+        .idleFor(2, java.util.concurrent.TimeUnit.SECONDS)
+
+    private fun FloatingBubbleView.isHiddenForTest(): Boolean =
+        javaClass.getDeclaredField("isHidden").run {
+            isAccessible = true
+            getBoolean(this@isHiddenForTest)
+        }
 }

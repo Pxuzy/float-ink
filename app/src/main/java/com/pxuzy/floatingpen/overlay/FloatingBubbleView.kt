@@ -15,17 +15,18 @@ import kotlin.math.hypot
  * 悬浮球 — 参考 EasyFloat / FloatBall 设计
  *
  * 特性：
- * - 拖动后自动贴边（左/右）
- * - 贴边后自动侧边隐藏（只露出 8dp 边缘）
+ * - 可在屏幕内任意位置停留
+ * - 启用自动隐藏时，仅靠近左右边缘才贴边并延迟隐藏（只露出 8dp 边缘）
  * - 触摸时滑出 + 放大动画
  * - 点击触发菜单，长按快速切换
- * - 位置按屏幕方向持久化
+ * - 保存位置，屏幕尺寸变化时限制在可见范围内
  * - 尺寸可在设置中调节（36-64dp）
  */
 class FloatingBubbleView(context: Context, private val onTap: () -> Unit, private val onLongPress: () -> Unit) : View(context) {
 
     companion object {
         private const val EDGE_MARGIN = 8
+        private const val EDGE_SNAP_DISTANCE = 32
         private const val HIDDEN_WIDTH = 8
         private const val STATUS_SAFE = 48
         private const val TAP_THRESHOLD = 8
@@ -170,6 +171,7 @@ class FloatingBubbleView(context: Context, private val onTap: () -> Unit, privat
         val wm = context.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
         val lp = layoutParams as WindowManager.LayoutParams
         clampToScreenBounds(lp)
+        if (!isNearHorizontalEdge(lp)) isHidden = false
         isSnappedLeft = lp.x + width / 2 < screenW / 2
         savePosition(lp)
         safeUpdateViewLayout(wm, lp)
@@ -265,7 +267,7 @@ class FloatingBubbleView(context: Context, private val onTap: () -> Unit, privat
                     updateBubblePosition(wm, lp)
                     performClick()
                 } else if (isDragging) {
-                    snapToEdgeAndHide(wm, lp)
+                    finishDrag(wm, lp)
                 }
                 return true
             }
@@ -273,7 +275,7 @@ class FloatingBubbleView(context: Context, private val onTap: () -> Unit, privat
                 isPressed = false
                 mainHandler.removeCallbacks(longPressRunnable)
                 animate().scaleX(1f).scaleY(1f).setDuration(100).start()
-                if (isDragging) snapToEdgeAndHide(wm, lp) else scheduleHide()
+                if (isDragging) finishDrag(wm, lp) else scheduleHide()
                 return true
             }
         }
@@ -288,7 +290,27 @@ class FloatingBubbleView(context: Context, private val onTap: () -> Unit, privat
 
     // ===== 贴边 & 隐藏 =====
 
-    private fun snapToEdgeAndHide(wm: android.view.WindowManager, lp: WindowManager.LayoutParams) {
+    /** Apply the configured drag-end policy: free placement or edge docking. */
+    private fun finishDrag(wm: android.view.WindowManager, lp: WindowManager.LayoutParams) {
+        isDragging = false
+        val nearEdge = isNearHorizontalEdge(lp)
+        if (!autoHideEnabled || !nearEdge) {
+            // Preserve the exact user-selected point unless the user released
+            // close enough to an edge for the opt-in docking behavior.
+            clampToScreenBounds(lp)
+            isSnappedLeft = lp.x + bubbleSizePx / 2 < screenW / 2
+            savePosition(lp)
+            safeUpdateViewLayout(wm, lp)
+            if (autoHideEnabled) scheduleHide()
+            return
+        }
+
+        snapToEdge(wm, lp)
+        scheduleHide()
+    }
+
+    /** Move the window itself to the nearest horizontal edge. */
+    private fun snapToEdge(wm: android.view.WindowManager, lp: WindowManager.LayoutParams) {
         val bSize = bubbleSizePx
         val maxX = screenW - bSize
         val maxY = screenH - bSize
@@ -299,8 +321,13 @@ class FloatingBubbleView(context: Context, private val onTap: () -> Unit, privat
         lp.y = lp.y.coerceIn(safeMinY, maxY.coerceAtLeast(safeMinY))
         savePosition(lp)
         safeUpdateViewLayout(wm, lp)
+    }
 
-        scheduleHide()
+    private fun isNearHorizontalEdge(lp: WindowManager.LayoutParams): Boolean {
+        val distance = (EDGE_SNAP_DISTANCE * density).toInt()
+        val maxX = screenW - bubbleSizePx - (EDGE_MARGIN * density).toInt()
+        val minX = (EDGE_MARGIN * density).toInt()
+        return lp.x <= minX + distance || lp.x >= maxX - distance
     }
 
     private fun updateBubblePosition(wm: android.view.WindowManager, lp: WindowManager.LayoutParams) {
@@ -332,11 +359,13 @@ class FloatingBubbleView(context: Context, private val onTap: () -> Unit, privat
         if (!autoHideEnabled) return
         mainHandler.postDelayed({
             if (!isHidden && !isDragging && isAttachedToWindow) {
-                isHidden = true
                 try {
                     val wm = context.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
                     val lp = layoutParams as WindowManager.LayoutParams
-                    updateBubblePosition(wm, lp)
+                    if (!isNearHorizontalEdge(lp)) return@postDelayed
+                    // Enabling auto-hide near an edge also docks the bubble.
+                    snapToEdge(wm, lp)
+                    isHidden = true
                     invalidate()
                 } catch (error: Exception) {
                     android.util.Log.w("FloatingBubble", "auto-hide ignored after window removal", error)

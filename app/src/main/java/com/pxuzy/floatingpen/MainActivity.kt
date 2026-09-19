@@ -691,7 +691,7 @@ class MainActivity : ComponentActivity() {
         }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 48.dp))
         behaviorPanel.addView(CheckBox(this@MainActivity).apply {
             tag = "setting-auto-hide"
-            text = "自动隐藏到屏幕边缘"
+            text = "靠近边缘时自动隐藏到边界"
             textSize = 15f
             setTextColor(Color.WHITE)
             minHeight = 48.dp
@@ -701,6 +701,12 @@ class MainActivity : ComponentActivity() {
                 notifyOverlaySettingsChanged()
                 pageContainer.findViewWithTag<SeekBar>("setting-auto-hide-delay")?.isEnabled = checked
             }
+        })
+        behaviorPanel.addView(TextView(this@MainActivity).apply {
+            tag = "settings-free-position-copy"
+            text = "悬浮窗默认可停留在屏幕内任意位置；开启后，靠近左右边缘才会贴边并按延迟隐藏"
+            textSize = 12f
+            setTextColor(Color.parseColor("#7F8A99"))
         })
         behaviorPanel.addView(settingHeader("隐藏延迟", "${settings.autoHideDelayMs / 1000f} 秒", "setting-delay-label"))
         behaviorPanel.addView(SeekBar(this@MainActivity).apply {

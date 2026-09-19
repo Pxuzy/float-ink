@@ -95,6 +95,7 @@ class MainActivityTest {
         assertNotNull(root.findByTag("setting-auto-hide-delay"))
         assertNotNull(root.findByTag("settings-bubble-section"))
         assertNotNull(root.findByTag("settings-auto-hide-section"))
+        assertNotNull(root.findByTag("settings-free-position-copy"))
         assertNotNull(root.findByTag("settings-live-copy"))
         assertNotNull(root.findByTag("toolbar-layout-section"))
         assertNotNull(root.findByTag("toolbar-tool:pen"))
