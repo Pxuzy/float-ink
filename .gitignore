@@ -61,6 +61,8 @@ keystore.properties
 
 # Local agent/session artifacts
 /.superpowers/
+/.ai/
+/.emu/
 
 # Local Git hook configuration
 /.git/hooks/

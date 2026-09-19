@@ -25,6 +25,33 @@ else
   exit 2
 fi
 
+# Check effective identities (including environment/--author overrides), not
+# just user.email. Range mode checks new commits without revisiting old history.
+check_identity() {
+  local label="$1" email="$2"
+  if [[ ! "$email" =~ ^[A-Za-z0-9+._-]+@users\.noreply\.github\.com$ ]]; then
+    report "$label must use a GitHub noreply email (address redacted)"
+  fi
+}
+if [[ "$MODE" == "staged" ]]; then
+  for role in AUTHOR COMMITTER; do
+    identity="$(git var "GIT_${role}_IDENT")"
+    email="${identity##*<}"
+    check_identity "$role" "${email%%>*}"
+  done
+else
+  if git cat-file -e "$2^{commit}" 2>/dev/null; then
+    commits="$(git rev-list "$2..$3")"
+  else
+    commits="$(git rev-list "$3" --not --remotes)"
+  fi
+  while IFS= read -r commit; do
+    [[ -z "$commit" ]] && continue
+    check_identity "${commit:0:8} author" "$(git show -s --format=%ae "$commit")"
+    check_identity "${commit:0:8} committer" "$(git show -s --format=%ce "$commit")"
+  done <<<"$commits"
+fi
+
 DIFF_FILE="$(mktemp)"
 trap 'rm -f "$DIFF_FILE"' EXIT
 "${DIFF_CMD[@]}" > "$DIFF_FILE"
@@ -32,9 +59,7 @@ trap 'rm -f "$DIFF_FILE"' EXIT
 # Search added lines only. Existing historical content is reported by the
 # pre-push range check when it is part of the outgoing commits.
 ADDED="$(awk '/^\+[^+]/ {sub(/^\+/, ""); print}' "$DIFF_FILE")"
-if [[ -z "$ADDED" ]]; then
-  exit 0
-fi
+# Binary-only and empty-file changes still require the path checks below.
 
 check_added() {
   local label="$1" pattern="$2"
@@ -72,7 +97,7 @@ rm -f /tmp/floatink-privacy-hit.$$
 
 # Generated/local artifacts are blocked by checking changed path names below.
 STAGED_PATHS="$CHANGED_PATHS"
-if printf '%s\n' "$STAGED_PATHS" | grep -EIn '(^|/)(\.superpowers|app/build|build|\.gradle)(/|$)' >/tmp/floatink-privacy-hit.$$ 2>/dev/null; then
+if printf '%s\n' "$STAGED_PATHS" | grep -EIn '(^|/)(\.superpowers|\.ai|\.emu|app/build|build|\.gradle)(/|$)' >/tmp/floatink-privacy-hit.$$ 2>/dev/null; then
   while IFS= read -r line; do report "generated/local artifact path: $line"; done </tmp/floatink-privacy-hit.$$
 fi
 rm -f /tmp/floatink-privacy-hit.$$
